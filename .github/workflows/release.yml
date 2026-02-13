@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+            platform: linux-x86_64
+          - goos: linux
+            goarch: arm64
+            platform: linux-arm64
+          # Windows
+          - goos: windows
+            goarch: amd64
+            platform: windows-x86_64
+          # macOS
+          - goos: darwin
+            goarch: amd64
+            platform: darwin-x86_64
+          - goos: darwin
+            goarch: arm64
+            platform: darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          cd tlcpchan
+          go build -ldflags="-s -w" -o bin/tlcpchan-${{ matrix.platform }} ./cmd/tlcpchan
+          
+          cd ../tlcpchan-cli
+          go build -ldflags="-s -w" -o bin/tlcpchan-cli-${{ matrix.platform }} .
+      
+      - name: Create archive
+        run: |
+          mkdir -p release/${{ matrix.platform }}
+          cp tlcpchan/bin/tlcpchan-${{ matrix.platform }} release/${{ matrix.platform }}/tlcpchan
+          cp tlcpchan-cli/bin/tlcpchan-cli-${{ matrix.platform }} release/${{ matrix.platform }}/tlcpchan-cli
+          cp -r tlcpchan/config release/${{ matrix.platform }}/
+          cp -r tlcpchan/release/systemd release/${{ matrix.platform }}/
+          
+          tar -czvf tlcpchan-${{ matrix.platform }}.tar.gz -C release ${{ matrix.platform }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tlcpchan-${{ matrix.platform }}
+          path: tlcpchan-${{ matrix.platform }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: tlcpchan-*/tlcpchan-*.tar.gz

@@ -1,0 +1,58 @@
+# 二进制文件
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试文件
+*.test
+*.out
+coverage.out
+
+# Go工作空间
+go.work
+
+# 依赖目录
+vendor/
+
+# IDE配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 日志文件
+logs/
+*.log
+
+# 证书和密钥（敏感文件）
+*.key
+*.pem
+*.p12
+*.pfx
+certs/
+
+# 配置文件（可能包含敏感信息）
+config/config.yaml
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 前端构建产物
+node_modules/
+dist/
+.turbo/
+
+# 环境变量
+.env
+.env.local
+.env.*.local

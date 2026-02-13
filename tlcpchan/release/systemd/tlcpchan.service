@@ -1,0 +1,30 @@
+[Unit]
+Description=TLCP Channel - TLCP/TLS Proxy Server
+Documentation=https://github.com/Trisia/tlcpchan
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tlcpchan
+Group=tlcpchan
+WorkingDirectory=/opt/tlcpchan
+ExecStart=/usr/bin/tlcpchan -config /etc/tlcpchan/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tlcpchan/logs /opt/tlcpchan/certs
+ReadOnlyPaths=/etc/tlcpchan
+
+# 资源限制
+LimitNOFILE=65535
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
