@@ -37,15 +37,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(r.URL.Path, "/api/") {
-		s.handleAPI(w, r)
+		s.apiProxy.ServeHTTP(w, r)
 		return
 	}
 
 	s.handleStatic(w, r)
-}
-
-func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
-	s.apiProxy.ServeHTTP(w, r)
 }
 
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {

@@ -76,19 +76,19 @@ TLCP Channel 是一款 TLCP/TLS 协议代理工具，支持双协议并行工作
 - [x] 统计模块测试
 - [x] 代理模块测试
 
+### 前端UI (100%)
+- [x] Vue3项目初始化 (`tlcpchan-ui/web/`)
+- [x] 仪表盘页面
+- [x] 实例管理页面
+- [x] 证书管理页面
+- [x] 日志查看页面
+- [x] 系统设置页面
+
+### Docker支持 (100%)
+- [x] Dockerfile
+- [x] docker-compose.yml
+
 ## 待完成任务 ⏳
-
-### 前端UI (0%)
-- [ ] Vue3项目初始化
-- [ ] 仪表盘页面
-- [ ] 实例管理页面
-- [ ] 证书管理页面
-- [ ] 日志查看页面
-- [ ] 系统设置页面
-
-### Docker支持 (0%)
-- [ ] Dockerfile
-- [ ] docker-compose.yml
 
 ### 打包发布 (0%)
 - [ ] .deb 安装包
@@ -127,22 +127,33 @@ tlcpchan/
 │   ├── main.go
 │   ├── client/
 │   └── commands/
-└── tlcpchan-ui/         # UI服务
-    ├── main.go
-    ├── server/
-    └── proxy/
+├── tlcpchan-ui/         # UI服务
+│   ├── main.go
+│   ├── server/
+│   ├── proxy/
+│   └── web/             # Vue3前端
+│       ├── src/
+│       │   ├── api/     # API服务
+│       │   ├── router/  # 路由
+│       │   ├── stores/  # 状态管理
+│       │   ├── views/   # 页面组件
+│       │   └── types/   # TypeScript类型
+│       └── dist/        # 构建输出
+├── Dockerfile
+└── docker-compose.yml
 ```
 
 ## 编译命令
 
 ```bash
 # 编译主程序
-cd tlcpchan && go build -o bin/tlcpchan .
+cd tlcpchan && go build -o bin/tlcpchan ./cmd/tlcpchan
 
 # 编译CLI工具
 cd tlcpchan-cli && go build -o bin/tlcpchan-cli .
 
 # 编译UI服务
+cd tlcpchan-ui/web && npm install && npm run build
 cd tlcpchan-ui && go build -o bin/tlcpchan-ui .
 
 # 运行测试
@@ -151,18 +162,10 @@ cd tlcpchan && go test ./...
 
 ## 下次启动待办
 
-1. 完成前端UI开发
-   - 初始化Vue3项目
-   - 实现仪表盘
-   - 实现实例管理界面
-
-2. 创建Docker支持
-   - 编写Dockerfile
-   - 编写docker-compose.yml
-
-3. 完善打包发布
+1. 完善打包发布
    - 配置goreleaser
    - 生成各平台安装包
+   - .deb / .rpm / .msi / .pkg
 
 ## 注意事项
 
