@@ -16,31 +16,49 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
+// CertType 证书类型
 type CertType int
 
 const (
+	// CertTypeTLS 标准TLS证书
 	CertTypeTLS CertType = iota
+	// CertTypeTLCP 国密TLCP证书（SM2算法）
 	CertTypeTLCP
 )
 
+// Certificate 证书对象，封装证书链和私钥
 type Certificate struct {
+	// Certificate 证书链，第一个元素为终端实体证书
 	Certificate []*x509.Certificate
-	PrivateKey  crypto.PrivateKey
-	certType    CertType
-	certPEM     []byte
-	keyPEM      []byte
-	certPath    string
-	keyPath     string
-	mu          sync.RWMutex
+	// PrivateKey 私钥
+	PrivateKey crypto.PrivateKey
+	// certType 证书类型
+	certType CertType
+	// certPEM 证书PEM数据
+	certPEM []byte
+	// keyPEM 私钥PEM数据
+	keyPEM []byte
+	// certPath 证书文件路径
+	certPath string
+	// keyPath 私钥文件路径
+	keyPath string
+	mu      sync.RWMutex
 }
 
+// Loader 证书加载器，负责证书和CA证书池的加载与缓存
 type Loader struct {
-	certs     map[string]*Certificate
+	// certs 已加载的证书缓存
+	certs map[string]*Certificate
+	// clientCAs 客户端CA证书池缓存
 	clientCAs map[string]*x509.CertPool
+	// serverCAs 服务端CA证书池缓存
 	serverCAs map[string]*x509.CertPool
 	mu        sync.RWMutex
 }
 
+// NewLoader 创建新的证书加载器
+// 返回:
+//   - *Loader: 证书加载器实例
 func NewLoader() *Loader {
 	return &Loader{
 		certs:     make(map[string]*Certificate),
@@ -49,6 +67,14 @@ func NewLoader() *Loader {
 	}
 }
 
+// LoadTLCP 加载国密TLCP证书
+// 参数:
+//   - certPath: 证书文件路径，PEM格式
+//   - keyPath: 私钥文件路径，PEM格式
+//
+// 返回:
+//   - *Certificate: 证书对象
+//   - error: 读取或解析失败时返回错误
 func (l *Loader) LoadTLCP(certPath, keyPath string) (*Certificate, error) {
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
@@ -73,6 +99,14 @@ func (l *Loader) LoadTLCP(certPath, keyPath string) (*Certificate, error) {
 	return cert, nil
 }
 
+// LoadTLS 加载标准TLS证书
+// 参数:
+//   - certPath: 证书文件路径，PEM格式
+//   - keyPath: 私钥文件路径，PEM格式
+//
+// 返回:
+//   - *Certificate: 证书对象
+//   - error: 读取或解析失败时返回错误
 func (l *Loader) LoadTLS(certPath, keyPath string) (*Certificate, error) {
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
@@ -97,6 +131,14 @@ func (l *Loader) LoadTLS(certPath, keyPath string) (*Certificate, error) {
 	return cert, nil
 }
 
+// ParseTLCPCertificate 从PEM数据解析国密TLCP证书
+// 参数:
+//   - certPEM: 证书PEM数据
+//   - keyPEM: 私钥PEM数据
+//
+// 返回:
+//   - *Certificate: 证书对象
+//   - error: 解析失败或证书私钥不匹配时返回错误
 func ParseTLCPCertificate(certPEM, keyPEM []byte) (*Certificate, error) {
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil {
@@ -153,6 +195,14 @@ func ParseTLCPCertificate(certPEM, keyPEM []byte) (*Certificate, error) {
 	}, nil
 }
 
+// ParseTLSCertificate 从PEM数据解析标准TLS证书
+// 参数:
+//   - certPEM: 证书PEM数据
+//   - keyPEM: 私钥PEM数据
+//
+// 返回:
+//   - *Certificate: 证书对象
+//   - error: 解析失败或证书私钥不匹配时返回错误
 func ParseTLSCertificate(certPEM, keyPEM []byte) (*Certificate, error) {
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil {
@@ -208,6 +258,13 @@ func ParseTLSCertificate(certPEM, keyPEM []byte) (*Certificate, error) {
 	}, nil
 }
 
+// ValidateCertKeyPair 验证证书与私钥是否匹配
+// 参数:
+//   - certs: 证书链
+//   - privateKey: 私钥
+//
+// 返回:
+//   - error: 证书为空或公私钥不匹配时返回错误
 func ValidateCertKeyPair(certs []*x509.Certificate, privateKey crypto.PrivateKey) error {
 	if len(certs) == 0 {
 		return fmt.Errorf("证书链为空")
@@ -286,6 +343,11 @@ func (c *Certificate) GetTLCPCertificate(*tlcp.ClientHelloInfo) (*tlcp.Certifica
 	return &cert, nil
 }
 
+// Reload 从内存中的PEM数据重新加载证书
+// 返回:
+//   - error: 证书路径未设置或解析失败时返回错误
+//
+// 注意: 适用于证书文件内容已更新但路径不变的场景
 func (c *Certificate) Reload() error {
 	if c.certPath == "" || c.keyPath == "" {
 		return fmt.Errorf("证书路径未设置，无法重载")
@@ -312,6 +374,11 @@ func (c *Certificate) Reload() error {
 	return nil
 }
 
+// ReloadFromPath 从文件路径重新加载证书
+// 返回:
+//   - error: 证书路径未设置或读取解析失败时返回错误
+//
+// 注意: 会重新读取证书和私钥文件
 func (c *Certificate) ReloadFromPath() error {
 	if c.certPath == "" || c.keyPath == "" {
 		return fmt.Errorf("证书路径未设置，无法重载")
@@ -528,13 +595,23 @@ func (l *Loader) ReloadAll() error {
 	return nil
 }
 
+// HotReloader 证书热重载器，定时检测并重新加载证书
 type HotReloader struct {
-	loader    *Loader
+	// loader 证书加载器
+	loader *Loader
+	// interval 检测间隔，单位: 纳秒（支持时间格式如 "1h", "30m"）
 	interval  time.Duration
 	stopCh    chan struct{}
 	stoppedCh chan struct{}
 }
 
+// NewHotReloader 创建证书热重载器
+// 参数:
+//   - loader: 证书加载器
+//   - interval: 检测间隔
+//
+// 返回:
+//   - *HotReloader: 热重载器实例
 func NewHotReloader(loader *Loader, interval time.Duration) *HotReloader {
 	return &HotReloader{
 		loader:    loader,
@@ -544,6 +621,8 @@ func NewHotReloader(loader *Loader, interval time.Duration) *HotReloader {
 	}
 }
 
+// Start 启动热重载器，定时检测并重新加载证书
+// 注意: 该方法启动后台goroutine，调用Stop()停止
 func (h *HotReloader) Start() {
 	ticker := time.NewTicker(h.interval)
 	go func() {
@@ -561,6 +640,8 @@ func (h *HotReloader) Start() {
 	}()
 }
 
+// Stop 停止热重载器
+// 注意: 该方法会等待后台goroutine退出后返回
 func (h *HotReloader) Stop() {
 	close(h.stopCh)
 	<-h.stoppedCh
@@ -577,6 +658,13 @@ func LoadCertificate(certType CertType, certPath, keyPath string) (*Certificate,
 	}
 }
 
+// DetectCertType 检测证书类型
+// 参数:
+//   - certPath: 证书文件路径
+//
+// 返回:
+//   - CertType: 证书类型（CertTypeTLCP或CertTypeTLS）
+//   - error: 读取或解析失败时返回错误
 func DetectCertType(certPath string) (CertType, error) {
 	data, err := os.ReadFile(certPath)
 	if err != nil {
@@ -597,4 +685,59 @@ func DetectCertType(certPath string) (CertType, error) {
 	}
 
 	return CertTypeTLS, fmt.Errorf("无法识别证书类型")
+}
+
+// LoadBuiltinRootCAs 加载预制根证书
+// 参数:
+//   - dir: 预制根证书目录路径
+//
+// 返回:
+//   - *smx509.CertPool: 国密根证书池
+//   - *x509.CertPool: 标准根证书池
+//   - error: 读取目录失败时返回错误
+//
+// 注意: 会扫描目录中所有.pem和.crt文件并加载
+func LoadBuiltinRootCAs(dir string) (*smx509.CertPool, *x509.CertPool, error) {
+	smPool := smx509.NewCertPool()
+	stdPool := x509.NewCertPool()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return smPool, stdPool, nil
+		}
+		return nil, nil, fmt.Errorf("读取预制根证书目录失败: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		if len(name) < 5 {
+			continue
+		}
+
+		ext := name[len(name)-4:]
+		if ext != ".pem" && ext != ".crt" {
+			continue
+		}
+
+		path := dir + "/" + name
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+
+		// 尝试作为国密证书加载
+		if smPool.AppendCertsFromPEM(data) {
+			continue
+		}
+
+		// 尝试作为标准证书加载
+		stdPool.AppendCertsFromPEM(data)
+	}
+
+	return smPool, stdPool, nil
 }

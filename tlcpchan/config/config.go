@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,111 +13,267 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config 主配置结构，包含服务端配置、代理实例列表和证书目录
 type Config struct {
-	Server    ServerConfig     `yaml:"server"`
+	// Server 服务端配置，包含API、UI和日志配置
+	Server ServerConfig `yaml:"server"`
+	// Instances 代理实例配置列表，每个实例代表一个独立的代理服务
 	Instances []InstanceConfig `yaml:"instances"`
+	// CertDir 证书文件目录路径，相对路径将基于工作目录解析
+	// 示例: "./certs" 或 "/etc/tlcpchan/certs"
+	CertDir string `yaml:"cert_dir,omitempty"`
+	// TrustedDir 根证书目录路径，用于存储信任的CA证书
+	// 示例: "./trusted" 或 "/etc/tlcpchan/trusted"
+	TrustedDir string `yaml:"trusted_dir,omitempty"`
+	// WorkDir 工作目录（运行时设置，不从配置文件读取）
+	// Linux默认: /etc/tlcpchan
+	// Windows默认: 程序所在目录
+	WorkDir string `yaml:"-"`
 }
 
+// ServerConfig 服务端配置，定义管理界面和日志设置
 type ServerConfig struct {
-	API APIConfig  `yaml:"api"`
-	UI  UIConfig   `yaml:"ui"`
+	// API API服务配置
+	API APIConfig `yaml:"api"`
+	// UI Web界面配置
+	UI UIConfig `yaml:"ui"`
+	// Log 日志配置，nil表示使用默认配置
 	Log *LogConfig `yaml:"log,omitempty"`
 }
 
+// APIConfig API服务配置
 type APIConfig struct {
+	// Address API服务监听地址
+	// 格式: "host:port" 或 ":port"
+	// 示例: ":8080" 表示监听所有网卡的8080端口
+	// 示例: "127.0.0.1:8080" 表示仅监听本地回环地址
 	Address string `yaml:"address"`
 }
 
+// UIConfig Web界面配置
 type UIConfig struct {
-	Enabled bool   `yaml:"enabled"`
+	// Enabled 是否启用Web管理界面
+	Enabled bool `yaml:"enabled"`
+	// Address Web界面监听地址，格式同APIConfig.Address
 	Address string `yaml:"address"`
-	Path    string `yaml:"path"`
+	// Path 静态文件目录路径，存放前端构建产物
+	// 示例: "./ui"
+	Path string `yaml:"path"`
 }
 
+// LogConfig 日志配置
 type LogConfig struct {
-	Level      string `yaml:"level"`
-	File       string `yaml:"file"`
-	MaxSize    int    `yaml:"max_size"`
-	MaxBackups int    `yaml:"max_backups"`
-	MaxAge     int    `yaml:"max_age"`
-	Compress   bool   `yaml:"compress"`
-	Enabled    bool   `yaml:"enabled"`
+	// Level 日志级别，可选值: "debug", "info", "warn", "error"
+	Level string `yaml:"level"`
+	// File 日志文件路径，为空则仅输出到控制台
+	// 示例: "./logs/tlcpchan.log"
+	File string `yaml:"file"`
+	// MaxSize 单个日志文件最大大小，单位: MB
+	MaxSize int `yaml:"max_size"`
+	// MaxBackups 保留的旧日志文件最大数量，单位: 个
+	MaxBackups int `yaml:"max_backups"`
+	// MaxAge 保留旧日志文件的最大天数，单位: 天
+	MaxAge int `yaml:"max_age"`
+	// Compress 是否压缩旧日志文件
+	Compress bool `yaml:"compress"`
+	// Enabled 是否启用日志
+	Enabled bool `yaml:"enabled"`
 }
 
+// InstanceConfig 代理实例配置，定义单个代理服务的所有参数
 type InstanceConfig struct {
-	Name     string             `yaml:"name"`
-	Type     string             `yaml:"type"`
-	Listen   string             `yaml:"listen"`
-	Target   string             `yaml:"target"`
-	Protocol string             `yaml:"protocol"`
-	Auth     string             `yaml:"auth"`
-	Enabled  bool               `yaml:"enabled"`
-	TLCP     TLCPConfig         `yaml:"tlcp,omitempty"`
-	TLS      TLSConfig          `yaml:"tls,omitempty"`
-	Certs    CertificatesConfig `yaml:"certificates,omitempty"`
-	ClientCA []string           `yaml:"client_ca,omitempty"`
-	ServerCA []string           `yaml:"server_ca,omitempty"`
-	HTTP     *HTTPConfig        `yaml:"http,omitempty"`
-	Log      *LogConfig         `yaml:"log,omitempty"`
-	Stats    *StatsConfig       `yaml:"stats,omitempty"`
-	SNI      string             `yaml:"sni,omitempty"`
+	// Name 实例名称，全局唯一标识符
+	// 示例: "proxy-1", "tlcp-server"
+	Name string `yaml:"name"`
+	// Type 代理类型，可选值:
+	// - "server": TCP服务端代理，接收TLCP/TLS连接并转发到目标
+	// - "client": TCP客户端代理，接收普通TCP连接并以TLCP/TLS连接目标
+	// - "http-server": HTTP服务端代理，处理HTTP/HTTPS请求
+	// - "http-client": HTTP客户端代理，发起HTTP/HTTPS请求
+	Type string `yaml:"type"`
+	// Listen 监听地址，格式: "host:port" 或 ":port"
+	// 示例: ":8443" 表示监听所有网卡的8443端口
+	Listen string `yaml:"listen"`
+	// Target 目标地址，格式: "host:port"
+	// 示例: "192.168.1.100:443"
+	Target string `yaml:"target"`
+	// Protocol 协议类型，可选值:
+	// - "auto": 自动检测，同时支持TLCP和TLS
+	// - "tlcp": 仅使用TLCP协议（国密）
+	// - "tls": 仅使用TLS协议
+	Protocol string `yaml:"protocol"`
+	// Enabled 是否启用该实例
+	Enabled bool `yaml:"enabled"`
+	// TLCP TLCP协议专用配置
+	TLCP TLCPConfig `yaml:"tlcp,omitempty"`
+	// TLS TLS协议专用配置
+	TLS TLSConfig `yaml:"tls,omitempty"`
+	// Certs 证书配置，包含TLCP和TLS两种证书
+	Certs CertificatesConfig `yaml:"certificates,omitempty"`
+	// ClientCA 客户端CA证书路径列表，用于验证客户端证书
+	// 示例: ["ca1.crt", "ca2.crt"]
+	ClientCA []string `yaml:"client_ca,omitempty"`
+	// ServerCA 服务端CA证书路径列表，用于验证服务端证书
+	// 示例: ["server-ca.crt"]
+	ServerCA []string `yaml:"server_ca,omitempty"`
+	// HTTP HTTP协议专用配置，用于HTTP代理
+	HTTP *HTTPConfig `yaml:"http,omitempty"`
+	// Log 实例级别日志配置，nil表示使用全局配置
+	Log *LogConfig `yaml:"log,omitempty"`
+	// Stats 统计信息配置
+	Stats *StatsConfig `yaml:"stats,omitempty"`
+	// SNI 服务器名称指示，用于TLS/TLCP握手时的SNI扩展
+	// 示例: "example.com"
+	SNI string `yaml:"sni,omitempty"`
+	// Timeout 连接超时配置
+	Timeout *TimeoutConfig `yaml:"timeout,omitempty"`
 }
 
+// TLCPConfig TLCP协议配置（国密协议）
 type TLCPConfig struct {
-	MinVersion         string   `yaml:"min_version,omitempty"`
-	MaxVersion         string   `yaml:"max_version,omitempty"`
-	CipherSuites       []string `yaml:"cipher_suites,omitempty"`
-	CurvePreferences   []string `yaml:"curve_preferences,omitempty"`
-	SessionTickets     bool     `yaml:"session_tickets,omitempty"`
-	SessionCache       bool     `yaml:"session_cache,omitempty"`
-	InsecureSkipVerify bool     `yaml:"insecure_skip_verify,omitempty"`
+	// Auth 认证模式，可选值:
+	// - "none": 无认证
+	// - "one-way": 单向认证（验证对端证书）
+	// - "mutual": 双向认证（双方互相验证证书）
+	Auth string `yaml:"auth,omitempty"`
+	// MinVersion 最低协议版本，可选值: "1.1"（TLCP仅有1.1版本）
+	MinVersion string `yaml:"min_version,omitempty"`
+	// MaxVersion 最高协议版本，可选值: "1.1"
+	MaxVersion string `yaml:"max_version,omitempty"`
+	// CipherSuites 密码套件列表，可选值:
+	// - "ECC_SM4_CBC_SM3": ECC签名 + SM4 CBC模式 + SM3哈希
+	// - "ECC_SM4_GCM_SM3": ECC签名 + SM4 GCM模式 + SM3哈希
+	// - "ECC_SM4_CCM_SM3": ECC签名 + SM4 CCM模式 + SM3哈希
+	// - "ECDHE_SM4_CBC_SM3": ECDHE密钥交换 + SM4 CBC + SM3
+	// - "ECDHE_SM4_GCM_SM3": ECDHE密钥交换 + SM4 GCM + SM3
+	// - "ECDHE_SM4_CCM_SM3": ECDHE密钥交换 + SM4 CCM + SM3
+	CipherSuites []string `yaml:"cipher_suites,omitempty"`
+	// CurvePreferences 椭圆曲线偏好，TLCP通常使用 "SM2"
+	CurvePreferences []string `yaml:"curve_preferences,omitempty"`
+	// SessionTickets 是否启用会话票据
+	SessionTickets bool `yaml:"session_tickets,omitempty"`
+	// SessionCache 是否启用会话缓存
+	SessionCache bool `yaml:"session_cache,omitempty"`
+	// InsecureSkipVerify 是否跳过证书验证（不安全，仅用于测试）
+	InsecureSkipVerify bool `yaml:"insecure_skip_verify,omitempty"`
 }
 
+// TLSConfig TLS协议配置
 type TLSConfig struct {
-	MinVersion         string   `yaml:"min_version,omitempty"`
-	MaxVersion         string   `yaml:"max_version,omitempty"`
-	CipherSuites       []string `yaml:"cipher_suites,omitempty"`
-	CurvePreferences   []string `yaml:"curve_preferences,omitempty"`
-	SessionTickets     bool     `yaml:"session_tickets,omitempty"`
-	SessionCache       bool     `yaml:"session_cache,omitempty"`
-	InsecureSkipVerify bool     `yaml:"insecure_skip_verify,omitempty"`
+	// Auth 认证模式，可选值:
+	// - "none": 无认证
+	// - "one-way": 单向认证（验证对端证书）
+	// - "mutual": 双向认证（双方互相验证证书）
+	Auth string `yaml:"auth,omitempty"`
+	// MinVersion 最低协议版本，可选值: "1.0", "1.1", "1.2", "1.3"
+	MinVersion string `yaml:"min_version,omitempty"`
+	// MaxVersion 最高协议版本，可选值: "1.0", "1.1", "1.2", "1.3"
+	MaxVersion string `yaml:"max_version,omitempty"`
+	// CipherSuites 密码套件列表，可选值:
+	// - "TLS_RSA_WITH_AES_128_GCM_SHA256"
+	// - "TLS_RSA_WITH_AES_256_GCM_SHA384"
+	// - "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+	// - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+	// - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+	// - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+	// - "TLS_AES_128_GCM_SHA256" (TLS 1.3)
+	// - "TLS_AES_256_GCM_SHA384" (TLS 1.3)
+	// - "TLS_CHACHA20_POLY1305_SHA256" (TLS 1.3)
+	CipherSuites []string `yaml:"cipher_suites,omitempty"`
+	// CurvePreferences 椭圆曲线偏好，可选值: "P256", "P384", "P521", "X25519"
+	CurvePreferences []string `yaml:"curve_preferences,omitempty"`
+	// SessionTickets 是否启用会话票据
+	SessionTickets bool `yaml:"session_tickets,omitempty"`
+	// SessionCache 是否启用会话缓存
+	SessionCache bool `yaml:"session_cache,omitempty"`
+	// InsecureSkipVerify 是否跳过证书验证（不安全，仅用于测试）
+	InsecureSkipVerify bool `yaml:"insecure_skip_verify,omitempty"`
 }
 
+// CertificatesConfig 证书配置集合
 type CertificatesConfig struct {
+	// TLCP TLCP协议证书配置
 	TLCP CertConfig `yaml:"tlcp,omitempty"`
-	TLS  CertConfig `yaml:"tls,omitempty"`
+	// TLS TLS协议证书配置
+	TLS CertConfig `yaml:"tls,omitempty"`
 }
 
+// CertConfig 单个证书配置
 type CertConfig struct {
+	// Cert 证书文件路径，支持PEM格式
+	// 示例: "server.crt" 或 "./certs/server.pem"
 	Cert string `yaml:"cert,omitempty"`
-	Key  string `yaml:"key,omitempty"`
+	// Key 私钥文件路径，支持PEM格式
+	// 示例: "server.key" 或 "./certs/server.key"
+	Key string `yaml:"key,omitempty"`
 }
 
+// HTTPConfig HTTP代理配置
 type HTTPConfig struct {
-	RequestHeaders  HeadersConfig `yaml:"request_headers,omitempty"`
+	// RequestHeaders 请求头处理配置
+	RequestHeaders HeadersConfig `yaml:"request_headers,omitempty"`
+	// ResponseHeaders 响应头处理配置
 	ResponseHeaders HeadersConfig `yaml:"response_headers,omitempty"`
 }
 
+// HeadersConfig HTTP头处理配置
 type HeadersConfig struct {
-	Add    map[string]string `yaml:"add,omitempty"`
-	Remove []string          `yaml:"remove,omitempty"`
-	Set    map[string]string `yaml:"set,omitempty"`
+	// Add 添加HTTP头，不会覆盖已存在的头
+	// 示例: {"X-Proxy": "tlcpchan"}
+	Add map[string]string `yaml:"add,omitempty"`
+	// Remove 删除指定的HTTP头
+	// 示例: ["X-Powered-By", "Server"]
+	Remove []string `yaml:"remove,omitempty"`
+	// Set 设置HTTP头，会覆盖已存在的头
+	// 示例: {"X-Frame-Options": "DENY"}
+	Set map[string]string `yaml:"set,omitempty"`
 }
 
+// StatsConfig 统计信息配置
 type StatsConfig struct {
-	Enabled  bool          `yaml:"enabled"`
+	// Enabled 是否启用统计信息收集
+	Enabled bool `yaml:"enabled"`
+	// Interval 统计信息收集间隔，单位: 纳秒（支持时间格式如 "10s", "1m"）
+	// 示例: "10s" 表示每10秒收集一次
 	Interval time.Duration `yaml:"interval"`
 }
 
+// TimeoutConfig 连接超时配置
+type TimeoutConfig struct {
+	// Dial 连接建立超时，默认: 10s
+	Dial time.Duration `yaml:"dial,omitempty"`
+	// Read 读取超时，默认: 30s
+	Read time.Duration `yaml:"read,omitempty"`
+	// Write 写入超时，默认: 30s
+	Write time.Duration `yaml:"write,omitempty"`
+	// Handshake TLS/TLCP握手超时，默认: 15s
+	Handshake time.Duration `yaml:"handshake,omitempty"`
+}
+
+// DefaultTimeout 返回默认超时配置
+// 返回:
+//   - *TimeoutConfig: 默认超时配置实例
+func DefaultTimeout() *TimeoutConfig {
+	return &TimeoutConfig{
+		Dial:      10 * time.Second,
+		Read:      30 * time.Second,
+		Write:     30 * time.Second,
+		Handshake: 15 * time.Second,
+	}
+}
+
+// Default 返回默认配置
+// 返回:
+//   - *Config: 默认配置实例，API监听:30080，UI监听:30000
 func Default() *Config {
 	return &Config{
 		Server: ServerConfig{
 			API: APIConfig{
-				Address: ":8080",
+				Address: ":30080",
 			},
 			UI: UIConfig{
 				Enabled: true,
-				Address: ":3000",
+				Address: ":30000",
 				Path:    "./ui",
 			},
 			Log: &LogConfig{
@@ -133,6 +290,15 @@ func Default() *Config {
 	}
 }
 
+// Load 从文件加载配置
+// 参数:
+//   - path: 配置文件路径，支持YAML格式
+//
+// 返回:
+//   - *Config: 配置实例
+//   - error: 文件不存在、解析失败或验证失败时返回错误
+//
+// 注意: 加载后会自动填充默认值并验证配置
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -151,6 +317,13 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// Save 保存配置到文件
+// 参数:
+//   - path: 配置文件路径
+//   - cfg: 配置实例
+//
+// 返回:
+//   - error: 序列化或写入失败时返回错误
 func Save(path string, cfg *Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -164,9 +337,23 @@ func Save(path string, cfg *Config) error {
 	return nil
 }
 
+// Validate 验证配置有效性
+// 参数:
+//   - cfg: 待验证的配置实例
+//
+// 返回:
+//   - error: 配置无效时返回错误，包含具体原因
+//
+// 注意: 该方法会自动填充缺失的默认值
 func Validate(cfg *Config) error {
 	if cfg.Server.API.Address == "" {
-		cfg.Server.API.Address = ":8080"
+		cfg.Server.API.Address = ":30080"
+	}
+
+	validAuth := map[string]bool{
+		"none":    true,
+		"one-way": true,
+		"mutual":  true,
 	}
 
 	instanceNames := make(map[string]bool)
@@ -211,16 +398,23 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("实例 %s: 无效的协议 %s", inst.Name, inst.Protocol)
 		}
 
-		if inst.Auth == "" {
-			cfg.Instances[i].Auth = "none"
+		// 验证TLCP Auth
+		if inst.TLCP.Auth == "" {
+			cfg.Instances[i].TLCP.Auth = "none"
+		} else if !validAuth[inst.TLCP.Auth] {
+			return fmt.Errorf("实例 %s: 无效的TLCP认证模式 %s", inst.Name, inst.TLCP.Auth)
 		}
-		validAuth := map[string]bool{
-			"none":    true,
-			"one-way": true,
-			"mutual":  true,
+
+		// 验证TLS Auth
+		if inst.TLS.Auth == "" {
+			cfg.Instances[i].TLS.Auth = "none"
+		} else if !validAuth[inst.TLS.Auth] {
+			return fmt.Errorf("实例 %s: 无效的TLS认证模式 %s", inst.Name, inst.TLS.Auth)
 		}
-		if !validAuth[inst.Auth] {
-			return fmt.Errorf("实例 %s: 无效的认证模式 %s", inst.Name, inst.Auth)
+
+		// 设置默认超时配置
+		if inst.Timeout == nil {
+			cfg.Instances[i].Timeout = DefaultTimeout()
 		}
 	}
 
@@ -259,6 +453,14 @@ var TLCPVersionNames = map[string]uint16{
 	"1.1": tlcp.VersionTLCP,
 }
 
+// ParseCipherSuite 解析密码套件名称为数值
+// 参数:
+//   - s: 密码套件名称或16进制值，如 "ECC_SM4_GCM_SM3" 或 "0xC012"
+//   - isTLCP: 是否为TLCP协议，true则使用TLCP密码套件映射
+//
+// 返回:
+//   - uint16: 密码套件数值
+//   - error: 无法识别的密码套件名称时返回错误
 func ParseCipherSuite(s string, isTLCP bool) (uint16, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -291,6 +493,14 @@ func ParseCipherSuite(s string, isTLCP bool) (uint16, error) {
 	return 0, fmt.Errorf("未知的密码套件: %s", s)
 }
 
+// ParseTLSVersion 解析协议版本名称为数值
+// 参数:
+//   - s: 版本名称或16进制值，如 "1.2" 或 "1.3"
+//   - isTLCP: 是否为TLCP协议，true则使用TLCP版本映射
+//
+// 返回:
+//   - uint16: 版本数值
+//   - error: 无法识别的版本名称时返回错误
 func ParseTLSVersion(s string, isTLCP bool) (uint16, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -323,6 +533,14 @@ func ParseTLSVersion(s string, isTLCP bool) (uint16, error) {
 	return 0, fmt.Errorf("未知的版本: %s", s)
 }
 
+// ParseCipherSuites 批量解析密码套件名称列表
+// 参数:
+//   - suites: 密码套件名称列表
+//   - isTLCP: 是否为TLCP协议
+//
+// 返回:
+//   - []uint16: 密码套件数值列表
+//   - error: 任意一个密码套件解析失败时返回错误
 func ParseCipherSuites(suites []string, isTLCP bool) ([]uint16, error) {
 	if len(suites) == 0 {
 		return nil, nil
@@ -337,4 +555,119 @@ func ParseCipherSuites(suites []string, isTLCP bool) ([]uint16, error) {
 		result = append(result, v)
 	}
 	return result, nil
+}
+
+var TLCPClientAuthNames = map[string]tlcp.ClientAuthType{
+	"no-client-cert":                 tlcp.NoClientCert,
+	"request-client-cert":            tlcp.RequestClientCert,
+	"require-any-client-cert":        tlcp.RequireAnyClientCert,
+	"verify-client-cert-if-given":    tlcp.VerifyClientCertIfGiven,
+	"require-and-verify-client-cert": tlcp.RequireAndVerifyClientCert,
+}
+
+var TLSClientAuthNames = map[string]tls.ClientAuthType{
+	"no-client-cert":                 tls.NoClientCert,
+	"request-client-cert":            tls.RequestClientCert,
+	"require-any-client-cert":        tls.RequireAnyClientCert,
+	"verify-client-cert-if-given":    tls.VerifyClientCertIfGiven,
+	"require-and-verify-client-cert": tls.RequireAndVerifyClientCert,
+}
+
+// ParseTLCPClientAuth 解析TLCP客户端认证类型
+// 参数:
+//   - s: 认证类型名称，如 "no-client-cert", "require-and-verify-client-cert"
+//
+// 返回:
+//   - tlcp.ClientAuthType: 客户端认证类型
+//   - error: 无法识别的认证类型时返回错误
+func ParseTLCPClientAuth(s string) (tlcp.ClientAuthType, error) {
+	if s == "" {
+		return tlcp.NoClientCert, nil
+	}
+
+	if v, ok := TLCPClientAuthNames[s]; ok {
+		return v, nil
+	}
+
+	return tlcp.NoClientCert, fmt.Errorf("未知的TLCP客户端认证类型: %s", s)
+}
+
+// ParseTLSClientAuth 解析TLS客户端认证类型
+// 参数:
+//   - s: 认证类型名称，如 "no-client-cert", "require-and-verify-client-cert"
+//
+// 返回:
+//   - tls.ClientAuthType: 客户端认证类型
+//   - error: 无法识别的认证类型时返回错误
+func ParseTLSClientAuth(s string) (tls.ClientAuthType, error) {
+	if s == "" {
+		return tls.NoClientCert, nil
+	}
+
+	if v, ok := TLSClientAuthNames[s]; ok {
+		return v, nil
+	}
+
+	return tls.NoClientCert, fmt.Errorf("未知的TLS客户端认证类型: %s", s)
+}
+
+// ValidClientAuthValues 返回所有有效的客户端认证类型名称
+// 返回:
+//   - []string: 认证类型名称列表
+func ValidClientAuthValues() []string {
+	return []string{
+		"no-client-cert",
+		"request-client-cert",
+		"require-any-client-cert",
+		"verify-client-cert-if-given",
+		"require-and-verify-client-cert",
+	}
+}
+
+// ResolveCertPath 解析证书路径为绝对路径
+// 参数:
+//   - path: 原始路径，可以是相对路径或绝对路径
+//
+// 返回:
+//   - string: 解析后的路径，相对路径会基于CertDir解析
+func (c *Config) ResolveCertPath(path string) string {
+	if path == "" {
+		return ""
+	}
+
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	if c.CertDir != "" {
+		return filepath.Join(c.CertDir, path)
+	}
+
+	return path
+}
+
+// GetCertDir 获取证书目录路径
+// 返回:
+//   - string: 证书目录路径，若未配置则返回默认值 "./certs"
+func (c *Config) GetCertDir() string {
+	if c.CertDir != "" {
+		return c.CertDir
+	}
+	if c.WorkDir != "" {
+		return filepath.Join(c.WorkDir, "certs")
+	}
+	return "./certs"
+}
+
+// GetTrustedDir 获取根证书目录路径
+// 返回:
+//   - string: 根证书目录路径，若未配置则返回默认值 "./trusted"
+func (c *Config) GetTrustedDir() string {
+	if c.TrustedDir != "" {
+		return c.TrustedDir
+	}
+	if c.WorkDir != "" {
+		return filepath.Join(c.WorkDir, "trusted")
+	}
+	return "./trusted"
 }

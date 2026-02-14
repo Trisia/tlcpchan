@@ -13,17 +13,27 @@ import (
 	"github.com/Trisia/tlcpchan/stats"
 )
 
+// protocolCacheEntry 协议缓存条目，记录目标地址的协议检测结果
 type protocolCacheEntry struct {
+	// protocol 检测到的协议类型
 	protocol ProtocolType
+	// detected 检测时间
 	detected time.Time
 }
 
+// ClientProxy 客户端代理，接收普通TCP连接并以TLCP/TLS连接目标服务
 type ClientProxy struct {
-	cfg          *config.InstanceConfig
-	adapter      *TLCPAdapter
-	handler      *ConnHandler
-	listener     net.Listener
-	certManager  *cert.Manager
+	// cfg 实例配置
+	cfg *config.InstanceConfig
+	// adapter 协议适配器
+	adapter *TLCPAdapter
+	// handler 连接处理器
+	handler *ConnHandler
+	// listener TCP监听器
+	listener net.Listener
+	// certManager 证书管理器
+	certManager *cert.Manager
+	// stats 统计收集器
 	stats        *stats.Collector
 	logger       *logger.Logger
 	shutdownChan chan struct{}
@@ -31,12 +41,27 @@ type ClientProxy struct {
 	mu           sync.Mutex
 	running      bool
 
+	// protocolCache 协议检测缓存，避免重复检测同一目标
 	protocolCache map[string]protocolCacheEntry
 	cacheMu       sync.RWMutex
-	cacheTTL      time.Duration
+	// cacheTTL 缓存有效期，默认5分钟
+	cacheTTL time.Duration
 }
 
+// NewClientProxy 创建新的客户端代理实例
+// 参数:
+//   - cfg: 实例配置，不能为 nil
+//   - certManager: 证书管理器，用于加载TLCP/TLS证书
+//
+// 返回:
+//   - *ClientProxy: 客户端代理实例
+//   - error: 创建协议适配器失败时返回错误
 func NewClientProxy(cfg *config.InstanceConfig, certManager *cert.Manager) (*ClientProxy, error) {
+	// 验证客户端配置
+	if err := ValidateClientConfig(cfg); err != nil {
+		return nil, fmt.Errorf("配置验证失败: %w", err)
+	}
+
 	adapter, err := NewTLCPAdapter(cfg, certManager)
 	if err != nil {
 		return nil, fmt.Errorf("创建协议适配器失败: %w", err)
@@ -55,6 +80,11 @@ func NewClientProxy(cfg *config.InstanceConfig, certManager *cert.Manager) (*Cli
 	}, nil
 }
 
+// Start 启动客户端代理
+// 返回:
+//   - error: 代理已在运行或监听端口失败时返回错误
+//
+// 注意: 该方法会启动后台goroutine接受连接，调用Stop()停止
 func (p *ClientProxy) Start() error {
 	p.mu.Lock()
 	if p.running {
@@ -80,6 +110,8 @@ func (p *ClientProxy) Start() error {
 	return nil
 }
 
+// acceptLoop 接受连接循环，持续监听新连接并异步处理
+// 注意: 该方法在独立goroutine中运行，通过shutdownChan控制退出
 func (p *ClientProxy) acceptLoop() {
 	defer p.wg.Done()
 
@@ -108,6 +140,11 @@ func (p *ClientProxy) acceptLoop() {
 	}
 }
 
+// handleConnection 处理单个客户端连接
+// 参数:
+//   - clientConn: 客户端连接（普通TCP连接）
+//
+// 注意: 该方法负责协议检测、连接目标服务、双向数据转发
 func (p *ClientProxy) handleConnection(clientConn net.Conn) {
 	defer p.wg.Done()
 	defer p.stats.DecrementConnections()
@@ -144,6 +181,9 @@ func (p *ClientProxy) handleConnection(clientConn net.Conn) {
 	p.logger.Debug("连接结束: 收发 %d/%d 字节, 耗时 %v", received, sent, latency)
 }
 
+// getProtocol 获取当前使用的协议类型
+// 返回:
+//   - ProtocolType: 协议类型，若配置为auto且缓存有效则返回缓存值，否则返回ProtocolAuto
 func (p *ClientProxy) getProtocol() ProtocolType {
 	if p.adapter.Protocol() != ProtocolAuto {
 		return p.adapter.Protocol()
@@ -160,6 +200,11 @@ func (p *ClientProxy) getProtocol() ProtocolType {
 	return ProtocolAuto
 }
 
+// detectAndCacheProtocol 检测目标服务支持的协议并缓存结果
+// 返回:
+//   - ProtocolType: 检测到的协议类型（ProtocolTLCP或ProtocolTLS）
+//
+// 注意: 检测结果会缓存5分钟，避免重复检测开销
 func (p *ClientProxy) detectAndCacheProtocol() ProtocolType {
 	conn, err := p.adapter.DialTLCP("tcp", p.cfg.Target)
 	if err == nil {
@@ -185,6 +230,11 @@ func (p *ClientProxy) detectAndCacheProtocol() ProtocolType {
 	return ProtocolTLS
 }
 
+// Stop 停止客户端代理
+// 返回:
+//   - error: 停止失败时返回错误（当前实现始终返回nil）
+//
+// 注意: 该方法会等待所有连接处理完成后再返回
 func (p *ClientProxy) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -209,6 +259,9 @@ func (p *ClientProxy) Stop() error {
 	return nil
 }
 
+// Restart 重启客户端代理
+// 返回:
+//   - error: 停止或启动失败时返回错误
 func (p *ClientProxy) Restart() error {
 	if err := p.Stop(); err != nil {
 		return err
@@ -234,6 +287,8 @@ func (p *ClientProxy) Stats() stats.Stats {
 	return p.stats.GetStats()
 }
 
+// ClearProtocolCache 清除协议检测缓存
+// 注意: 当目标服务协议变更时应调用此方法
 func (p *ClientProxy) ClearProtocolCache() {
 	p.cacheMu.Lock()
 	defer p.cacheMu.Unlock()

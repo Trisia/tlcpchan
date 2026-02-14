@@ -26,6 +26,11 @@ type HealthStatus struct {
 	Version string `json:"version"`
 }
 
+type VersionInfo struct {
+	Version   string `json:"version"`
+	GoVersion string `json:"go_version"`
+}
+
 var startTime = time.Now()
 
 type SystemController struct {
@@ -67,7 +72,15 @@ func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (c *SystemController) Version(w http.ResponseWriter, r *http.Request) {
+	Success(w, VersionInfo{
+		Version:   c.version,
+		GoVersion: runtime.Version(),
+	})
+}
+
 func (c *SystemController) RegisterRoutes(router *Router) {
 	router.GET("/api/v1/system/info", c.Info)
 	router.GET("/api/v1/system/health", c.Health)
+	router.GET("/api/v1/system/version", c.Version)
 }

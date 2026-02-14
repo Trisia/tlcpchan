@@ -153,12 +153,12 @@ type ServerConfig struct {
 }
 
 type APIConfig struct {
-    Address string `yaml:"address"` // API服务地址，默认 :8080
+    Address string `yaml:"address"` // API服务地址，默认 :30080
 }
 
 type UIConfig struct {
     Enabled bool   `yaml:"enabled"` // 是否启动UI服务
-    Address string `yaml:"address"` // UI服务地址，默认 :3000
+    Address string `yaml:"address"` // UI服务地址，默认 :30000
     Path    string `yaml:"path"`    // UI静态文件路径
 }
 
@@ -490,7 +490,7 @@ FROM alpine:3.18
 COPY tlcpchan /usr/bin/tlcpchan
 COPY tlcpchan-ui/ui-server /usr/bin/tlcpchan-ui
 COPY config /etc/tlcpchan
-EXPOSE 8080 3000
+EXPOSE 30080 30000
 ENTRYPOINT ["/usr/bin/tlcpchan"]
 ```
 

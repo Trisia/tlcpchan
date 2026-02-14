@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -19,12 +20,19 @@ import (
 	"github.com/Trisia/tlcpchan/stats"
 )
 
+// HTTPClientProxy HTTP客户端代理，接收HTTP请求并以HTTPS转发到目标服务
 type HTTPClientProxy struct {
-	cfg          *config.InstanceConfig
-	adapter      *TLCPAdapter
-	handler      *ConnHandler
-	listener     net.Listener
-	certManager  *cert.Manager
+	// cfg 实例配置
+	cfg *config.InstanceConfig
+	// adapter 协议适配器
+	adapter *TLCPAdapter
+	// handler 连接处理器
+	handler *ConnHandler
+	// listener TCP监听器
+	listener net.Listener
+	// certManager 证书管理器
+	certManager *cert.Manager
+	// stats 统计收集器
 	stats        *stats.Collector
 	logger       *logger.Logger
 	shutdownChan chan struct{}
@@ -32,9 +40,11 @@ type HTTPClientProxy struct {
 	mu           sync.Mutex
 	running      bool
 
+	// protocolCache 协议检测缓存
 	protocolCache map[string]protocolCacheEntry
 	cacheMu       sync.RWMutex
-	cacheTTL      time.Duration
+	// cacheTTL 缓存有效期，默认5分钟
+	cacheTTL time.Duration
 }
 
 func NewHTTPClientProxy(cfg *config.InstanceConfig, certManager *cert.Manager) (*HTTPClientProxy, error) {
@@ -63,6 +73,13 @@ func (p *HTTPClientProxy) Start() error {
 		return fmt.Errorf("代理服务已在运行")
 	}
 
+	// 启动时检测服务端协议（仅auto模式）
+	if p.cfg.Protocol == "auto" {
+		if err := p.detectServerProtocol(); err != nil {
+			p.logger.Warn("服务端协议检测失败: %v, 将在首次连接时重试", err)
+		}
+	}
+
 	listener, err := net.Listen("tcp", p.cfg.Listen)
 	if err != nil {
 		p.mu.Unlock()
@@ -79,6 +96,77 @@ func (p *HTTPClientProxy) Start() error {
 	go p.acceptLoop()
 
 	return nil
+}
+
+// detectServerProtocol 检测服务端支持的协议
+// 返回:
+//   - error: 连接或握手失败时返回错误
+func (p *HTTPClientProxy) detectServerProtocol() error {
+	p.logger.Info("正在检测服务端 %s 的协议类型...", p.cfg.Target)
+
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	conn, err := dialer.Dial("tcp", p.cfg.Target)
+	if err != nil {
+		return fmt.Errorf("连接目标服务失败: %w", err)
+	}
+	defer conn.Close()
+
+	// 尝试TLCP握手
+	tlcpCfg := &tlcp.Config{
+		InsecureSkipVerify: p.cfg.TLCP.InsecureSkipVerify,
+	}
+	if p.cfg.SNI != "" {
+		tlcpCfg.ServerName = p.cfg.SNI
+	}
+
+	tlcpConn := tlcp.Client(conn, tlcpCfg)
+	tlcpErr := tlcpConn.Handshake()
+
+	if tlcpErr == nil {
+		p.logger.Info("服务端协议检测: TLCP")
+		p.cacheMu.Lock()
+		p.protocolCache[p.cfg.Target] = protocolCacheEntry{
+			protocol: ProtocolTLCP,
+			detected: time.Now(),
+		}
+		p.cacheMu.Unlock()
+		tlcpConn.Close()
+		return nil
+	}
+
+	// TLCP失败，尝试TLS
+	conn, err = dialer.Dial("tcp", p.cfg.Target)
+	if err != nil {
+		return fmt.Errorf("重连目标服务失败: %w", err)
+	}
+	defer conn.Close()
+
+	tlsCfg := &tls.Config{
+		InsecureSkipVerify: p.cfg.TLS.InsecureSkipVerify,
+	}
+	if p.cfg.SNI != "" {
+		tlsCfg.ServerName = p.cfg.SNI
+	}
+
+	tlsConn := tls.Client(conn, tlsCfg)
+	tlsErr := tlsConn.Handshake()
+
+	if tlsErr == nil {
+		p.logger.Info("服务端协议检测: TLS")
+		p.cacheMu.Lock()
+		p.protocolCache[p.cfg.Target] = protocolCacheEntry{
+			protocol: ProtocolTLS,
+			detected: time.Now(),
+		}
+		p.cacheMu.Unlock()
+		tlsConn.Close()
+		return nil
+	}
+
+	return fmt.Errorf("协议检测失败 - TLCP: %v, TLS: %v", tlcpErr, tlsErr)
 }
 
 func (p *HTTPClientProxy) acceptLoop() {
@@ -188,12 +276,14 @@ func (p *HTTPClientProxy) forwardRequest(req *http.Request, vars *Variables) (*h
 	}
 	req.Body = io.NopCloser(bytes.NewReader(body))
 
-	targetURL := fmt.Sprintf("%s://%s%s", scheme, p.cfg.Target, req.URL.Path)
-	if req.URL.RawQuery != "" {
-		targetURL += "?" + req.URL.RawQuery
+	targetURL := &url.URL{
+		Scheme:   scheme,
+		Host:     p.cfg.Target,
+		Path:     req.URL.Path,
+		RawQuery: req.URL.RawQuery,
 	}
 
-	newReq, err := http.NewRequest(req.Method, targetURL, bytes.NewReader(body))
+	newReq, err := http.NewRequest(req.Method, targetURL.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}

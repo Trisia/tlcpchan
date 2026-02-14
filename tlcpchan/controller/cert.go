@@ -10,9 +10,16 @@ import (
 	"github.com/Trisia/tlcpchan/logger"
 )
 
+// CertificateInfo 证书信息DTO
 type CertificateInfo struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
+	// Name 证书文件名
+	// 示例: "server.crt", "client.key"
+	Name string `json:"name"`
+	// Type 证书类型
+	// 可选值: "certificate" (证书), "private_key" (私钥)
+	Type string `json:"type"`
+	// ExpiresAt 过期时间，ISO 8601格式
+	// 示例: "2025-12-31T23:59:59Z"
 	ExpiresAt string `json:"expires_at,omitempty"`
 }
 

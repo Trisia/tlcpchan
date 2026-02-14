@@ -186,7 +186,7 @@ net start TLCPChan
 
 ```powershell
 # 允许 API 端口
-netsh advfirewall firewall add rule name="TLCPChan API" dir=in action=allow protocol=tcp localport=8080
+netsh advfirewall firewall add rule name="TLCPChan API" dir=in action=allow protocol=tcp localport=30080
 
 # 允许代理端口
 netsh advfirewall firewall add rule name="TLCPChan Proxy" dir=in action=allow protocol=tcp localport=443
@@ -283,7 +283,7 @@ docker pull trisia/tlcpchan:latest
 # 运行容器
 docker run -d \
   --name tlcpchan \
-  -p 8080:8080 \
+  -p 30080:30080 \
   -p 443:443 \
   -v /opt/tlcpchan/config:/etc/tlcpchan \
   -v /opt/tlcpchan/certs:/var/lib/tlcpchan/certs \
@@ -304,7 +304,7 @@ services:
     container_name: tlcpchan
     restart: unless-stopped
     ports:
-      - "8080:8080"    # API
+      - "30080:30080"    # API
       - "443:443"      # TLCP/TLS 代理
       - "8443:8443"    # HTTPS 代理（可选）
     volumes:
@@ -314,7 +314,7 @@ services:
     environment:
       - TLCPCHAN_LOG_LEVEL=info
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/system/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:30080/api/v1/system/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -337,7 +337,7 @@ cd tlcpchan
 docker build -t tlcpchan:local .
 
 # 运行
-docker run -d -p 8080:8080 -p 443:443 tlcpchan:local
+docker run -d -p 30080:30080 -p 443:443 tlcpchan:local
 ```
 
 ## 源码编译
@@ -412,7 +412,7 @@ tlcpchan -version
 ### 检查健康状态
 
 ```bash
-curl http://localhost:8080/api/v1/system/health
+curl http://localhost:30080/api/v1/system/health
 ```
 
 预期响应：
@@ -435,7 +435,7 @@ curl http://localhost:8080/api/v1/system/health
 
 ### 访问 Web UI
 
-打开浏览器访问 `http://localhost:3000`
+打开浏览器访问 `http://localhost:30000`
 
 ## 卸载
 

@@ -6,6 +6,10 @@ bin/
 *.so
 *.dylib
 
+.opencode/
+
+TODO*md
+
 # 测试文件
 *.test
 *.out

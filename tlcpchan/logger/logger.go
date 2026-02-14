@@ -13,13 +13,21 @@ import (
 	"time"
 )
 
+// Level 日志级别
 type Level int
 
 const (
+	// LevelDebug 调试级别，输出详细调试信息
 	LevelDebug Level = iota
+	// LevelInfo 信息级别，输出常规运行信息
 	LevelInfo
+	// LevelWarn 警告级别，输出警告信息
 	LevelWarn
+	// LevelError 错误级别，输出错误信息
 	LevelError
+	// LevelFatal 致命级别，输出后退出程序
+	LevelFatal
+	// LevelDisabled 禁用日志
 	LevelDisabled
 )
 
@@ -33,6 +41,8 @@ func (l Level) String() string {
 		return "WARN"
 	case LevelError:
 		return "ERROR"
+	case LevelFatal:
+		return "FATAL"
 	default:
 		return "UNKNOWN"
 	}
@@ -48,31 +58,48 @@ func ParseLevel(s string) Level {
 		return LevelWarn
 	case "error":
 		return LevelError
+	case "fatal":
+		return LevelFatal
 	default:
 		return LevelInfo
 	}
 }
 
+// LogConfig 日志配置
 type LogConfig struct {
-	Level      string
-	File       string
-	MaxSize    int
+	// Level 日志级别，可选值: "debug", "info", "warn", "error"
+	Level string
+	// File 日志文件路径，为空则仅输出到控制台
+	File string
+	// MaxSize 单个日志文件最大大小，单位: MB
+	MaxSize int
+	// MaxBackups 保留的旧日志文件最大数量，单位: 个
 	MaxBackups int
-	MaxAge     int
-	Compress   bool
-	Enabled    bool
+	// MaxAge 保留旧日志文件的最大天数，单位: 天
+	MaxAge int
+	// Compress 是否压缩旧日志文件
+	Compress bool
+	// Enabled 是否启用日志
+	Enabled bool
 }
 
+// Logger 日志记录器，支持文件输出、日志轮转和压缩
 type Logger struct {
 	*log.Logger
-	mu       sync.Mutex
-	level    Level
-	enabled  bool
-	writer   io.Writer
-	file     *os.File
-	config   LogConfig
+	mu sync.Mutex
+	// level 当前日志级别
+	level Level
+	// enabled 是否启用
+	enabled bool
+	// writer 输出目标
+	writer io.Writer
+	// file 日志文件句柄
+	file   *os.File
+	config LogConfig
+	// filePath 日志文件路径
 	filePath string
-	curSize  int64
+	// curSize 当前日志文件大小，单位: 字节
+	curSize int64
 }
 
 var (
@@ -320,6 +347,28 @@ func (l *Logger) Error(format string, args ...interface{}) {
 	l.log(LevelError, format, args...)
 }
 
+// Fatal 输出致命错误日志并退出程序
+// 参数:
+//   - format: 格式化字符串
+//   - args: 格式化参数
+//
+// 注意: 调用后程序会以状态码1退出
+func (l *Logger) Fatal(format string, args ...interface{}) {
+	l.log(LevelFatal, format, args...)
+	os.Exit(1)
+}
+
+// Fatalf 输出致命错误日志并退出程序
+// 参数:
+//   - format: 格式化字符串
+//   - args: 格式化参数
+//
+// 注意: 调用后程序会以状态码1退出
+func (l *Logger) Fatalf(format string, args ...interface{}) {
+	l.log(LevelFatal, format, args...)
+	os.Exit(1)
+}
+
 func InitDefault(cfg LogConfig) error {
 	l, err := Init(cfg)
 	if err != nil {
@@ -351,6 +400,16 @@ func Warn(format string, args ...interface{}) {
 
 func Error(format string, args ...interface{}) {
 	Default().Error(format, args...)
+}
+
+// Fatal 输出致命错误日志并退出程序
+func Fatal(format string, args ...interface{}) {
+	Default().Fatal(format, args...)
+}
+
+// Fatalf 输出致命错误日志并退出程序
+func Fatalf(format string, args ...interface{}) {
+	Default().Fatalf(format, args...)
 }
 
 func Close() error {

@@ -6,19 +6,31 @@ import (
 	"time"
 )
 
+// Snapshot 统计快照，记录某一时刻的统计信息
 type Snapshot struct {
-	Timestamp         time.Time `json:"timestamp"`
-	TotalConnections  int64     `json:"total_connections"`
-	ActiveConnections int64     `json:"active_connections"`
-	BytesReceived     int64     `json:"bytes_received"`
-	BytesSent         int64     `json:"bytes_sent"`
-	Requests          int64     `json:"requests"`
-	Errors            int64     `json:"errors"`
-	AvgLatency        int64     `json:"avg_latency_ns"`
-	MaxLatency        int64     `json:"max_latency_ns"`
-	MinLatency        int64     `json:"min_latency_ns"`
+	// Timestamp 快照时间
+	Timestamp time.Time `json:"timestamp"`
+	// TotalConnections 累计连接总数
+	TotalConnections int64 `json:"total_connections"`
+	// ActiveConnections 当前活跃连接数
+	ActiveConnections int64 `json:"active_connections"`
+	// BytesReceived 累计接收字节数，单位: 字节
+	BytesReceived int64 `json:"bytes_received"`
+	// BytesSent 累计发送字节数，单位: 字节
+	BytesSent int64 `json:"bytes_sent"`
+	// Requests 累计请求数（HTTP代理）
+	Requests int64 `json:"requests"`
+	// Errors 累计错误数
+	Errors int64 `json:"errors"`
+	// AvgLatency 平均延迟，单位: 纳秒
+	AvgLatency int64 `json:"avg_latency_ns"`
+	// MaxLatency 最大延迟，单位: 纳秒
+	MaxLatency int64 `json:"max_latency_ns"`
+	// MinLatency 最小延迟，单位: 纳秒
+	MinLatency int64 `json:"min_latency_ns"`
 }
 
+// Collector 统计信息收集器
 type Collector struct {
 	enabled           atomic.Bool
 	totalConnections  atomic.Int64
@@ -47,6 +59,9 @@ var (
 	once             sync.Once
 )
 
+// DefaultCollector 获取默认统计收集器单例
+// 返回:
+//   - *Collector: 默认统计收集器实例
 func DefaultCollector() *Collector {
 	once.Do(func() {
 		defaultCollector = NewCollector(1000)
@@ -54,6 +69,12 @@ func DefaultCollector() *Collector {
 	return defaultCollector
 }
 
+// NewCollector 创建新的统计收集器
+// 参数:
+//   - maxSnapshots: 最大快照保留数量
+//
+// 返回:
+//   - *Collector: 统计收集器实例
 func NewCollector(maxSnapshots int) *Collector {
 	c := &Collector{
 		snapshots:    make([]Snapshot, 0, maxSnapshots),
@@ -120,6 +141,11 @@ func (c *Collector) IncrementErrors() {
 	c.errors.Add(1)
 }
 
+// RecordLatency 记录延迟数据
+// 参数:
+//   - latency: 延迟时间
+//
+// 注意: 会自动更新最大/最小延迟
 func (c *Collector) RecordLatency(latency time.Duration) {
 	if !c.enabled.Load() {
 		return
@@ -149,6 +175,9 @@ func (c *Collector) RecordLatency(latency time.Duration) {
 	}
 }
 
+// GetSnapshot 获取当前统计快照
+// 返回:
+//   - Snapshot: 当前统计信息快照
 func (c *Collector) GetSnapshot() Snapshot {
 	var avgLatency int64
 	count := c.latencyCount.Load()
@@ -175,6 +204,11 @@ func (c *Collector) GetSnapshot() Snapshot {
 	}
 }
 
+// StartSnapshotScheduler 启动快照定时调度器
+// 参数:
+//   - interval: 快照间隔时间
+//
+// 注意: 该方法启动后台goroutine，调用StopSnapshotScheduler()停止
 func (c *Collector) StartSnapshotScheduler(interval time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -203,6 +237,8 @@ func (c *Collector) StartSnapshotScheduler(interval time.Duration) {
 	}()
 }
 
+// StopSnapshotScheduler 停止快照定时调度器
+// 注意: 该方法会等待后台goroutine退出后返回
 func (c *Collector) StopSnapshotScheduler() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -263,16 +299,26 @@ func (c *Collector) Reset() {
 	c.ClearSnapshots()
 }
 
+// Stats 统计信息DTO，用于API返回
 type Stats struct {
-	TotalConnections  int64   `json:"total_connections"`
-	ActiveConnections int64   `json:"active_connections"`
-	BytesReceived     int64   `json:"bytes_received"`
-	BytesSent         int64   `json:"bytes_sent"`
-	Requests          int64   `json:"requests"`
-	Errors            int64   `json:"errors"`
-	AvgLatencyMs      float64 `json:"avg_latency_ms"`
-	MaxLatencyMs      float64 `json:"max_latency_ms"`
-	MinLatencyMs      float64 `json:"min_latency_ms"`
+	// TotalConnections 累计连接总数
+	TotalConnections int64 `json:"total_connections"`
+	// ActiveConnections 当前活跃连接数
+	ActiveConnections int64 `json:"active_connections"`
+	// BytesReceived 累计接收字节数，单位: 字节
+	BytesReceived int64 `json:"bytes_received"`
+	// BytesSent 累计发送字节数，单位: 字节
+	BytesSent int64 `json:"bytes_sent"`
+	// Requests 累计请求数（HTTP代理）
+	Requests int64 `json:"requests"`
+	// Errors 累计错误数
+	Errors int64 `json:"errors"`
+	// AvgLatencyMs 平均延迟，单位: 毫秒
+	AvgLatencyMs float64 `json:"avg_latency_ms"`
+	// MaxLatencyMs 最大延迟，单位: 毫秒
+	MaxLatencyMs float64 `json:"max_latency_ms"`
+	// MinLatencyMs 最小延迟，单位: 毫秒
+	MinLatencyMs float64 `json:"min_latency_ms"`
 }
 
 func (c *Collector) GetStats() Stats {

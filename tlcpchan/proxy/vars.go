@@ -5,17 +5,30 @@ import (
 	"strings"
 )
 
+// Variables 变量集合，用于配置文件中的变量替换
+// 支持在HTTP头配置中使用 $remote_addr, $remote_ip 等变量
 type Variables struct {
-	RemoteAddr   string
-	RemoteIP     string
-	RemotePort   string
-	ServerAddr   string
-	ServerIP     string
-	ServerPort   string
-	TargetAddr   string
-	TargetIP     string
-	TargetPort   string
-	Protocol     string
+	// RemoteAddr 客户端地址，格式: "host:port"
+	RemoteAddr string
+	// RemoteIP 客户端IP地址
+	RemoteIP string
+	// RemotePort 客户端端口
+	RemotePort string
+	// ServerAddr 服务端地址，格式: "host:port"
+	ServerAddr string
+	// ServerIP 服务端IP地址
+	ServerIP string
+	// ServerPort 服务端端口
+	ServerPort string
+	// TargetAddr 目标地址，格式: "host:port"
+	TargetAddr string
+	// TargetIP 目标IP地址
+	TargetIP string
+	// TargetPort 目标端口
+	TargetPort string
+	// Protocol 协议类型
+	Protocol string
+	// InstanceName 实例名称
 	InstanceName string
 }
 

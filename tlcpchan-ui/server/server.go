@@ -1,9 +1,11 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/Trisia/tlcpchan-ui/proxy"
@@ -13,9 +15,19 @@ type Server struct {
 	staticDir  string
 	apiProxy   *proxy.Proxy
 	fileServer http.Handler
+	version    string
 }
 
-func New(staticDir, apiAddr string) *Server {
+type versionResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		Version   string `json:"version"`
+		GoVersion string `json:"go_version"`
+	} `json:"data"`
+}
+
+func New(staticDir, apiAddr, version string) *Server {
 	absPath, err := filepath.Abs(staticDir)
 	if err != nil {
 		absPath = staticDir
@@ -25,6 +37,7 @@ func New(staticDir, apiAddr string) *Server {
 		staticDir:  absPath,
 		apiProxy:   proxy.New(apiAddr),
 		fileServer: http.FileServer(http.Dir(absPath)),
+		version:    version,
 	}
 }
 
@@ -36,12 +49,29 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/v1/ui/version" {
+		s.versionHandler(w, r)
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, "/api/") {
 		s.apiProxy.ServeHTTP(w, r)
 		return
 	}
 
 	s.handleStatic(w, r)
+}
+
+func (s *Server) versionHandler(w http.ResponseWriter, r *http.Request) {
+	resp := versionResponse{
+		Code:    0,
+		Message: "success",
+	}
+	resp.Data.Version = s.version
+	resp.Data.GoVersion = runtime.Version()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {

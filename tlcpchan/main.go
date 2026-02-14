@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -17,10 +19,49 @@ import (
 )
 
 var (
-	configFile  = flag.String("config", "./config/config.yaml", "配置文件路径")
+	configFile  = flag.String("config", "", "配置文件路径")
 	showVersion = flag.Bool("version", false, "显示版本信息")
 	version     = "1.0.0"
 )
+
+func init() {
+	flag.StringVar(configFile, "c", "", "配置文件路径(缩写)")
+	flag.BoolVar(showVersion, "v", false, "显示版本信息(缩写)")
+}
+
+// getWorkDir 获取工作目录
+// Linux: /etc/tlcpchan
+// Windows: 程序所在目录
+// 返回:
+//   - string: 工作目录路径
+func getWorkDir() string {
+	if runtime.GOOS == "windows" {
+		exe, err := os.Executable()
+		if err != nil {
+			return "."
+		}
+		return filepath.Dir(exe)
+	}
+	return "/etc/tlcpchan"
+}
+
+// ensureWorkDir 确保工作目录及其子目录存在
+// 返回:
+//   - string: 工作目录路径
+func ensureWorkDir() string {
+	workDir := getWorkDir()
+	dirs := []string{
+		workDir,
+		filepath.Join(workDir, "certs"),
+		filepath.Join(workDir, "trusted"),
+		filepath.Join(workDir, "logs"),
+		filepath.Join(workDir, "config"),
+	}
+	for _, dir := range dirs {
+		os.MkdirAll(dir, 0755)
+	}
+	return workDir
+}
 
 func main() {
 	flag.Parse()
@@ -30,10 +71,22 @@ func main() {
 		os.Exit(0)
 	}
 
-	cfg, err := config.Load(*configFile)
+	// 初始化工作目录
+	workDir := ensureWorkDir()
+
+	// 确定配置文件路径
+	configPath := *configFile
+	if configPath == "" {
+		configPath = filepath.Join(workDir, "config", "config.yaml")
+	}
+
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		cfg = config.Default()
+		cfg.WorkDir = workDir
 		logger.Info("使用默认配置: %v", err)
+	} else {
+		cfg.WorkDir = workDir
 	}
 
 	if cfg.Server.Log != nil {
@@ -51,7 +104,7 @@ func main() {
 		}
 	}
 
-	certMgr := cert.NewManager()
+	certMgr := cert.NewManagerWithCertDir(cfg.GetCertDir())
 	instMgr := instance.NewManager(logger.Default(), certMgr)
 
 	for i := range cfg.Instances {
@@ -68,15 +121,15 @@ func main() {
 
 	opts := controller.ServerOptions{
 		Config:     cfg,
-		ConfigPath: *configFile,
-		CertDir:    "./certs",
+		ConfigPath: configPath,
+		CertDir:    cfg.GetCertDir(),
 		Version:    version,
 	}
 	apiServer := controller.NewServer(opts)
 
 	go func() {
 		if err := apiServer.Start(cfg.Server.API.Address); err != nil {
-			logger.Error("API服务启动失败: %v", err)
+			logger.Fatal("API服务启动失败: %v", err)
 		}
 	}()
 

@@ -6,7 +6,7 @@
 
 ### 基本信息
 
-- 基础 URL：`http://localhost:8080/api/v1`
+- 基础 URL：`http://localhost:30080/api/v1`
 - 内容类型：`application/json`
 - 字符编码：`UTF-8`
 
@@ -47,7 +47,7 @@ Content-Type: text/plain
 ### 获取实例列表
 
 ```bash
-curl -s http://localhost:8080/api/v1/instances | jq
+curl -s http://localhost:30080/api/v1/instances | jq
 ```
 
 响应：
@@ -616,16 +616,16 @@ fi
 
 ```bash
 # 格式化输出
-curl -s http://localhost:8080/api/v1/instances | jq
+curl -s http://localhost:30080/api/v1/instances | jq
 
 # 提取特定字段
-curl -s http://localhost:8080/api/v1/instances | jq '.instances[].name'
+curl -s http://localhost:30080/api/v1/instances | jq '.instances[].name'
 
 # 过滤数据
-curl -s http://localhost:8080/api/v1/instances | jq '.instances[] | select(.status == "running")'
+curl -s http://localhost:30080/api/v1/instances | jq '.instances[] | select(.status == "running")'
 
 # 统计
-curl -s http://localhost:8080/api/v1/instances | jq '.total'
+curl -s http://localhost:30080/api/v1/instances | jq '.total'
 ```
 
 ### 批量操作脚本

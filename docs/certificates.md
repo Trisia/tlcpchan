@@ -76,7 +76,7 @@ tlcpchan-cli cert generate -name my-server -type tls
 ### 使用 API 生成
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/certificates/generate \
+curl -X POST http://localhost:30080/api/v1/certificates/generate \
   -H "Content-Type: application/json" \
   -d '{
     "type": "tlcp",
@@ -133,19 +133,19 @@ gmssl sm2 -req -in server.csr -CA ca.crt -CAkey ca.key \
 /opt/tlcpchan/
 ├── config/
 │   └── config.yaml
-├── certs/
-│   ├── tlcp/                    # TLCP 证书目录
-│   │   ├── ca-sm2.crt
-│   │   ├── ca-sm2.key
+├── certs/                       # 证书密钥目录
+│   ├── tlcp/                    # TLCP 证书密钥
 │   │   ├── server-sm2.crt
 │   │   ├── server-sm2.key
 │   │   ├── client-sm2.crt
 │   │   └── client-sm2.key
-│   └── tls/                     # TLS 证书目录
-│       ├── ca-rsa.crt
-│       ├── ca-rsa.key
+│   └── tls/                     # TLS 证书密钥
 │       ├── server-rsa.crt
 │       └── server-rsa.key
+├── trusted/                     # 受信任证书目录
+│   ├── ca-sm2.crt              # TLCP 根证书
+│   ├── ca-rsa.crt              # TLS 根证书
+│   └── internal-ca.crt         # 内部CA证书
 └── logs/
 ```
 
@@ -253,7 +253,7 @@ TLCP Channel 支持证书热更新，无需重启服务。
 
 ```bash
 # 替换证书文件后，调用热更新接口
-curl -X POST http://localhost:8080/api/v1/certificates/reload
+curl -X POST http://localhost:30080/api/v1/certificates/reload
 ```
 
 响应：
@@ -306,7 +306,7 @@ systemctl reload tlcpchan
 
 CERT_DIR="/opt/tlcpchan/certs/tlcp"
 BACKUP_DIR="/opt/tlcpchan/certs/backup"
-API_URL="http://localhost:8080/api/v1"
+API_URL="http://localhost:30080/api/v1"
 
 # 备份旧证书
 mkdir -p "$BACKUP_DIR"
@@ -343,7 +343,7 @@ cp /etc/letsencrypt/live/example.com/fullchain.pem /opt/tlcpchan/certs/tls/serve
 cp /etc/letsencrypt/live/example.com/privkey.pem /opt/tlcpchan/certs/tls/server-rsa.key
 
 # 触发热更新
-curl -X POST http://localhost:8080/api/v1/certificates/reload
+curl -X POST http://localhost:30080/api/v1/certificates/reload
 ```
 
 ### 国密 CA（TLCP）
@@ -365,7 +365,7 @@ gmssl sm2 -new -key server.key -out server.csr \
 cp issued_cert.crt /opt/tlcpchan/certs/tlcp/server-sm2.crt
 
 # 触发热更新
-curl -X POST http://localhost:8080/api/v1/certificates/reload
+curl -X POST http://localhost:30080/api/v1/certificates/reload
 ```
 
 ### 企业内部 CA
@@ -395,7 +395,7 @@ instances:
 tlcpchan-cli cert list
 
 # API 方式
-curl http://localhost:8080/api/v1/certificates
+curl http://localhost:30080/api/v1/certificates
 ```
 
 ### 查看证书详情
@@ -405,7 +405,7 @@ curl http://localhost:8080/api/v1/certificates
 tlcpchan-cli cert show server-sm2
 
 # API 方式
-curl http://localhost:8080/api/v1/certificates/server-sm2
+curl http://localhost:30080/api/v1/certificates/server-sm2
 ```
 
 ### 删除证书
@@ -415,7 +415,7 @@ curl http://localhost:8080/api/v1/certificates/server-sm2
 tlcpchan-cli cert delete old-cert
 
 # API 方式
-curl -X DELETE http://localhost:8080/api/v1/certificates/old-cert
+curl -X DELETE http://localhost:30080/api/v1/certificates/old-cert
 ```
 
 ## 证书文件格式

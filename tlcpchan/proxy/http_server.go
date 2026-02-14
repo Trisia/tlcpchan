@@ -8,7 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
+	"net/url"
 	"sync"
 	"time"
 
@@ -18,12 +18,19 @@ import (
 	"github.com/Trisia/tlcpchan/stats"
 )
 
+// HTTPServerProxy HTTP服务端代理，接收HTTPS请求并转发到HTTP目标服务
 type HTTPServerProxy struct {
-	cfg          *config.InstanceConfig
-	adapter      *TLCPAdapter
-	handler      *ConnHandler
-	listener     net.Listener
-	certManager  *cert.Manager
+	// cfg 实例配置
+	cfg *config.InstanceConfig
+	// adapter 协议适配器
+	adapter *TLCPAdapter
+	// handler 连接处理器
+	handler *ConnHandler
+	// listener TCP监听器（已包装协议）
+	listener net.Listener
+	// certManager 证书管理器
+	certManager *cert.Manager
+	// stats 统计收集器
 	stats        *stats.Collector
 	logger       *logger.Logger
 	shutdownChan chan struct{}
@@ -178,9 +185,11 @@ func (p *HTTPServerProxy) processRequest(req *http.Request) error {
 }
 
 func (p *HTTPServerProxy) forwardRequest(req *http.Request) (*http.Response, error) {
-	targetURL := fmt.Sprintf("http://%s%s", p.cfg.Target, req.URL.Path)
-	if req.URL.RawQuery != "" {
-		targetURL += "?" + req.URL.RawQuery
+	targetURL := &url.URL{
+		Scheme:   "http",
+		Host:     p.cfg.Target,
+		Path:     req.URL.Path,
+		RawQuery: req.URL.RawQuery,
 	}
 
 	body, err := io.ReadAll(req.Body)
@@ -189,7 +198,7 @@ func (p *HTTPServerProxy) forwardRequest(req *http.Request) (*http.Response, err
 	}
 	req.Body = io.NopCloser(bytes.NewReader(body))
 
-	newReq, err := http.NewRequest(req.Method, targetURL, bytes.NewReader(body))
+	newReq, err := http.NewRequest(req.Method, targetURL.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -292,14 +301,4 @@ func (p *HTTPServerProxy) Config() *config.InstanceConfig {
 
 func (p *HTTPServerProxy) Stats() stats.Stats {
 	return p.stats.GetStats()
-}
-
-func getRemoteAddrFromRequest(req *http.Request) string {
-	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
-		}
-	}
-	return req.RemoteAddr
 }

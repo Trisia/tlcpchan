@@ -33,7 +33,7 @@ COPY --from=builder /app/tlcpchan-ui/dist /app/ui/dist
 
 RUN mkdir -p /app/config /app/certs/tlcp /app/certs/tls /app/logs
 
-EXPOSE 8080 3000
+EXPOSE 30080 30000
 
 ENV TZ=Asia/Shanghai
 

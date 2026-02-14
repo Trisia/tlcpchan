@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"os"
 	"sync"
@@ -14,11 +15,70 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
+// ECDHE密码套件ID列表
+var ecdheCipherSuites = map[uint16]bool{
+	0xC013: true, // ECDHE_SM4_CBC_SM3
+	0xC014: true, // ECDHE_SM4_GCM_SM3
+	0xC01A: true, // ECDHE_SM4_CCM_SM3
+}
+
+// isECDHECipherSuite 检查是否为ECDHE密码套件
+// 参数:
+//   - suites: 密码套件列表
+//
+// 返回:
+//   - bool: 如果列表中包含任何ECDHE密码套件则返回true
+func isECDHECipherSuite(suites []uint16) bool {
+	for _, s := range suites {
+		if ecdheCipherSuites[s] {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateClientConfig 验证客户端配置
+// 参数:
+//   - cfg: 实例配置
+//
+// 返回:
+//   - error: 配置无效时返回错误
+//
+// 注意: ECDHE密码套件只能在双向身份认证下使用
+func ValidateClientConfig(cfg *config.InstanceConfig) error {
+	// 获取TLCP认证模式
+	tlcpAuth := cfg.TLCP.Auth
+	if tlcpAuth == "" {
+		tlcpAuth = "none"
+	}
+
+	// TLCP ECDHE密码套件必须使用双向认证
+	if cfg.Protocol == "tlcp" || cfg.Protocol == "auto" {
+		suites, _ := config.ParseCipherSuites(cfg.TLCP.CipherSuites, true)
+		if len(suites) > 0 && isECDHECipherSuite(suites) && tlcpAuth != "mutual" {
+			return fmt.Errorf("ECDHE密码套件只能在双向身份认证下使用，当前认证模式: %s", tlcpAuth)
+		}
+
+		// 双向认证必须提供签名证书
+		if tlcpAuth == "mutual" {
+			if cfg.Certs.TLCP.Cert == "" || cfg.Certs.TLCP.Key == "" {
+				return fmt.Errorf("双向认证模式下必须配置TLCP签名证书和密钥")
+			}
+		}
+	}
+
+	return nil
+}
+
+// ProtocolType 协议类型
 type ProtocolType int
 
 const (
+	// ProtocolAuto 自动检测协议类型，同时支持TLCP和TLS
 	ProtocolAuto ProtocolType = iota
+	// ProtocolTLCP 国密TLCP协议
 	ProtocolTLCP
+	// ProtocolTLS 标准TLS协议
 	ProtocolTLS
 )
 
@@ -44,14 +104,34 @@ func ParseProtocolType(s string) ProtocolType {
 	}
 }
 
+// TLCPAdapter 协议适配器，负责TLCP/TLS协议的配置和连接处理
 type TLCPAdapter struct {
+	// tlcpConfig TLCP协议配置
 	tlcpConfig *tlcp.Config
-	tlsConfig  *tls.Config
-	protocol   ProtocolType
+	// tlsConfig TLS协议配置
+	tlsConfig *tls.Config
+	// protocol 当前使用的协议类型
+	protocol ProtocolType
+	// tlcpCertRef TLCP证书引用，用于热加载
+	tlcpCertRef *cert.Certificate
+	// tlsCertRef TLS证书引用，用于热加载
+	tlsCertRef *cert.Certificate
+	// certLoader 证书加载器，用于加载预制证书
+	certLoader *cert.EmbeddedCertLoader
 	logger     *logger.Logger
 	mu         sync.RWMutex
 }
 
+// NewTLCPAdapter 创建新的协议适配器
+// 参数:
+//   - cfg: 实例配置，包含协议类型、证书配置等
+//   - certManager: 证书管理器
+//
+// 返回:
+//   - *TLCPAdapter: 协议适配器实例
+//   - error: 初始化配置失败时返回错误
+//
+// 注意: 根据实例类型(server/client)自动初始化相应配置
 func NewTLCPAdapter(cfg *config.InstanceConfig, certManager *cert.Manager) (*TLCPAdapter, error) {
 	adapter := &TLCPAdapter{
 		protocol: ParseProtocolType(cfg.Protocol),
@@ -71,6 +151,13 @@ func NewTLCPAdapter(cfg *config.InstanceConfig, certManager *cert.Manager) (*TLC
 	return adapter, nil
 }
 
+// loadSMCertPool 加载国密CA证书池
+// 参数:
+//   - paths: CA证书文件路径列表
+//
+// 返回:
+//   - *smx509.CertPool: 国密证书池
+//   - error: 读取或解析证书失败时返回错误
 func loadSMCertPool(paths []string) (*smx509.CertPool, error) {
 	pool := smx509.NewCertPool()
 
@@ -89,45 +176,67 @@ func loadSMCertPool(paths []string) (*smx509.CertPool, error) {
 }
 
 func (a *TLCPAdapter) initServerConfig(cfg *config.InstanceConfig, certManager *cert.Manager) error {
-	if cfg.Auth == "one-way" || cfg.Auth == "mutual" {
+	// 获取认证模式，优先使用协议特定配置
+	tlcpAuth := cfg.TLCP.Auth
+	if tlcpAuth == "" {
+		tlcpAuth = "none"
+	}
+	tlsAuth := cfg.TLS.Auth
+	if tlsAuth == "" {
+		tlsAuth = "none"
+	}
+
+	// TLCP服务端配置
+	if tlcpAuth == "one-way" || tlcpAuth == "mutual" {
 		if cfg.Certs.TLCP.Cert != "" && cfg.Certs.TLCP.Key != "" {
 			tlcpCert, err := certManager.LoadTLCP(cfg.Name+"-tlcp", cfg.Certs.TLCP.Cert, cfg.Certs.TLCP.Key)
 			if err != nil {
 				return err
 			}
+			a.tlcpCertRef = tlcpCert.Cert
 			a.tlcpConfig = &tlcp.Config{
-				Certificates: []tlcp.Certificate{tlcpCert.Cert.TLCPCertificate()},
+				GetCertificate: a.tlcpCertRef.GetTLCPCertificate,
 			}
 		}
 
-		if cfg.Certs.TLS.Cert != "" && cfg.Certs.TLS.Key != "" {
-			tlsCert, err := certManager.LoadTLS(cfg.Name+"-tls", cfg.Certs.TLS.Cert, cfg.Certs.TLS.Key)
-			if err != nil {
-				return err
-			}
-			a.tlsConfig = &tls.Config{
-				Certificates: []tls.Certificate{tlsCert.Cert.TLSCertificate()},
-			}
-		}
-	}
-
-	if cfg.Auth == "mutual" {
-		if len(cfg.ClientCA) > 0 && a.tlcpConfig != nil {
+		if tlcpAuth == "mutual" && len(cfg.ClientCA) > 0 && a.tlcpConfig != nil {
 			pool, err := loadSMCertPool(cfg.ClientCA)
 			if err != nil {
 				return err
 			}
 			a.tlcpConfig.ClientCAs = pool
+			// 根据Auth字段自动设置ClientAuth
 			a.tlcpConfig.ClientAuth = tlcp.RequireAndVerifyClientCert
+		} else if tlcpAuth == "one-way" && a.tlcpConfig != nil {
+			// 单向认证时不要求客户端证书
+			a.tlcpConfig.ClientAuth = tlcp.NoClientCert
+		}
+	}
+
+	// TLS服务端配置
+	if tlsAuth == "one-way" || tlsAuth == "mutual" {
+		if cfg.Certs.TLS.Cert != "" && cfg.Certs.TLS.Key != "" {
+			tlsCert, err := certManager.LoadTLS(cfg.Name+"-tls", cfg.Certs.TLS.Cert, cfg.Certs.TLS.Key)
+			if err != nil {
+				return err
+			}
+			a.tlsCertRef = tlsCert.Cert
+			a.tlsConfig = &tls.Config{
+				GetCertificate: a.tlsCertRef.GetCertificate,
+			}
 		}
 
-		if len(cfg.ClientCA) > 0 && a.tlsConfig != nil {
+		if tlsAuth == "mutual" && len(cfg.ClientCA) > 0 && a.tlsConfig != nil {
 			pool, err := certManager.Loader().LoadClientCA(cfg.ClientCA)
 			if err != nil {
 				return err
 			}
 			a.tlsConfig.ClientCAs = pool
+			// 根据Auth字段自动设置ClientAuth
 			a.tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		} else if tlsAuth == "one-way" && a.tlsConfig != nil {
+			// 单向认证时不要求客户端证书
+			a.tlsConfig.ClientAuth = tls.NoClientCert
 		}
 	}
 
@@ -150,7 +259,18 @@ func (a *TLCPAdapter) initClientConfig(cfg *config.InstanceConfig, certManager *
 		a.tlsConfig.ServerName = cfg.SNI
 	}
 
-	if cfg.Auth == "mutual" {
+	// 获取认证模式，优先使用协议特定配置
+	tlcpAuth := cfg.TLCP.Auth
+	if tlcpAuth == "" {
+		tlcpAuth = "none"
+	}
+	tlsAuth := cfg.TLS.Auth
+	if tlsAuth == "" {
+		tlsAuth = "none"
+	}
+
+	// TLCP客户端双向认证
+	if tlcpAuth == "mutual" {
 		if cfg.Certs.TLCP.Cert != "" && cfg.Certs.TLCP.Key != "" {
 			tlcpCert, err := certManager.LoadTLCP(cfg.Name+"-tlcp", cfg.Certs.TLCP.Cert, cfg.Certs.TLCP.Key)
 			if err != nil {
@@ -158,7 +278,10 @@ func (a *TLCPAdapter) initClientConfig(cfg *config.InstanceConfig, certManager *
 			}
 			a.tlcpConfig.Certificates = []tlcp.Certificate{tlcpCert.Cert.TLCPCertificate()}
 		}
+	}
 
+	// TLS客户端双向认证
+	if tlsAuth == "mutual" {
 		if cfg.Certs.TLS.Cert != "" && cfg.Certs.TLS.Key != "" {
 			tlsCert, err := certManager.LoadTLS(cfg.Name+"-tls", cfg.Certs.TLS.Cert, cfg.Certs.TLS.Key)
 			if err != nil {
@@ -250,6 +373,12 @@ func (a *TLCPAdapter) AutoListener(l net.Listener) net.Listener {
 	return NewAutoProtocolListener(l, a.tlcpConfig, a.tlsConfig)
 }
 
+// WrapServerListener 包装服务端监听器，根据协议类型返回对应监听器
+// 参数:
+//   - l: 原始TCP监听器
+//
+// 返回:
+//   - net.Listener: 包装后的监听器（TLCP/TLS/Auto）
 func (a *TLCPAdapter) WrapServerListener(l net.Listener) net.Listener {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -272,6 +401,15 @@ func (a *TLCPAdapter) DialTLS(network, addr string) (net.Conn, error) {
 	return tls.Dial(network, addr, a.tlsConfig)
 }
 
+// DialWithProtocol 使用指定协议连接目标服务
+// 参数:
+//   - network: 网络类型，如 "tcp"
+//   - addr: 目标地址，格式 "host:port"
+//   - protocol: 协议类型
+//
+// 返回:
+//   - net.Conn: 已建立协议连接
+//   - error: 连接失败时返回错误
 func (a *TLCPAdapter) DialWithProtocol(network, addr string, protocol ProtocolType) (net.Conn, error) {
 	switch protocol {
 	case ProtocolTLCP:
@@ -305,10 +443,13 @@ func (a *TLCPAdapter) TLSConfig() *tls.Config {
 	return a.tlsConfig
 }
 
+// AutoProtocolListener 自动协议检测监听器，根据客户端握手自动识别TLCP或TLS协议
 type AutoProtocolListener struct {
 	net.Listener
+	// tlcpConfig TLCP协议配置
 	tlcpConfig *tlcp.Config
-	tlsConfig  *tls.Config
+	// tlsConfig TLS协议配置
+	tlsConfig *tls.Config
 }
 
 func NewAutoProtocolListener(l net.Listener, tlcpCfg *tlcp.Config, tlsCfg *tls.Config) *AutoProtocolListener {
@@ -328,14 +469,20 @@ func (l *AutoProtocolListener) Accept() (net.Conn, error) {
 	return newAutoProtocolConn(conn, l.tlcpConfig, l.tlsConfig), nil
 }
 
+// autoProtocolConn 自动协议检测连接，支持延迟握手和协议自动识别
 type autoProtocolConn struct {
 	net.Conn
+	// tlcpConfig TLCP协议配置
 	tlcpConfig *tlcp.Config
-	tlsConfig  *tls.Config
-	peeked     []byte
+	// tlsConfig TLS协议配置
+	tlsConfig *tls.Config
+	// peeked 预读的字节数据，用于协议检测
+	peeked []byte
+	// handshaked 是否已完成握手
 	handshaked bool
-	conn       net.Conn
-	mu         sync.Mutex
+	// conn 握手后的实际连接（TLCP或TLS）
+	conn net.Conn
+	mu   sync.Mutex
 }
 
 func newAutoProtocolConn(conn net.Conn, tlcpCfg *tlcp.Config, tlsCfg *tls.Config) *autoProtocolConn {
@@ -439,6 +586,14 @@ func ioReadFull(r net.Conn, buf []byte) (n int, err error) {
 	return n, nil
 }
 
+// detectProtocol 根据握手数据检测协议类型
+// 参数:
+//   - data: 握手数据（至少5字节）
+//
+// 返回:
+//   - ProtocolType: 检测到的协议类型
+//
+// 注意: TLCP版本号为0x0101，TLS为0x0301~0x0304
 func detectProtocol(data []byte) ProtocolType {
 	if len(data) < 5 {
 		return ProtocolTLS

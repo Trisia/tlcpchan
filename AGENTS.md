@@ -159,5 +159,150 @@ func TestProxyConnection(t *testing.T) {
 ## 注意事项
 
 1. 不提交敏感信息（密钥、证书、密码等）
-2. 代码中不添加不必要的注释
-3. 使用 context.Context 进行超时和取消控制
+2. 使用 context.Context 进行超时和取消控制
+
+## 注释规范
+
+### 函数注释规范
+
+除非函数功能特别简单直观（如简单的 getter/setter），否则必须为函数编写详细注释。
+
+后端（Go）函数必须严格遵循注释规范，前端（TypeScript/React）函数可根据场景灵活处理。
+
+注释应包括：
+
+1. **函数功能**：简要描述函数的作用
+2. **参数说明**：每个参数的含义和约束
+3. **返回值说明**：返回值的含义，特别是错误情况
+4. **注意事项**：使用时需要注意的事项（如果有）
+
+#### Go 函数注释示例
+
+```go
+// NewProxyServer 创建新的代理服务器实例
+// 参数:
+//   - cfg: 代理配置，不能为 nil
+//   - logger: 日志记录器，若为 nil 则使用默认日志
+// 返回:
+//   - *ProxyServer: 代理服务器实例
+//   - error: 配置验证失败时返回错误
+// 注意: 调用前需确保证书文件存在且可读
+func NewProxyServer(cfg *Config, logger *zap.Logger) (*ProxyServer, error) {
+    // ...
+}
+
+// Start 启动代理服务器
+// 参数:
+//   - ctx: 上下文，用于控制启动超时
+// 返回:
+//   - error: 端口占用或证书加载失败时返回错误
+// 注意: 该方法会阻塞直到服务器停止或ctx取消
+func (s *ProxyServer) Start(ctx context.Context) error {
+    // ...
+}
+
+// parseAddress 解析地址字符串为host和port
+// 参数:
+//   - addr: 地址字符串，格式为 "host:port" 或 ":port"
+// 返回:
+//   - host: 主机地址，若输入为 ":port" 则返回 ""
+//   - port: 端口号
+//   - error: 地址格式无效时返回错误
+func parseAddress(addr string) (host string, port int, err error) {
+    // ...
+}
+```
+
+#### TypeScript 函数注释示例
+
+```typescript
+/**
+ * 格式化字节数为人类可读格式
+ * @param bytes 字节数，必须为非负整数
+ * @param decimals 小数位数，默认为2
+ * @returns 格式化后的字符串，如 "1.5 MB"
+ */
+export function formatBytes(bytes: number, decimals = 2): string {
+    // ...
+}
+```
+
+### 类型/结构体注释规范
+
+所有DTO（数据传输对象）、配置对象和关键结构体必须添加详细的注释说明：
+
+#### 枚举类型注释
+
+必须说明所有可选值及其含义：
+
+```go
+// Auth 认证模式
+type Auth string
+
+const (
+    // AuthNone 无认证
+    AuthNone Auth = "none"
+    // AuthOneWay 单向认证，仅验证对端证书
+    AuthOneWay Auth = "one-way"
+    // AuthMutual 双向认证，双方互相验证证书
+    AuthMutual Auth = "mutual"
+)
+```
+
+#### 数值类型注释
+
+必须明确说明数值单位：
+
+```go
+type LogConfig struct {
+    // MaxSize 单个日志文件最大大小，单位: MB
+    MaxSize int `yaml:"max_size"`
+    // MaxBackups 保留的旧日志文件最大数量，单位: 个
+    MaxBackups int `yaml:"max_backups"`
+    // MaxAge 保留旧日志文件的最大天数，单位: 天
+    MaxAge int `yaml:"max_age"`
+    // AvgLatencyMs 平均延迟，单位: 毫秒
+    AvgLatencyMs float64 `json:"avg_latency_ms"`
+}
+```
+
+#### 字符串类型注释
+
+若有特殊意义需说明，若有明确构成成分应举例说明：
+
+```go
+type APIConfig struct {
+    // Address API服务监听地址
+    // 格式: "host:port" 或 ":port"
+    // 示例: ":8080" 表示监听所有网卡的8080端口
+    // 示例: "127.0.0.1:8080" 表示仅监听本地回环地址
+    Address string `yaml:"address"`
+}
+
+type CertConfig struct {
+    // Cert 证书文件路径，支持PEM格式
+    // 示例: "server.crt" 或 "./certs/server.pem"
+    Cert string `yaml:"cert,omitempty"`
+}
+```
+
+#### TypeScript 类型注释
+
+```typescript
+/**
+ * 代理实例信息
+ */
+export interface Instance {
+  /** 实例名称，全局唯一标识符 */
+  name: string
+  /** 代理类型
+   * - server: TCP服务端代理
+   * - client: TCP客户端代理
+   */
+  type: 'server' | 'client'
+  /** 运行时长，单位: 秒 */
+  uptime?: number
+  /** 平均延迟，单位: 毫秒 */
+  latency_avg_ms?: number
+}
+```

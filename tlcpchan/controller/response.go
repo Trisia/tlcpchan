@@ -5,12 +5,22 @@ import (
 	"net/http"
 )
 
+// WriteJSON 写入JSON响应
+// 参数:
+//   - w: HTTP响应写入器
+//   - status: HTTP状态码
+//   - data: 响应数据
 func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
 }
 
+// WriteError 写入错误响应
+// 参数:
+//   - w: HTTP响应写入器
+//   - status: HTTP状态码
+//   - message: 错误消息
 func WriteError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(status)

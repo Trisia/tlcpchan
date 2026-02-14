@@ -10,11 +10,20 @@ import (
 	"time"
 )
 
+// Client HTTP客户端，用于与TLCP Channel API服务通信
 type Client struct {
-	baseURL    string
+	// baseURL API服务基础URL
+	baseURL string
+	// httpClient HTTP客户端实例
 	httpClient *http.Client
 }
 
+// NewClient 创建新的API客户端
+// 参数:
+//   - baseURL: API服务基础URL，格式: "http://host:port"
+//
+// 返回:
+//   - *Client: API客户端实例
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
@@ -24,23 +33,63 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
+// Get 发送GET请求
+// 参数:
+//   - path: API路径，相对于baseURL
+//
+// 返回:
+//   - []byte: 响应体数据
+//   - error: 请求失败时返回错误
 func (c *Client) Get(path string) ([]byte, error) {
 	return c.doRequest(http.MethodGet, path, nil)
 }
 
+// Post 发送POST请求
+// 参数:
+//   - path: API路径，相对于baseURL
+//   - data: 请求体数据，会自动序列化为JSON
+//
+// 返回:
+//   - []byte: 响应体数据
+//   - error: 请求失败时返回错误
 func (c *Client) Post(path string, data interface{}) ([]byte, error) {
 	return c.doRequest(http.MethodPost, path, data)
 }
 
+// Put 发送PUT请求
+// 参数:
+//   - path: API路径，相对于baseURL
+//   - data: 请求体数据，会自动序列化为JSON
+//
+// 返回:
+//   - []byte: 响应体数据
+//   - error: 请求失败时返回错误
 func (c *Client) Put(path string, data interface{}) ([]byte, error) {
 	return c.doRequest(http.MethodPut, path, data)
 }
 
+// Delete 发送DELETE请求
+// 参数:
+//   - path: API路径，相对于baseURL
+//
+// 返回:
+//   - error: 请求失败时返回错误
 func (c *Client) Delete(path string) error {
 	_, err := c.doRequest(http.MethodDelete, path, nil)
 	return err
 }
 
+// doRequest 执行HTTP请求
+// 参数:
+//   - method: HTTP方法，如 "GET", "POST", "PUT", "DELETE"
+//   - path: API路径，相对于baseURL
+//   - data: 请求体数据，为nil时发送空请求体
+//
+// 返回:
+//   - []byte: 响应体数据
+//   - error: 请求失败时返回错误
+//
+// 注意: 自动设置Content-Type为application/json，状态码>=400时返回错误
 func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error) {
 	var body io.Reader
 	if data != nil {
@@ -51,12 +100,12 @@ func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error
 		body = bytes.NewReader(jsonData)
 	}
 
-	u, err := url.JoinPath(c.baseURL, path)
+	url, err := url.JoinPath(c.baseURL, path)
 	if err != nil {
 		return nil, fmt.Errorf("构建URL失败: %w", err)
 	}
 
-	req, err := http.NewRequest(method, u, body)
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -67,7 +116,7 @@ func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("请求失败: %w", err)
+		return nil, fmt.Errorf("发送请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -77,7 +126,7 @@ func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API错误(%d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("请求失败: %s - %s", resp.Status, string(respBody))
 	}
 
 	return respBody, nil
@@ -262,4 +311,54 @@ func (c *Client) HealthCheck() (*HealthStatus, error) {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 	return &health, nil
+}
+
+type VersionInfo struct {
+	Version   string `json:"version"`
+	GoVersion string `json:"go_version"`
+}
+
+func (c *Client) GetVersion() (*VersionInfo, error) {
+	data, err := c.Get("/api/v1/system/version")
+	if err != nil {
+		return nil, err
+	}
+	var info VersionInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &info, nil
+}
+
+// InstanceHealthCheckResult 实例健康检测结果
+type InstanceHealthCheckResult struct {
+	Success   bool                `json:"success"`
+	LatencyMs float64             `json:"latency_ms"`
+	Error     string              `json:"error,omitempty"`
+	TLCPInfo  *ProtocolHealthInfo `json:"tlcp_info,omitempty"`
+	TLSInfo   *ProtocolHealthInfo `json:"tls_info,omitempty"`
+}
+
+// ProtocolHealthInfo 协议健康信息
+type ProtocolHealthInfo struct {
+	Success           bool    `json:"success"`
+	LatencyMs         float64 `json:"latency_ms"`
+	CertValid         bool    `json:"cert_valid"`
+	CertExpiry        string  `json:"cert_expiry,omitempty"`
+	CertDaysRemaining int     `json:"cert_days_remaining,omitempty"`
+	Error             string  `json:"error,omitempty"`
+}
+
+// CheckInstanceHealth 执行实例健康检测
+func (c *Client) CheckInstanceHealth(name string, fullHandshake bool) (*InstanceHealthCheckResult, error) {
+	path := fmt.Sprintf("/api/v1/instances/%s/health", name)
+	data, err := c.Post(path, map[string]bool{"full_handshake": fullHandshake})
+	if err != nil {
+		return nil, err
+	}
+	var result InstanceHealthCheckResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &result, nil
 }

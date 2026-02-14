@@ -9,13 +9,22 @@ import (
 	"github.com/Trisia/tlcpchan/logger"
 )
 
+// Manager 实例管理器，负责代理实例的创建、启动、停止和删除
 type Manager struct {
+	// instances 实例映射，key为实例名称
 	instances   map[string]Instance
 	mu          sync.RWMutex
 	logger      *logger.Logger
 	certManager *cert.Manager
 }
 
+// NewManager 创建新的实例管理器
+// 参数:
+//   - log: 日志记录器
+//   - certMgr: 证书管理器
+//
+// 返回:
+//   - *Manager: 实例管理器实例
 func NewManager(log *logger.Logger, certMgr *cert.Manager) *Manager {
 	return &Manager{
 		instances:   make(map[string]Instance),
@@ -24,6 +33,13 @@ func NewManager(log *logger.Logger, certMgr *cert.Manager) *Manager {
 	}
 }
 
+// Create 创建新的代理实例
+// 参数:
+//   - cfg: 实例配置
+//
+// 返回:
+//   - Instance: 创建的实例
+//   - error: 实例已存在或创建失败时返回错误
 func (m *Manager) Create(cfg *config.InstanceConfig) (Instance, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -59,6 +75,14 @@ func (m *Manager) List() []Instance {
 	return list
 }
 
+// Delete 删除代理实例
+// 参数:
+//   - name: 实例名称
+//
+// 返回:
+//   - error: 实例不存在或正在运行时返回错误
+//
+// 注意: 正在运行的实例必须先停止才能删除
 func (m *Manager) Delete(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -77,6 +101,11 @@ func (m *Manager) Delete(name string) error {
 	return nil
 }
 
+// StartAll 启动所有已启用的实例
+// 返回:
+//   - []error: 启动失败的错误列表，为空表示全部成功
+//
+// 注意: 未启用的实例(Enabled=false)会被跳过
 func (m *Manager) StartAll() []error {
 	m.mu.RLock()
 	instances := make([]Instance, 0, len(m.instances))
@@ -105,6 +134,7 @@ func (m *Manager) StartAll() []error {
 	return errors
 }
 
+// StopAll 停止所有运行中的实例
 func (m *Manager) StopAll() {
 	m.mu.RLock()
 	instances := make([]Instance, 0, len(m.instances))

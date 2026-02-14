@@ -27,8 +27,10 @@ type Command struct {
 }
 
 func Execute(version string) error {
-	flag.StringVar(&apiURL, "api", "http://localhost:8080", "API服务地址")
+	flag.StringVar(&apiURL, "api", "http://localhost:30080", "API服务地址")
+	flag.StringVar(&apiURL, "a", "http://localhost:30080", "API服务地址(缩写)")
 	flag.StringVar(&output, "output", "table", "输出格式 (table|json)")
+	flag.StringVar(&output, "o", "table", "输出格式(缩写) (table|json)")
 	flag.Usage = printUsage
 	flag.Parse()
 
@@ -74,6 +76,7 @@ func getCommands() map[string]Command {
 				"reload": {Name: "reload", Description: "重载实例", Usage: "reload <name>", Run: instanceReload},
 				"stats":  {Name: "stats", Description: "查看统计信息", Usage: "stats <name>", Run: instanceStats},
 				"logs":   {Name: "logs", Description: "查看日志", Usage: "logs <name>", Run: instanceLogs},
+				"health": {Name: "health", Description: "健康检测", Usage: "health <name> [--full]", Run: instanceHealth},
 			},
 		},
 		"config": {

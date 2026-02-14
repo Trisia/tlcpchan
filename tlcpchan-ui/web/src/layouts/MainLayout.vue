@@ -27,14 +27,20 @@
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
-        <a href="https://github.com/Trisia/tlcpchan" target="_blank" class="link">
-          <el-icon><Link /></el-icon>
-          GitHub
-        </a>
-        <a href="https://github.com/Trisia/tlcpchan/tree/main/docs" target="_blank" class="link">
-          <el-icon><Reading /></el-icon>
-          文档
-        </a>
+        <div class="version-info">
+          <span>UI: v{{ uiVersion }}</span>
+          <span>后端: v{{ backendVersion || '-' }}</span>
+        </div>
+        <div class="links">
+          <a href="https://github.com/Trisia/tlcpchan" target="_blank" class="link">
+            <el-icon><Link /></el-icon>
+            GitHub
+          </a>
+          <a href="https://github.com/Trisia/tlcpchan/tree/main/docs" target="_blank" class="link">
+            <el-icon><Reading /></el-icon>
+            文档
+          </a>
+        </div>
       </div>
     </el-aside>
     <el-main class="main">
@@ -44,8 +50,23 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { uiApi, systemApi } from '@/api'
+
 const route = useRoute()
+const uiVersion = ref('dev')
+const backendVersion = ref('')
+
+onMounted(async () => {
+  uiVersion.value = await uiApi.fetchStaticVersion()
+  try {
+    const info = await systemApi.version()
+    backendVersion.value = info.version
+  } catch {
+    // ignore
+  }
+})
 </script>
 
 <style scoped>
@@ -77,6 +98,16 @@ const route = useRoute()
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid #3a3b3c;
+}
+.version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #909399;
+}
+.links {
   display: flex;
   gap: 16px;
 }

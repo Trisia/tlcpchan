@@ -6,17 +6,25 @@ import (
 	"strings"
 )
 
+// Route 路由定义
 type Route struct {
-	Method  string
+	// Method HTTP方法
+	Method string
+	// Pattern URL模式，支持参数如 "/api/:id"
 	Pattern string
+	// Handler 处理函数
 	Handler http.HandlerFunc
 }
 
+// Router HTTP路由器
 type Router struct {
 	routes      []Route
 	middlewares []func(http.Handler) http.Handler
 }
 
+// NewRouter 创建新的路由器
+// 返回:
+//   - *Router: 路由器实例
 func NewRouter() *Router {
 	return &Router{
 		routes:      make([]Route, 0),
@@ -24,6 +32,11 @@ func NewRouter() *Router {
 	}
 }
 
+// Use 添加中间件
+// 参数:
+//   - middleware: 中间件函数
+//
+// 注意: 中间件按添加顺序的逆序执行
 func (r *Router) Use(middleware func(http.Handler) http.Handler) {
 	r.middlewares = append(r.middlewares, middleware)
 }
@@ -81,6 +94,13 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 type pathParamsKey struct{}
 
+// PathParam 从请求中获取路径参数
+// 参数:
+//   - req: HTTP请求
+//   - key: 参数名
+//
+// 返回:
+//   - string: 参数值，不存在时返回空字符串
 func PathParam(req *http.Request, key string) string {
 	params, ok := req.Context().Value(pathParamsKey{}).(map[string]string)
 	if !ok {
@@ -89,6 +109,14 @@ func PathParam(req *http.Request, key string) string {
 	return params[key]
 }
 
+// matchPattern 匹配URL模式并提取参数
+// 参数:
+//   - pattern: URL模式，如 "/api/:id"
+//   - path: 实际URL路径
+//
+// 返回:
+//   - map[string]string: 提取的参数键值对
+//   - bool: 是否匹配成功
 func matchPattern(pattern, path string) (map[string]string, bool) {
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
 	pathParts := strings.Split(strings.Trim(path, "/"), "/")

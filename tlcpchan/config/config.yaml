@@ -1,9 +1,9 @@
 server:
   api:
-    address: ":8080"
+    address: ":30080"
   ui:
     enabled: true
-    address: ":3000"
+    address: ":30000"
     path: "./ui"
   log:
     level: "info"
@@ -19,8 +19,7 @@ instances:
   - name: "tlcp-server-demo"
     type: "server"
     protocol: "tlcp"
-    auth: "one-way"
-    listen: ":443"
+    listen: ":30443"
     target: "127.0.0.1:8080"
     enabled: false
     certificates:
@@ -28,6 +27,7 @@ instances:
         cert: "server-sm2"
         key: "server-sm2"
     tlcp:
+      auth: "one-way"
       min_version: "1.1"
       max_version: "1.1"
       cipher_suites:
@@ -38,8 +38,7 @@ instances:
   - name: "tls-server-demo"
     type: "server"
     protocol: "tls"
-    auth: "one-way"
-    listen: ":8443"
+    listen: ":38443"
     target: "127.0.0.1:8080"
     enabled: false
     certificates:
@@ -47,6 +46,7 @@ instances:
         cert: "server-rsa"
         key: "server-rsa"
     tls:
+      auth: "one-way"
       min_version: "1.2"
       max_version: "1.3"
 
@@ -54,25 +54,28 @@ instances:
   - name: "client-demo"
     type: "client"
     protocol: "auto"
-    listen: ":9000"
+    listen: ":39000"
     target: "example.com:443"
     enabled: false
     server_ca:
       - "ca-rsa"
     tls:
+      auth: "none"
       insecure_skip_verify: true
 
   # HTTP代理示例
   - name: "http-proxy-demo"
     type: "http-server"
     protocol: "tlcp"
-    listen: ":8443"
+    listen: ":38444"
     target: "127.0.0.1:8000"
     enabled: false
     certificates:
       tlcp:
         cert: "server-sm2"
         key: "server-sm2"
+    tlcp:
+      auth: "one-way"
     http:
       request_headers:
         add:

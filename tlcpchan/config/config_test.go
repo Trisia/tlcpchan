@@ -15,16 +15,16 @@ func TestDefault(t *testing.T) {
 		t.Fatal("Default() 返回 nil")
 	}
 
-	if cfg.Server.API.Address != ":8080" {
-		t.Errorf("默认API地址应为 :8080, 实际为 %s", cfg.Server.API.Address)
+	if cfg.Server.API.Address != ":30080" {
+		t.Errorf("默认API地址应为 :30080, 实际为 %s", cfg.Server.API.Address)
 	}
 
 	if !cfg.Server.UI.Enabled {
 		t.Error("默认UI应启用")
 	}
 
-	if cfg.Server.UI.Address != ":3000" {
-		t.Errorf("默认UI地址应为 :3000, 实际为 %s", cfg.Server.UI.Address)
+	if cfg.Server.UI.Address != ":30000" {
+		t.Errorf("默认UI地址应为 :30000, 实际为 %s", cfg.Server.UI.Address)
 	}
 
 	if cfg.Server.Log == nil {
@@ -128,7 +128,7 @@ func TestValidate(t *testing.T) {
 			name: "有效配置",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -137,7 +137,6 @@ func TestValidate(t *testing.T) {
 						Listen:   ":8443",
 						Target:   "localhost:443",
 						Protocol: "auto",
-						Auth:     "none",
 					},
 				},
 			},
@@ -147,7 +146,7 @@ func TestValidate(t *testing.T) {
 			name: "空实例名称",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -165,11 +164,11 @@ func TestValidate(t *testing.T) {
 			name: "重复实例名称",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
-					{Name: "test", Type: "server", Listen: ":8443", Target: "localhost:443", Protocol: "auto", Auth: "none"},
-					{Name: "test", Type: "client", Listen: ":8444", Target: "localhost:443", Protocol: "auto", Auth: "none"},
+					{Name: "test", Type: "server", Listen: ":8443", Target: "localhost:443", Protocol: "auto"},
+					{Name: "test", Type: "client", Listen: ":8444", Target: "localhost:443", Protocol: "auto"},
 				},
 			},
 			wantErr: true,
@@ -179,7 +178,7 @@ func TestValidate(t *testing.T) {
 			name: "空监听地址",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -197,7 +196,7 @@ func TestValidate(t *testing.T) {
 			name: "空目标地址",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -215,7 +214,7 @@ func TestValidate(t *testing.T) {
 			name: "空类型",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -233,7 +232,7 @@ func TestValidate(t *testing.T) {
 			name: "无效类型",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -251,7 +250,7 @@ func TestValidate(t *testing.T) {
 			name: "无效协议",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -267,10 +266,10 @@ func TestValidate(t *testing.T) {
 			errMsg:  "无效的协议",
 		},
 		{
-			name: "无效认证模式",
+			name: "无效TLCP认证模式",
 			cfg: &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -278,13 +277,13 @@ func TestValidate(t *testing.T) {
 						Type:     "server",
 						Listen:   ":8443",
 						Target:   "localhost:443",
-						Protocol: "auto",
-						Auth:     "invalid",
+						Protocol: "tlcp",
+						TLCP:     TLCPConfig{Auth: "invalid"},
 					},
 				},
 			},
 			wantErr: true,
-			errMsg:  "无效的认证模式",
+			errMsg:  "无效的TLCP认证模式",
 		},
 		{
 			name: "默认API地址",
@@ -328,7 +327,6 @@ func TestValidateDefaultValueFill(t *testing.T) {
 				Listen:   ":8443",
 				Target:   "localhost:443",
 				Protocol: "auto",
-				Auth:     "none",
 			},
 		},
 	}
@@ -337,8 +335,8 @@ func TestValidateDefaultValueFill(t *testing.T) {
 		t.Fatalf("Validate() 失败: %v", err)
 	}
 
-	if cfg.Server.API.Address != ":8080" {
-		t.Errorf("API地址应默认为 :8080, 实际为 %s", cfg.Server.API.Address)
+	if cfg.Server.API.Address != ":30080" {
+		t.Errorf("API地址应默认为 :30080, 实际为 %s", cfg.Server.API.Address)
 	}
 }
 
@@ -507,7 +505,7 @@ func TestSaveConfig(t *testing.T) {
 				Listen:   ":8443",
 				Target:   "localhost:443",
 				Protocol: "tlcp",
-				Auth:     "one-way",
+				TLCP:     TLCPConfig{Auth: "one-way"},
 				Enabled:  true,
 			},
 		},
@@ -602,7 +600,7 @@ func TestValidTypes(t *testing.T) {
 		t.Run(typ, func(t *testing.T) {
 			cfg := &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -611,7 +609,6 @@ func TestValidTypes(t *testing.T) {
 						Listen:   ":8443",
 						Target:   "localhost:443",
 						Protocol: "auto",
-						Auth:     "none",
 					},
 				},
 			}
@@ -629,7 +626,7 @@ func TestValidProtocols(t *testing.T) {
 		t.Run(protocol, func(t *testing.T) {
 			cfg := &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -638,7 +635,6 @@ func TestValidProtocols(t *testing.T) {
 						Listen:   ":8443",
 						Target:   "localhost:443",
 						Protocol: protocol,
-						Auth:     "none",
 					},
 				},
 			}
@@ -656,7 +652,7 @@ func TestValidAuthModes(t *testing.T) {
 		t.Run(auth, func(t *testing.T) {
 			cfg := &Config{
 				Server: ServerConfig{
-					API: APIConfig{Address: ":8080"},
+					API: APIConfig{Address: ":30080"},
 				},
 				Instances: []InstanceConfig{
 					{
@@ -665,7 +661,7 @@ func TestValidAuthModes(t *testing.T) {
 						Listen:   ":8443",
 						Target:   "localhost:443",
 						Protocol: "auto",
-						Auth:     auth,
+						TLCP:     TLCPConfig{Auth: auth},
 					},
 				},
 			}
@@ -688,4 +684,170 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestParseTLCPClientAuth(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected tlcp.ClientAuthType
+		wantErr  bool
+	}{
+		{"", tlcp.NoClientCert, false},
+		{"no-client-cert", tlcp.NoClientCert, false},
+		{"request-client-cert", tlcp.RequestClientCert, false},
+		{"require-any-client-cert", tlcp.RequireAnyClientCert, false},
+		{"verify-client-cert-if-given", tlcp.VerifyClientCertIfGiven, false},
+		{"require-and-verify-client-cert", tlcp.RequireAndVerifyClientCert, false},
+		{"invalid", tlcp.NoClientCert, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result, err := ParseTLCPClientAuth(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("期望错误但未返回")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("不期望错误但返回: %v", err)
+				}
+				if result != tt.expected {
+					t.Errorf("结果应为 %d, 实际为 %d", tt.expected, result)
+				}
+			}
+		})
+	}
+}
+
+func TestParseTLSClientAuth(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected tls.ClientAuthType
+		wantErr  bool
+	}{
+		{"", tls.NoClientCert, false},
+		{"no-client-cert", tls.NoClientCert, false},
+		{"request-client-cert", tls.RequestClientCert, false},
+		{"require-any-client-cert", tls.RequireAnyClientCert, false},
+		{"verify-client-cert-if-given", tls.VerifyClientCertIfGiven, false},
+		{"require-and-verify-client-cert", tls.RequireAndVerifyClientCert, false},
+		{"invalid", tls.NoClientCert, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result, err := ParseTLSClientAuth(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("期望错误但未返回")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("不期望错误但返回: %v", err)
+				}
+				if result != tt.expected {
+					t.Errorf("结果应为 %d, 实际为 %d", tt.expected, result)
+				}
+			}
+		})
+	}
+}
+
+func TestValidClientAuthValues(t *testing.T) {
+	values := ValidClientAuthValues()
+	if len(values) != 5 {
+		t.Errorf("应有5个有效的客户端认证值, 实际有 %d 个", len(values))
+	}
+}
+
+func TestResolveCertPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		certDir  string
+		path     string
+		expected string
+	}{
+		{"空路径", "/certs", "", ""},
+		{"绝对路径", "/certs", "/etc/certs/cert.pem", "/etc/certs/cert.pem"},
+		{"相对路径有certDir", "/certs", "cert.pem", "/certs/cert.pem"},
+		{"相对路径无certDir", "", "cert.pem", "cert.pem"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{CertDir: tt.certDir}
+			result := cfg.ResolveCertPath(tt.path)
+			if result != tt.expected {
+				t.Errorf("结果应为 %s, 实际为 %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetCertDir(t *testing.T) {
+	tests := []struct {
+		name     string
+		certDir  string
+		expected string
+	}{
+		{"使用配置的certDir", "/custom/certs", "/custom/certs"},
+		{"使用默认certDir", "", "./certs"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{CertDir: tt.certDir}
+			result := cfg.GetCertDir()
+			if result != tt.expected {
+				t.Errorf("结果应为 %s, 实际为 %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestConfigWithCertDir(t *testing.T) {
+	yamlContent := `
+cert_dir: "/etc/tlcpchan/certs"
+server:
+  api:
+    address: ":9090"
+instances:
+  - name: "test-instance"
+    type: "server"
+    listen: ":8443"
+    target: "localhost:443"
+    protocol: "tlcp"
+    auth: "one-way"
+    enabled: true
+    tlcp:
+      client_auth: "require-and-verify-client-cert"
+`
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("写入配置文件失败: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() 失败: %v", err)
+	}
+
+	if cfg.CertDir != "/etc/tlcpchan/certs" {
+		t.Errorf("CertDir 应为 /etc/tlcpchan/certs, 实际为 %s", cfg.CertDir)
+	}
+
+	if cfg.GetCertDir() != "/etc/tlcpchan/certs" {
+		t.Errorf("GetCertDir() 应为 /etc/tlcpchan/certs, 实际为 %s", cfg.GetCertDir())
+	}
+
+	if len(cfg.Instances) != 1 {
+		t.Fatalf("应有1个实例, 实际有 %d 个", len(cfg.Instances))
+	}
+
+	inst := cfg.Instances[0]
+	if inst.TLCP.Auth != "mutual" {
+		t.Errorf("Auth 应为 mutual, 实际为 %s", inst.TLCP.Auth)
+	}
 }

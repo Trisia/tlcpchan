@@ -76,7 +76,7 @@ sudo rpm -i tlcpchan-1.0.0.x86_64.rpm
 
 ```bash
 docker pull trisia/tlcpchan:latest
-docker run -d -p 8080:8080 -p 443:443 trisia/tlcpchan:latest
+docker run -d -p 30080:30080 -p 443:443 trisia/tlcpchan:latest
 ```
 
 ### 首次运行
@@ -94,8 +94,8 @@ tlcpchan -daemon
 
 服务启动后：
 
-- API 服务：`http://localhost:8080`
-- Web UI：`http://localhost:3000`
+- API 服务：`http://localhost:30080`
+- Web UI：`http://localhost:30000`
 
 ### 基本配置
 
@@ -104,10 +104,10 @@ tlcpchan -daemon
 ```yaml
 server:
   api:
-    address: ":8080"
+    address: ":30080"
   ui:
     enabled: true
-    address: ":3000"
+    address: ":30000"
   log:
     level: "info"
     file: "./logs/tlcpchan.log"
@@ -379,7 +379,7 @@ tlcpchan-cli -api http://localhost:8080 -output json instance list
 
 | 选项 | 说明 | 默认值 |
 |------|------|--------|
-| `-api` | API 服务地址 | `http://localhost:8080` |
+| `-api` | API 服务地址 | `http://localhost:30080` |
 | `-output` | 输出格式 | `table` |
 
 ## 常见问题

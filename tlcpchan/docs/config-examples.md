@@ -20,10 +20,10 @@
 ```yaml
 server:
   api:
-    address: ":8080"
+    address: ":30080"
   ui:
     enabled: true
-    address: ":3000"
+    address: ":30000"
   log:
     level: "info"
     file: "./logs/tlcpchan.log"
@@ -273,7 +273,7 @@ instances:
 ```yaml
 server:
   api:
-    address: ":8080"
+    address: ":30080"
   ui:
     enabled: false
   log:
@@ -312,9 +312,9 @@ instances:
 
 | 字段 | 说明 | 默认值 |
 |------|------|--------|
-| `api.address` | 管理 API 监听地址 | `:8080` |
+| `api.address` | 管理 API 监听地址 | `:30080` |
 | `ui.enabled` | 是否启用 Web UI | `true` |
-| `ui.address` | UI 监听地址 | `:3000` |
+| `ui.address` | UI 监听地址 | `:30000` |
 | `ui.path` | UI 静态文件路径 | `./ui` |
 | `log.level` | 日志级别 | `info` |
 | `log.file` | 日志文件路径 | `./logs/tlcpchan.log` |

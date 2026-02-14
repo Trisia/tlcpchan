@@ -568,3 +568,77 @@ func generateTestCA(t *testing.T) ([]byte, []byte) {
 	t.Helper()
 	return generateTestCertificate(t, true)
 }
+
+func TestNewManagerWithCertDir(t *testing.T) {
+	mgr := NewManagerWithCertDir("/custom/certs")
+	if mgr == nil {
+		t.Fatal("NewManagerWithCertDir() 返回 nil")
+	}
+	if mgr.GetCertDir() != "/custom/certs" {
+		t.Errorf("CertDir 应为 /custom/certs, 实际为 %s", mgr.GetCertDir())
+	}
+}
+
+func TestManagerSetCertDir(t *testing.T) {
+	mgr := NewManager()
+	if mgr.GetCertDir() != "" {
+		t.Errorf("默认 CertDir 应为空, 实际为 %s", mgr.GetCertDir())
+	}
+
+	mgr.SetCertDir("/test/certs")
+	if mgr.GetCertDir() != "/test/certs" {
+		t.Errorf("CertDir 应为 /test/certs, 实际为 %s", mgr.GetCertDir())
+	}
+}
+
+func TestManagerResolvePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		certDir  string
+		path     string
+		expected string
+	}{
+		{"空路径", "/certs", "", ""},
+		{"绝对路径", "/certs", "/etc/certs/cert.pem", "/etc/certs/cert.pem"},
+		{"相对路径有certDir", "/certs", "cert.pem", "/certs/cert.pem"},
+		{"相对路径无certDir", "", "cert.pem", "cert.pem"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mgr := NewManagerWithCertDir(tt.certDir)
+			result := mgr.resolvePath(tt.path)
+			if result != tt.expected {
+				t.Errorf("结果应为 %s, 实际为 %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestManagerLoadWithRelativePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	certDir := filepath.Join(tmpDir, "certs")
+	os.MkdirAll(certDir, 0755)
+
+	certPath := filepath.Join(certDir, "cert.pem")
+	keyPath := filepath.Join(certDir, "key.pem")
+
+	certPEM, keyPEM := generateTestCertificate(t, false)
+	os.WriteFile(certPath, certPEM, 0644)
+	os.WriteFile(keyPath, keyPEM, 0644)
+
+	mgr := NewManagerWithCertDir(certDir)
+
+	info, err := mgr.LoadTLS("test", "cert.pem", "key.pem")
+	if err != nil {
+		t.Fatalf("LoadTLS() 失败: %v", err)
+	}
+
+	if info == nil {
+		t.Fatal("LoadTLS() 返回 nil")
+	}
+
+	if info.Name != "test" {
+		t.Errorf("Name 应为 test, 实际为 %s", info.Name)
+	}
+}

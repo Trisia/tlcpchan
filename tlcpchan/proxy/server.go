@@ -13,12 +13,19 @@ import (
 	"github.com/Trisia/tlcpchan/stats"
 )
 
+// ServerProxy 服务端代理，接收TLCP/TLS连接并转发到目标服务
 type ServerProxy struct {
-	cfg          *config.InstanceConfig
-	adapter      *TLCPAdapter
-	handler      *ConnHandler
-	listener     net.Listener
-	certManager  *cert.Manager
+	// cfg 实例配置
+	cfg *config.InstanceConfig
+	// adapter 协议适配器
+	adapter *TLCPAdapter
+	// handler 连接处理器
+	handler *ConnHandler
+	// listener TCP监听器（已包装协议）
+	listener net.Listener
+	// certManager 证书管理器
+	certManager *cert.Manager
+	// stats 统计收集器
 	stats        *stats.Collector
 	logger       *logger.Logger
 	shutdownChan chan struct{}
@@ -27,6 +34,14 @@ type ServerProxy struct {
 	running      bool
 }
 
+// NewServerProxy 创建新的服务端代理实例
+// 参数:
+//   - cfg: 实例配置，不能为 nil
+//   - certManager: 证书管理器，用于加载TLCP/TLS证书
+//
+// 返回:
+//   - *ServerProxy: 服务端代理实例
+//   - error: 创建协议适配器失败时返回错误
 func NewServerProxy(cfg *config.InstanceConfig, certManager *cert.Manager) (*ServerProxy, error) {
 	adapter, err := NewTLCPAdapter(cfg, certManager)
 	if err != nil {
@@ -44,6 +59,11 @@ func NewServerProxy(cfg *config.InstanceConfig, certManager *cert.Manager) (*Ser
 	}, nil
 }
 
+// Start 启动服务端代理
+// 返回:
+//   - error: 代理已在运行或监听端口失败时返回错误
+//
+// 注意: 该方法会启动后台goroutine接受连接，调用Stop()停止
 func (p *ServerProxy) Start() error {
 	p.mu.Lock()
 	if p.running {
@@ -69,6 +89,8 @@ func (p *ServerProxy) Start() error {
 	return nil
 }
 
+// acceptLoop 接受连接循环，持续监听新连接并异步处理
+// 注意: 该方法在独立goroutine中运行，通过shutdownChan控制退出
 func (p *ServerProxy) acceptLoop() {
 	defer p.wg.Done()
 
@@ -97,10 +119,21 @@ func (p *ServerProxy) acceptLoop() {
 	}
 }
 
+// handleConnection 处理单个客户端连接
+// 参数:
+//   - clientConn: 客户端连接，可能已包装协议层
+//
+// 注意: 该方法负责协议握手、连接目标服务、双向数据转发
 func (p *ServerProxy) handleConnection(clientConn net.Conn) {
 	defer p.wg.Done()
 	defer p.stats.DecrementConnections()
 	defer clientConn.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			p.logger.Error("连接处理panic: %v", r)
+			p.stats.IncrementErrors()
+		}
+	}()
 
 	start := time.Now()
 
@@ -139,6 +172,11 @@ func (p *ServerProxy) handleConnection(clientConn net.Conn) {
 	p.logger.Debug("连接结束: 收发 %d/%d 字节, 耗时 %v", received, sent, latency)
 }
 
+// Stop 停止服务端代理
+// 返回:
+//   - error: 停止失败时返回错误（当前实现始终返回nil）
+//
+// 注意: 该方法会等待所有连接处理完成后再返回
 func (p *ServerProxy) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -163,6 +201,9 @@ func (p *ServerProxy) Stop() error {
 	return nil
 }
 
+// Restart 重启服务端代理
+// 返回:
+//   - error: 停止或启动失败时返回错误
 func (p *ServerProxy) Restart() error {
 	if err := p.Stop(); err != nil {
 		return err

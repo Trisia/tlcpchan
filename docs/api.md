@@ -4,7 +4,7 @@
 
 ### 1.1 基本信息
 
-- 基础URL：`http://localhost:8080/api/v1`
+- 基础URL：`http://localhost:30080/api/v1`
 - 内容类型：`application/json`
 - 字符编码：`UTF-8`
 
@@ -315,8 +315,8 @@ GET /api/v1/config
 ```json
 {
   "server": {
-    "api": {"address": ":8080"},
-    "ui": {"enabled": true, "address": ":3000"},
+    "api": {"address": ":30080"},
+    "ui": {"enabled": true, "address": ":30000"},
     "log": {"level": "info", "file": "./logs/tlcpchan.log"}
   },
   "instances": []

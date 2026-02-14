@@ -31,7 +31,8 @@ func configReload(args []string) error {
 
 func configValidate(args []string) error {
 	fs := flagSet("validate")
-	file := fs.String("f", "", "配置文件路径(YAML)")
+	file := fs.String("file", "", "配置文件路径(YAML)")
+	fs.StringVar(file, "f", "", "配置文件路径(YAML)(缩写)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
