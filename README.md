@@ -19,140 +19,6 @@
 - **证书热更新** - 无需重启即可更新证书
 - **流量统计** - 实时连接数、流量、延迟统计
 
-## 快速开始
-
-### Docker 部署（推荐）
-
-```bash
-# 使用 docker-compose
-git clone https://github.com/Trisia/tlcpchan.git
-cd tlcpchan
-docker compose up -d
-
-# 访问服务
-# API: http://localhost:8080
-# UI:  http://localhost:3000
-```
-
-### 二进制部署
-
-```bash
-# 下载
-wget https://github.com/Trisia/tlcpchan/releases/download/v1.0.0/tlcpchan-linux-amd64.tar.gz
-tar -xzf tlcpchan-linux-amd64.tar.gz
-
-# 启动
-./tlcpchan
-
-# 后台运行
-./tlcpchan -daemon
-```
-
-### 从源码构建
-
-```bash
-git clone https://github.com/Trisia/tlcpchan.git
-cd tlcpchan
-
-# 构建主程序
-cd tlcpchan && go build -o bin/tlcpchan .
-
-# 构建前端
-cd ../tlcpchan-ui/web && npm install && npm run build
-cd .. && go build -o bin/tlcpchan-ui .
-```
-
-## 使用示例
-
-### TLCP 服务端代理
-
-将 TLCP 加密流量解密后转发到后端服务：
-
-```yaml
-# config/config.yaml
-instances:
-  - name: "tlcp-server"
-    type: "server"
-    protocol: "tlcp"
-    auth: "one-way"
-    listen: ":443"
-    target: "127.0.0.1:8080"
-    enabled: true
-    certificates:
-      tlcp:
-        cert: "server-sm2"
-        key: "server-sm2"
-    tlcp:
-      cipher_suites:
-        - "ECDHE_SM4_GCM_SM3"
-```
-
-### 客户端代理
-
-将明文流量加密后连接 TLCP/TLS 服务：
-
-```yaml
-instances:
-  - name: "tlcp-client"
-    type: "client"
-    protocol: "tlcp"
-    auth: "one-way"
-    listen: ":9000"
-    target: "tlcp-server.example.com:443"
-    enabled: true
-    server_ca:
-      - "ca-sm2"
-```
-
-### 协议自动检测
-
-同一端口支持 TLCP 和 TLS 客户端：
-
-```yaml
-instances:
-  - name: "auto-server"
-    type: "server"
-    protocol: "auto"
-    listen: ":443"
-    target: "127.0.0.1:8080"
-    enabled: true
-    certificates:
-      tlcp:
-        cert: "server-sm2"
-        key: "server-sm2"
-      tls:
-        cert: "server-rsa"
-        key: "server-rsa"
-```
-
-## 项目结构
-
-```
-tlcpchan/
-├── tlcpchan/          # 主程序
-│   ├── cmd/           # 入口
-│   ├── config/        # 配置管理
-│   ├── cert/          # 证书管理
-│   ├── proxy/         # 代理核心
-│   ├── instance/      # 实例管理
-│   ├── controller/    # API 控制器
-│   └── stats/         # 流量统计
-├── tlcpchan-cli/      # CLI 工具
-├── tlcpchan-ui/       # Web UI
-│   └── web/           # Vue3 前端
-├── docs/              # 文档
-├── Dockerfile
-└── docker-compose.yml
-```
-
-## 文档
-
-- [使用指南](docs/README.md) - 详细使用说明
-- [安装指南](docs/installation.md) - 安装部署指南
-- [API 文档](docs/api.md) - RESTful API 接口
-- [证书管理](docs/certificates.md) - 证书配置说明
-- [配置示例](docs/config-examples.md) - 常用配置示例
-
 ## 代理模式
 
 | 模式 | 说明 | 典型场景 |
@@ -170,41 +36,6 @@ tlcpchan/
 | one-way | 验证服务端证书 | 常规场景 |
 | mutual | 双向证书验证 | 高安全要求 |
 
-## CLI 使用
-
-```bash
-# 实例管理
-tlcpchan-cli instance list
-tlcpchan-cli instance start <name>
-tlcpchan-cli instance stop <name>
-
-# 证书管理
-tlcpchan-cli cert list
-tlcpchan-cli cert reload
-
-# 系统信息
-tlcpchan-cli system info
-tlcpchan-cli system health
-```
-
-## API 示例
-
-```bash
-# 健康检查
-curl http://localhost:8080/api/v1/system/health
-
-# 获取实例列表
-curl http://localhost:8080/api/v1/instances
-
-# 创建实例
-curl -X POST http://localhost:8080/api/v1/instances \
-  -H "Content-Type: application/json" \
-  -d '{"name":"test","type":"server","protocol":"tlcp","listen":":443","target":"127.0.0.1:8080"}'
-
-# 启动实例
-curl -X POST http://localhost:8080/api/v1/instances/test/start
-```
-
 ## 技术栈
 
 - **后端**: Go 1.21+, [gotlcp](https://github.com/Trisia/gotlcp)
@@ -212,17 +43,57 @@ curl -X POST http://localhost:8080/api/v1/instances/test/start
 - **协议**: TLCP 1.1, TLS 1.0-1.3
 - **算法**: SM2/SM3/SM4, RSA/ECDSA/AES
 
-## 开发
+## 文档
+
+- [设计文档](docs/design.md) - 系统架构设计和技术方案
+- [编译部署运行指南](docs/build-deploy.md) - 详细的安装、编译、部署说明
+- [使用指南](docs/README.md) - 详细使用说明
+- [API 文档](docs/api.md) - RESTful API 接口
+- [证书管理](docs/certificates.md) - 证书配置说明
+- [配置示例](docs/config-examples.md) - 常用配置示例
+
+## 快速开始
+
+详细的安装部署指南请参考 [编译部署运行指南](docs/build-deploy.md)。
+
+### Docker 部署（推荐）
+
+#### 使用 Docker Hub 官方镜像
 
 ```bash
-# 运行测试
-cd tlcpchan && go test ./...
-
-# 构建所有组件
-go build -o bin/tlcpchan ./tlcpchan
-go build -o bin/tlcpchan-cli ./tlcpchan-cli
-go build -o bin/tlcpchan-ui ./tlcpchan-ui
+docker pull trisia/tlcpchan:latest
+docker run -d \
+  -p 30080:30080 \
+  -p 30000:30000 \
+  -p 30443:30443 \
+  -v tlcpchan-config:/etc/tlcpchan/config \
+  -v tlcpchan-certs:/etc/tlcpchan/certs \
+  -v tlcpchan-logs:/etc/tlcpchan/logs \
+  --name tlcpchan \
+  trisia/tlcpchan:latest
 ```
+
+#### 使用 docker-compose
+
+```bash
+git clone https://github.com/Trisia/tlcpchan.git
+cd tlcpchan
+docker compose up -d
+```
+
+#### 自行构建 Docker 镜像
+
+```bash
+git clone https://github.com/Trisia/tlcpchan.git
+cd tlcpchan
+docker build -t tlcpchan:latest .
+```
+
+### 服务访问
+
+- API: http://localhost:30080
+- UI:  http://localhost:30000
+
 
 ## 许可证
 

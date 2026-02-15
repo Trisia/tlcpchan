@@ -38,7 +38,6 @@ logs/
 
 # 证书和密钥（敏感文件）
 *.key
-*.pem
 *.p12
 *.pfx
 certs/

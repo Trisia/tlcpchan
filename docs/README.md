@@ -42,64 +42,13 @@ TLCP Channel 是一款 TLCP/TLS 协议代理工具，支持双协议并行工作
 - 证书热更新
 - 实时流量统计
 
-## 快速开始
+## 安装部署
 
-### 安装方式
+详细的编译、部署和运行说明请参考 [编译部署运行指南](./build-deploy.md)。
 
-#### 二进制安装
+## 基本配置
 
-从 [GitHub Releases](https://github.com/Trisia/tlcpchan/releases) 下载对应平台的二进制文件：
-
-```bash
-# Linux x86_64
-wget https://github.com/Trisia/tlcpchan/releases/download/v1.0.0/tlcpchan-linux-amd64.tar.gz
-tar -xzf tlcpchan-linux-amd64.tar.gz
-sudo mv tlcpchan /usr/local/bin/
-
-# macOS (Apple Silicon)
-wget https://github.com/Trisia/tlcpchan/releases/download/v1.0.0/tlcpchan-darwin-arm64.tar.gz
-tar -xzf tlcpchan-darwin-arm64.tar.gz
-sudo mv tlcpchan /usr/local/bin/
-```
-
-#### 包管理器安装
-
-```bash
-# Debian/Ubuntu
-sudo dpkg -i tlcpchan_1.0.0_amd64.deb
-
-# RHEL/CentOS
-sudo rpm -i tlcpchan-1.0.0.x86_64.rpm
-```
-
-#### Docker 安装
-
-```bash
-docker pull trisia/tlcpchan:latest
-docker run -d -p 30080:30080 -p 443:443 trisia/tlcpchan:latest
-```
-
-### 首次运行
-
-```bash
-# 创建工作目录
-mkdir -p /opt/tlcpchan && cd /opt/tlcpchan
-
-# 启动服务（首次运行自动生成测试证书）
-tlcpchan
-
-# 后台运行
-tlcpchan -daemon
-```
-
-服务启动后：
-
-- API 服务：`http://localhost:30080`
-- Web UI：`http://localhost:30000`
-
-### 基本配置
-
-配置文件位于 `./config/config.yaml`：
+配置文件位于工作目录的 `config/config.yaml`：
 
 ```yaml
 server:
@@ -116,7 +65,6 @@ instances:
   - name: "tlcp-server"
     type: "server"
     protocol: "tlcp"
-    auth: "one-way"
     listen: ":443"
     target: "127.0.0.1:8080"
     enabled: true
@@ -309,25 +257,25 @@ instances:
 ### 基础 URL
 
 ```
-http://localhost:8080/api/v1
+http://localhost:30080/api/v1
 ```
 
 ### 常用接口
 
 ```bash
 # 获取实例列表
-curl http://localhost:8080/api/v1/instances
+curl http://localhost:30080/api/v1/instances
 
 # 创建实例
-curl -X POST http://localhost:8080/api/v1/instances \
+curl -X POST http://localhost:30080/api/v1/instances \
   -H "Content-Type: application/json" \
   -d '{"name":"test","type":"server","protocol":"tlcp","listen":":443","target":"127.0.0.1:8080"}'
 
 # 启动实例
-curl -X POST http://localhost:8080/api/v1/instances/test/start
+curl -X POST http://localhost:30080/api/v1/instances/test/start
 
 # 健康检查
-curl http://localhost:8080/api/v1/system/health
+curl http://localhost:30080/api/v1/system/health
 ```
 
 完整 API 文档请参考 [API 使用指南](./api-usage.md) 和 [API 接口文档](./api.md)。
@@ -336,12 +284,7 @@ curl http://localhost:8080/api/v1/system/health
 
 ### 安装 CLI
 
-```bash
-# 下载 CLI 工具
-wget https://github.com/Trisia/tlcpchan/releases/download/v1.0.0/tlcpchan-cli-linux-amd64.tar.gz
-tar -xzf tlcpchan-cli-linux-amd64.tar.gz
-sudo mv tlcpchan-cli /usr/local/bin/
-```
+详细的 CLI 安装和使用说明请参考 [编译部署运行指南](./build-deploy.md)。
 
 ### 常用命令
 
@@ -374,7 +317,7 @@ tlcpchan-cli system health
 ### 全局选项
 
 ```bash
-tlcpchan-cli -api http://localhost:8080 -output json instance list
+tlcpchan-cli -api http://localhost:30080 -output json instance list
 ```
 
 | 选项 | 说明 | 默认值 |
@@ -386,7 +329,7 @@ tlcpchan-cli -api http://localhost:8080 -output json instance list
 
 ### Q: 首次启动报错找不到证书？
 
-A: 首次启动时会自动生成测试证书。确保程序有写入 `./certs/` 目录的权限。
+A: 首次启动时会自动生成测试证书。确保程序有写入工作目录的权限。
 
 ### Q: TLCP 连接握手失败？
 
@@ -399,7 +342,7 @@ A: 检查以下几点：
 
 ```bash
 tlcpchan-cli instance show <name>
-curl http://localhost:8080/api/v1/instances/<name>
+curl http://localhost:30080/api/v1/instances/<name>
 ```
 
 ### Q: 如何更新证书而不重启服务？
@@ -409,7 +352,7 @@ curl http://localhost:8080/api/v1/instances/<name>
 tlcpchan-cli cert reload
 
 # 或通过 API
-curl -X POST http://localhost:8080/api/v1/certificates/reload
+curl -X POST http://localhost:30080/api/v1/certificates/reload
 ```
 
 ### Q: 如何启用双向认证？
@@ -431,10 +374,10 @@ instances:
 
 ```bash
 # 查看日志文件
-tail -f ./logs/tlcpchan.log
+tail -f /etc/tlcpchan/logs/tlcpchan.log
 
 # 通过 API 查看实例日志
-curl "http://localhost:8080/api/v1/instances/<name>/logs?lines=100"
+curl "http://localhost:30080/api/v1/instances/<name>/logs?lines=100"
 
 # 通过 CLI 查看
 tlcpchan-cli instance logs <name>
@@ -444,10 +387,10 @@ tlcpchan-cli instance logs <name>
 
 | 错误信息 | 原因 | 解决方案 |
 |----------|------|----------|
-| `端口已被占用` | 监听端口被其他进程使用 | 更换端口或停止占用进程 |
-| `证书加载失败` | 证书文件不存在或格式错误 | 检查证书路径和格式 |
-| `连接被拒绝` | 目标服务未启动 | 确认目标服务运行正常 |
-| `证书验证失败` | CA 证书不匹配 | 检查 client_ca/server_ca 配置 |
+| 端口已被占用 | 监听端口被其他进程使用 | 更换端口或停止占用进程 |
+| 证书加载失败 | 证书文件不存在或格式错误 | 检查证书路径和格式 |
+| 连接被拒绝 | 目标服务未启动 | 确认目标服务运行正常 |
+| 证书验证失败 | CA 证书不匹配 | 检查 client_ca/server_ca 配置 |
 
 ### 调试模式
 
@@ -457,7 +400,7 @@ server:
     level: "debug"  # 开启调试日志
 ```
 
-或通过命令行：
+或通过命令行（如支持）：
 
 ```bash
 tlcpchan -log-level debug
@@ -467,12 +410,12 @@ tlcpchan -log-level debug
 
 1. 查看系统资源使用：
 ```bash
-curl http://localhost:8080/api/v1/system/info
+curl http://localhost:30080/api/v1/system/info
 ```
 
 2. 查看实例统计：
 ```bash
-curl http://localhost:8080/api/v1/instances/<name>/stats
+curl http://localhost:30080/api/v1/instances/<name>/stats
 ```
 
 3. 检查连接数：
