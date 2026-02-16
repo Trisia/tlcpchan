@@ -68,10 +68,7 @@ instances:
     listen: ":443"
     target: "127.0.0.1:8080"
     enabled: true
-    certificates:
-      tlcp:
-        cert: "server-sm2"
-        key: "server-sm2"
+    keystore: "my-server-keystore"
 ```
 
 ## 配置说明
@@ -126,21 +123,19 @@ tls:
     - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
 ```
 
-### 证书配置
+### 安全参数配置
 
 ```yaml
-certificates:
-  tlcp:                    # TLCP 证书
-    cert: "server-sm2"     # 证书名称
-    key: "server-sm2"      # 私钥名称
-  tls:                     # TLS 证书
-    cert: "server-rsa"
-    key: "server-rsa"
+keystore: "my-server-keystore"  # 通过名称引用 keystore
 
-client_ca:                 # 客户端 CA（双向认证）
-  - "ca-sm2"
-server_ca:                 # 服务端 CA（客户端模式）
-  - "ca-rsa"
+# 或直接配置文件路径
+keystore:
+  sign-cert: "/path/to/sign.crt"
+  sign-key: "/path/to/sign.key"
+  enc-cert: "/path/to/enc.crt"  # TLCP 可选
+  enc-key: "/path/to/enc.key"    # TLCP 可选
+
+root-certs: ["ca1", "ca2"]  # 根证书名称列表
 ```
 
 ## 使用示例
@@ -158,10 +153,7 @@ instances:
     listen: ":443"
     target: "127.0.0.1:8080"
     enabled: true
-    certificates:
-      tlcp:
-        cert: "server-sm2"
-        key: "server-sm2"
+    keystore: "my-server-keystore"
     tlcp:
       min_version: "1.1"
       cipher_suites:
@@ -179,10 +171,7 @@ instances:
     listen: ":8443"
     target: "127.0.0.1:8080"
     enabled: true
-    certificates:
-      tls:
-        cert: "server-rsa"
-        key: "server-rsa"
+    keystore: "my-tls-keystore"
     tls:
       min_version: "1.2"
 ```
@@ -200,8 +189,7 @@ instances:
     listen: ":9000"
     target: "tlcp-server.example.com:443"
     enabled: true
-    server_ca:
-      - "ca-sm2"
+    root-certs: ["ca-sm2"]
 ```
 
 ### HTTP 代理
@@ -214,10 +202,7 @@ instances:
     listen: ":8443"
     target: "127.0.0.1:8000"
     enabled: true
-    certificates:
-      tlcp:
-        cert: "server-sm2"
-        key: "server-sm2"
+    keystore: "my-server-keystore"
     http:
       request_headers:
         add:
@@ -243,13 +228,7 @@ instances:
     listen: ":443"
     target: "127.0.0.1:8080"
     enabled: true
-    certificates:
-      tlcp:
-        cert: "server-sm2"
-        key: "server-sm2"
-      tls:
-        cert: "server-rsa"
-        key: "server-rsa"
+    keystore: "my-server-keystore"
 ```
 
 ## API 使用

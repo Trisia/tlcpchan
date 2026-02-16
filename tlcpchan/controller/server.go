@@ -5,83 +5,83 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Trisia/tlcpchan/cert"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/instance"
-	"github.com/Trisia/tlcpchan/key"
 	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/security"
 )
 
 // Server API服务器，提供RESTful API接口
 type Server struct {
-	httpServer *http.Server
-	router     *Router
-	cfg        *config.Config
-	log        *logger.Logger
+	httpServer  *http.Server
+	router      *Router
+	cfg         *config.Config
+	log         *logger.Logger
+	keyStoreMgr *security.KeyStoreManager
+	rootCertMgr *security.RootCertManager
 }
 
 // ServerOptions API服务器配置选项
 type ServerOptions struct {
-	// Config 全局配置
-	Config *config.Config
-	// ConfigPath 配置文件路径
-	ConfigPath string
-	// KeyStoreDir 密钥存储目录路径（keystore，存放证书和密钥对）
-	KeyStoreDir string
-	// TrustedDir 信任证书目录路径（存放根证书/CA证书）
-	TrustedDir string
-	// Version 版本号
-	Version string
+	Config          *config.Config
+	ConfigPath      string
+	KeyStoreDir     string
+	TrustedDir      string
+	Version         string
+	KeyStoreManager *security.KeyStoreManager
+	RootCertManager *security.RootCertManager
 }
 
 // NewServer 创建新的API服务器
-// 参数:
-//   - opts: 服务器配置选项
-//
-// 返回:
-//   - *Server: API服务器实例
 func NewServer(opts ServerOptions) *Server {
 	router := NewRouter()
 	router.Use(corsMiddleware)
 	router.Use(loggingMiddleware)
 
 	log := logger.Default()
-	certMgr := cert.NewManager()
-	keyMgr := key.NewManager(opts.KeyStoreDir)
-	mgr := instance.NewManager(log, certMgr)
+
+	var keyStoreMgr *security.KeyStoreManager
+	var rootCertMgr *security.RootCertManager
+
+	if opts.KeyStoreManager != nil {
+		keyStoreMgr = opts.KeyStoreManager
+	} else {
+		keyStoreMgr = security.NewKeyStoreManager("")
+	}
+
+	if opts.RootCertManager != nil {
+		rootCertMgr = opts.RootCertManager
+	} else {
+		rootCertMgr = security.NewRootCertManager("")
+	}
+
+	mgr := instance.NewManager(log, keyStoreMgr, rootCertMgr)
 	for i := range opts.Config.Instances {
 		mgr.Create(&opts.Config.Instances[i])
 	}
 
 	instanceCtrl := NewInstanceController(mgr)
 	configCtrl := NewConfigController(opts.Config, opts.ConfigPath)
-	keyStoreCtrl := NewKeyStoreController(keyMgr)
-	trustedCtrl := NewTrustedController(opts.TrustedDir)
+	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr)
 	systemCtrl := NewSystemController(opts.Version)
-	healthCtrl := NewHealthController(mgr, certMgr)
+	healthCtrl := NewHealthController(mgr)
 
 	instanceCtrl.RegisterRoutes(router)
 	configCtrl.RegisterRoutes(router)
-	keyStoreCtrl.RegisterRoutes(router)
-	trustedCtrl.RegisterRoutes(router)
+	securityCtrl.RegisterRoutes(router)
 	systemCtrl.RegisterRoutes(router)
 	healthCtrl.RegisterRoutes(router)
 
 	return &Server{
-		router: router,
-		cfg:    opts.Config,
-		log:    log,
+		router:      router,
+		cfg:         opts.Config,
+		log:         log,
+		keyStoreMgr: keyStoreMgr,
+		rootCertMgr: rootCertMgr,
 	}
 }
 
 // Start 启动API服务器
-// 参数:
-//   - addr: 监听地址，格式: "host:port" 或 ":port"
-//
-// 返回:
-//   - error: 启动失败时返回错误
-//
-// 注意: 该方法会阻塞直到服务器停止
 func (s *Server) Start(addr string) error {
 	s.httpServer = &http.Server{
 		Addr:         addr,
@@ -96,13 +96,6 @@ func (s *Server) Start(addr string) error {
 }
 
 // Stop 停止API服务器
-// 参数:
-//   - ctx: 上下文，用于控制关闭超时
-//
-// 返回:
-//   - error: 关闭失败时返回错误
-//
-// 注意: 该方法会优雅关闭，等待现有请求完成
 func (s *Server) Stop(ctx context.Context) error {
 	if s.httpServer == nil {
 		return nil

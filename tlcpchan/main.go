@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Trisia/tlcpchan/cert"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/controller"
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/security"
 )
 
 var (
@@ -31,12 +31,6 @@ func init() {
 }
 
 // getWorkDir 获取工作目录
-// 如果传入了工作目录参数则使用该参数，否则使用可执行文件所在目录
-// 参数:
-//   - customDir: 自定义工作目录，为空则使用默认值
-//
-// 返回:
-//   - string: 工作目录路径
 func getWorkDir(customDir string) string {
 	if customDir != "" {
 		return customDir
@@ -49,18 +43,13 @@ func getWorkDir(customDir string) string {
 }
 
 // ensureWorkDir 确保工作目录及其子目录存在
-// 参数:
-//   - dir: 工作目录路径
-//
-// 返回:
-//   - string: 工作目录路径
 func ensureWorkDir(dir string) string {
 	dirs := []string{
 		dir,
-		filepath.Join(dir, "trusted"),
 		filepath.Join(dir, "logs"),
 		filepath.Join(dir, "config"),
-		filepath.Join(dir, "keys"),
+		filepath.Join(dir, "keystores"),
+		filepath.Join(dir, "rootcerts"),
 	}
 	for _, d := range dirs {
 		os.MkdirAll(d, 0755)
@@ -76,11 +65,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	// 初始化工作目录
 	wd := getWorkDir(*workDirFlag)
 	wd = ensureWorkDir(wd)
 
-	// 确定配置文件路径
 	configPath := *configFile
 	if configPath == "" {
 		configPath = filepath.Join(wd, "config", "config.yaml")
@@ -110,8 +97,17 @@ func main() {
 		}
 	}
 
-	certMgr := cert.NewManagerWithCertDir(cfg.GetCertDir())
-	instMgr := instance.NewManager(logger.Default(), certMgr)
+	keyStoreMgr := security.NewKeyStoreManager(cfg.GetKeyStoreStoreDir())
+	if err := keyStoreMgr.Initialize(); err != nil {
+		logger.Warn("初始化 keystore 管理器失败: %v", err)
+	}
+
+	rootCertMgr := security.NewRootCertManager(cfg.GetRootCertDir())
+	if err := rootCertMgr.Initialize(); err != nil {
+		logger.Warn("初始化根证书管理器失败: %v", err)
+	}
+
+	instMgr := instance.NewManager(logger.Default(), keyStoreMgr, rootCertMgr)
 
 	for i := range cfg.Instances {
 		inst := &cfg.Instances[i]
@@ -126,11 +122,13 @@ func main() {
 	}
 
 	opts := controller.ServerOptions{
-		Config:      cfg,
-		ConfigPath:  configPath,
-		KeyStoreDir: cfg.GetKeyStoreDir(),
-		TrustedDir:  cfg.GetTrustedDir(),
-		Version:     version,
+		Config:          cfg,
+		ConfigPath:      configPath,
+		KeyStoreDir:     cfg.GetKeyStoreStoreDir(),
+		TrustedDir:      cfg.GetTrustedDir(),
+		Version:         version,
+		KeyStoreManager: keyStoreMgr,
+		RootCertManager: rootCertMgr,
 	}
 	apiServer := controller.NewServer(opts)
 

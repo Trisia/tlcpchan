@@ -49,8 +49,15 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
 │         │                │         │  └───────────────────┘  │ │
 │         │                │         │            │            │ │
 │         │                │         │  ┌─────────▼─────────┐  │ │
-│         │                │         │  │   Cert Manager    │  │ │
-│         │                │         │  │   Key Manager     │  │ │
+│         │                │         │  │  Security Module  │  │ │
+│         │                │         │  │ ┌───────────────┐ │  │ │
+│         │                │         │  │ │KeyStore Manager│ │  │ │
+│         │                │         │  │ └───────────────┘ │  │ │
+│         │                │         │  │ ┌───────────────┐ │  │ │
+│         │                │         │  │ │RootCert Manager│ │  │ │
+│         │                │         │  │ └───────────────┘ │  │ │
+│         │                │         │  └───────────────────┘  │ │
+│         │                │         │  ┌───────────────────┐  │ │
 │         │                │         │  │   Stats Module    │  │ │
 │         │                │         │  │   Logger Module   │  │ │
 │         │                │         │  │   Config Module   │  │ │
@@ -64,6 +71,47 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
 
 ### 2.2 项目目录结构
 
+```
+tlcpchan/                          # 内核主程序
+├── main.go                        # 程序入口
+├── config/                        # 配置管理
+│   ├── config.go                  # 配置结构定义、加载/保存逻辑
+│   ├── config_test.go             # 配置测试
+│   └── config.yaml                # 默认配置文件
+├── logger/                        # 日志管理
+│   └── logger.go                  # 日志管理器
+├── security/                      # ✅ 安全参数管理（新增）
+│   ├── security.go                # 统一导出接口
+│   ├── keystore/                  # Keystore 管理
+│   │   ├── types.go               # 抽象接口和类型定义
+│   │   ├── loader.go              # 加载器实现（FileLoader、NamedLoader）
+│   │   ├── manager.go             # Keystore 管理器
+│   │   └── store.go               # YAML 持久化存储
+│   └── rootcert/                 # 根证书管理
+│       ├── types.go               # 根证书类型定义
+│       ├── manager.go             # 根证书管理器
+│       └── store.go               # 根证书持久化存储
+├── proxy/                         # 代理核心
+│   ├── simple.go                  # ✅ 简化版代理（移除 cert 依赖）
+│   └── vars.go                    # 变量定义
+├── instance/                      # 实例管理
+│   ├── manager.go                 # 实例管理器
+│   ├── instance.go                # 实例实现
+│   └── types.go                   # 类型定义
+├── controller/                    # API控制器
+│   ├── server.go                  # API服务器
+│   ├── router.go                  # 路由定义
+│   ├── instance.go                # 实例管理API
+│   ├── config.go                  # 配置管理API
+│   ├── security.go                # ✅ 安全参数管理API（新增）
+│   ├── health.go                  # 健康检查API
+│   ├── system.go                  # 系统信息API
+│   ├── middleware.go              # 中间件
+│   └── response.go                # 响应处理
+├── stats/                         # 流量统计
+│   └── collector.go               # 统计收集器
+├── bin/                           # 编译输出目录
+└── go.mod
 ```
 tlcpchan/                          # 内核主程序
 ├── main.go                        # 程序入口
@@ -443,7 +491,129 @@ type KeyParams struct {
 }
 ```
 
-### 3.5 实例管理模块
+### 3.5 安全参数管理模块（新增）
+
+安全参数管理模块统一管理 Keystore 和根证书，提供抽象的接口设计，支持多种加载方式。
+
+#### 3.5.1 核心概念
+
+| 概念 | 说明 |
+|------|------|
+| **Keystore** | 密钥存储，包含签名/加密证书和密钥 |
+| **RootCert** | 根证书，用于验证对端证书 |
+| **Loader** | Keystore 加载器，支持多种加载方式 |
+| **KeyStoreManager** | Keystore 管理器 |
+| **RootCertManager** | 根证书管理器 |
+
+#### 3.5.2 Keystore 抽象接口
+
+```go
+// KeyStore 抽象 keystore 接口
+type KeyStore interface {
+    Type() KeyStoreType
+    TLCPCertificate() (*tlcp.Certificate, error)
+    TLSCertificate() (*tls.Certificate, error)
+    Reload() error
+}
+
+// Loader 加载器接口
+type Loader interface {
+    Load(config LoaderConfig) (KeyStore, error)
+}
+```
+
+#### 3.5.3 加载器类型
+
+| 类型 | 说明 |
+|------|------|
+| `file` | 从文件系统加载（默认） |
+| `named` | 通过名称引用已存在的 keystore |
+| `skf` | SKF 硬件接口（预留） |
+| `sdf` | SDF 硬件接口（预留） |
+
+#### 3.5.4 Keystore 管理器功能
+
+```go
+type Manager struct {
+    // ...
+}
+
+func (m *Manager) Create(name string, loaderConfig LoaderConfig, protected bool) (*KeyStoreInfo, error)
+func (m *Manager) Delete(name string) error
+func (m *Manager) Get(name string) (*KeyStoreInfo, error)
+func (m *Manager) List() []*KeyStoreInfo
+func (m *Manager) Reload(name string) error
+func (m *Manager) GetKeyStore(name string) (KeyStore, error)
+```
+
+**关键特性**：
+- **受保护的 Keystore**：实例配置直接创建的 keystore 标记为 `protected: true`，不允许删除
+- **命名规则**：`instance-<实例名>`
+- **热更新支持**：KeyStore 接口包含 `Reload()` 方法
+
+#### 3.5.5 根证书管理器
+
+```go
+type RootCertManager struct {
+    // ...
+}
+
+func (m *Manager) Add(name string, certData []byte) (*RootCert, error)
+func (m *Manager) Delete(name string) error
+func (m *Manager) Get(name string) (*RootCert, error)
+func (m *Manager) List() []*RootCert
+func (m *Manager) Reload() error
+func (m *Manager) GetPool() RootCertPool
+func (m *Manager) GetPoolForNames(names []string) (RootCertPool, error)
+```
+
+**根证书优先级**：
+1. 实例配置 `root-certs` 有值时，使用指定的根证书
+2. 否则使用全局默认根证书池
+
+#### 3.5.6 配置方式
+
+**方式一：通过名称引用（推荐）**
+```yaml
+keystore: "my-keystore"
+```
+
+**方式二：直接配置文件路径**
+```yaml
+keystore:
+  sign-cert: "/path/to/sign.crt"
+  sign-key: "/path/to/sign.key"
+  enc-cert: "/path/to/enc.crt"  # TLCP 可选
+  enc-key: "/path/to/enc.key"    # TLCP 可选
+```
+
+**方式三：完整配置（扩展用）**
+```yaml
+keystore:
+  type: "file"
+  params:
+    sign-cert-path: "/path/to/sign.crt"
+    sign-key-path: "/path/to/sign.key"
+```
+
+#### 3.5.7 扩展性设计
+
+实现自定义加载器只需实现 `Loader` 接口：
+
+```go
+type SKFLoader struct {
+    // ...
+}
+
+func (l *SKFLoader) Load(config LoaderConfig) (KeyStore, error) {
+    // 从 SKF 硬件接口加载
+}
+
+// 注册到管理器
+manager.RegisterLoader(LoaderTypeSKF, &SKFLoader{})
+```
+
+### 3.6 实例管理模块
 
 ```go
 type Instance interface {
@@ -467,7 +637,7 @@ func (m *InstanceManager) List() []Instance
 func (m *InstanceManager) Delete(name string) error
 ```
 
-### 3.6 统计模块
+### 3.7 统计模块
 
 ```go
 type Metrics struct {
@@ -504,14 +674,16 @@ type Metrics struct {
 | GET | /api/v1/instances/:name/logs | 获取日志 |
 | POST | /api/v1/config/reload | 重载全局配置 |
 | GET | /api/v1/config | 获取当前配置 |
-| GET | /api/v1/certificates | 获取证书列表 |
-| POST | /api/v1/certificates/reload | 热更新证书 |
-| GET | /api/v1/keystores | 获取密钥列表 |
-| GET | /api/v1/keystores/:name | 获取密钥详情 |
-| POST | /api/v1/keystores | 创建密钥 |
-| POST | /api/v1/keystores/:name/certificates | 更新密钥证书 |
-| DELETE | /api/v1/keystores/:name | 删除密钥 |
-| POST | /api/v1/keystores/:name/reload | 重载密钥 |
+| GET | /api/v1/security/keystores | 获取 keystore 列表 |
+| POST | /api/v1/security/keystores | 创建 keystore |
+| GET | /api/v1/security/keystores/:name | 获取 keystore 详情 |
+| DELETE | /api/v1/security/keystores/:name | 删除 keystore |
+| POST | /api/v1/security/keystores/:name/reload | 重载 keystore |
+| GET | /api/v1/security/rootcerts | 获取根证书列表 |
+| POST | /api/v1/security/rootcerts | 添加根证书 |
+| GET | /api/v1/security/rootcerts/:name | 获取根证书详情 |
+| DELETE | /api/v1/security/rootcerts/:name | 删除根证书 |
+| POST | /api/v1/security/rootcerts/reload | 重载所有根证书 |
 | GET | /api/v1/system/info | 系统信息 |
 | GET | /api/v1/system/health | 健康检查 |
 
@@ -532,7 +704,7 @@ type Metrics struct {
 | 仪表盘 | / | 系统概览、流量统计图表 |
 | 实例管理 | /instances | 实例列表、创建、编辑 |
 | 实例详情 | /instances/:name | 单个实例详情和监控 |
-| 证书管理 | /certificates | 证书列表、上传、生成 |
+| 安全参数 | /security | Keystore 和根证书管理 |
 | 日志查看 | /logs | 日志实时查看 |
 | 系统设置 | /settings | 系统配置 |
 
@@ -872,3 +1044,47 @@ func (h *HotReloader) Stop()   // 停止定时重载
 2. **配置变更**：仅在必要时使用 `ReloadConfig()`
 3. **定时重载**：合理设置 `HotReloader` 间隔，避免频繁 I/O
 4. **监控**：关注重载失败日志，及时处理证书问题
+
+## 11. 安全参数管理热加载（新增）
+
+### 11.1 概述
+
+安全参数管理模块支持 Keystore 和根证书的热加载，无需重启服务即可更新安全参数。
+
+### 11.2 Keystore 热加载
+
+```go
+// KeyStore 接口包含 Reload() 方法
+type KeyStore interface {
+    // ...
+    Reload() error
+}
+
+// 管理器提供单个 keystore 重载
+func (m *Manager) Reload(name string) error
+```
+
+**工作流程**：
+1. 调用 `KeyStore.Reload()` 清空缓存
+2. 下次访问时重新加载证书密钥
+3. 新连接使用新证书，已有连接不受影响
+
+### 11.3 根证书热加载
+
+```go
+// 根证书管理器提供重载
+func (m *Manager) Reload() error
+```
+
+**API 接口**：
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| POST | `/api/v1/security/keystores/:name/reload` | 重载指定 keystore |
+| POST | `/api/v1/security/rootcerts/reload` | 重载所有根证书 |
+
+### 11.4 设计特点
+
+- **读写分离**：使用 `sync.RWMutex` 保证并发安全
+- **原子更新**：新配置原子替换，避免服务中断
+- **向后兼容**：保留旧的热加载 API（已移除）
+

@@ -4,32 +4,35 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Trisia/tlcpchan/cert"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/security"
 )
 
 // Manager 实例管理器，负责代理实例的创建、启动、停止和删除
 type Manager struct {
 	// instances 实例映射，key为实例名称
-	instances   map[string]Instance
-	mu          sync.RWMutex
-	logger      *logger.Logger
-	certManager *cert.Manager
+	instances       map[string]Instance
+	mu              sync.RWMutex
+	logger          *logger.Logger
+	keyStoreManager *security.KeyStoreManager
+	rootCertManager *security.RootCertManager
 }
 
 // NewManager 创建新的实例管理器
 // 参数:
 //   - log: 日志记录器
-//   - certMgr: 证书管理器
+//   - keyStoreMgr: keystore 管理器
+//   - rootCertMgr: 根证书管理器
 //
 // 返回:
 //   - *Manager: 实例管理器实例
-func NewManager(log *logger.Logger, certMgr *cert.Manager) *Manager {
+func NewManager(log *logger.Logger, keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager) *Manager {
 	return &Manager{
-		instances:   make(map[string]Instance),
-		logger:      log,
-		certManager: certMgr,
+		instances:       make(map[string]Instance),
+		logger:          log,
+		keyStoreManager: keyStoreMgr,
+		rootCertManager: rootCertMgr,
 	}
 }
 
@@ -48,7 +51,7 @@ func (m *Manager) Create(cfg *config.InstanceConfig) (Instance, error) {
 		return nil, fmt.Errorf("实例 %s 已存在", cfg.Name)
 	}
 
-	inst, err := NewInstance(cfg, m.certManager, m.logger)
+	inst, err := NewInstance(cfg, m.keyStoreManager, m.rootCertManager, m.logger)
 	if err != nil {
 		return nil, fmt.Errorf("创建实例失败: %w", err)
 	}

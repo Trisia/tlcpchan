@@ -5,53 +5,38 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Trisia/tlcpchan/cert"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/proxy"
+	"github.com/Trisia/tlcpchan/security"
 	"github.com/Trisia/tlcpchan/stats"
 )
 
 // Instance 代理实例接口，定义实例的基本操作
 type Instance interface {
-	// Name 返回实例名称
 	Name() string
-	// Type 返回实例类型
 	Type() InstanceType
-	// Protocol 返回协议类型
 	Protocol() string
-	// Start 启动实例
 	Start() error
-	// Stop 停止实例
 	Stop() error
-	// Reload 热重载配置（不中断服务）
 	Reload(cfg *config.InstanceConfig) error
-	// Restart 重启实例（停止后重新启动）
 	Restart(cfg *config.InstanceConfig) error
-	// Status 返回当前状态
 	Status() Status
-	// Stats 返回统计信息
 	Stats() *stats.Stats
-	// Config 返回配置
 	Config() *config.InstanceConfig
 }
 
 // baseInstance 实例基类，包含所有实例类型的公共属性
 type baseInstance struct {
-	// cfg 实例配置
-	cfg *config.InstanceConfig
-	// instanceType 实例类型
-	instanceType InstanceType
-	// status 运行状态
-	status Status
-	// stats 统计信息
-	stats *stats.Stats
-	// certManager 证书管理器
-	certManager *cert.Manager
-	logger      *logger.Logger
-	// startTime 启动时间
-	startTime time.Time
-	mu        sync.RWMutex
+	cfg             *config.InstanceConfig
+	instanceType    InstanceType
+	status          Status
+	stats           *stats.Stats
+	keyStoreManager *security.KeyStoreManager
+	rootCertManager *security.RootCertManager
+	logger          *logger.Logger
+	startTime       time.Time
+	mu              sync.RWMutex
 }
 
 // serverInstance TCP服务端代理实例
@@ -79,47 +64,38 @@ type httpClientInstance struct {
 }
 
 // NewInstance 创建新的代理实例
-// 参数:
-//   - cfg: 实例配置
-//   - certManager: 证书管理器
-//   - log: 日志记录器
-//
-// 返回:
-//   - Instance: 代理实例
-//   - error: 创建失败时返回错误
-//
-// 注意: 根据cfg.Type自动创建对应类型的实例
-func NewInstance(cfg *config.InstanceConfig, certManager *cert.Manager, log *logger.Logger) (Instance, error) {
+func NewInstance(cfg *config.InstanceConfig, keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager, log *logger.Logger) (Instance, error) {
 	base := &baseInstance{
-		cfg:          cfg,
-		instanceType: ParseInstanceType(cfg.Type),
-		status:       StatusCreated,
-		stats:        &stats.Stats{},
-		certManager:  certManager,
-		logger:       log,
+		cfg:             cfg,
+		instanceType:    ParseInstanceType(cfg.Type),
+		status:          StatusCreated,
+		stats:           &stats.Stats{},
+		keyStoreManager: keyStoreMgr,
+		rootCertManager: rootCertMgr,
+		logger:          log,
 	}
 
 	switch base.instanceType {
 	case TypeServer:
-		p, err := proxy.NewServerProxy(cfg, certManager)
+		p, err := proxy.NewServerProxy(cfg)
 		if err != nil {
 			return nil, err
 		}
 		return &serverInstance{baseInstance: base, proxy: p}, nil
 	case TypeClient:
-		p, err := proxy.NewClientProxy(cfg, certManager)
+		p, err := proxy.NewClientProxy(cfg)
 		if err != nil {
 			return nil, err
 		}
 		return &clientInstance{baseInstance: base, proxy: p}, nil
 	case TypeHTTPServer:
-		p, err := proxy.NewHTTPServerProxy(cfg, certManager)
+		p, err := proxy.NewHTTPServerProxy(cfg)
 		if err != nil {
 			return nil, err
 		}
 		return &httpServerInstance{baseInstance: base, proxy: p}, nil
 	case TypeHTTPClient:
-		p, err := proxy.NewHTTPClientProxy(cfg, certManager)
+		p, err := proxy.NewHTTPClientProxy(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +193,7 @@ func (i *serverInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewServerProxy(cfg, i.certManager)
+	newProxy, err := proxy.NewServerProxy(cfg)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -276,7 +252,7 @@ func (i *clientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewClientProxy(cfg, i.certManager)
+	newProxy, err := proxy.NewClientProxy(cfg)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -335,7 +311,7 @@ func (i *httpServerInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewHTTPServerProxy(cfg, i.certManager)
+	newProxy, err := proxy.NewHTTPServerProxy(cfg)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -394,7 +370,7 @@ func (i *httpClientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewHTTPClientProxy(cfg, i.certManager)
+	newProxy, err := proxy.NewHTTPClientProxy(cfg)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err

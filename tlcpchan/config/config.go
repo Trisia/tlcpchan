@@ -164,8 +164,16 @@ type InstanceConfig struct {
 	TLCP TLCPConfig `yaml:"tlcp,omitempty" json:"tlcp,omitempty"`
 	// TLS TLS协议专用配置
 	TLS TLSConfig `yaml:"tls,omitempty" json:"tls,omitempty"`
-	// Certs 证书配置，包含TLCP和TLS两种证书
+	// Certs 证书配置，包含TLCP和TLS两种证书（旧版兼容）
 	Certs CertificatesConfig `yaml:"certificates,omitempty" json:"certificates,omitempty"`
+	// KeyStore 密钥存储配置
+	// 支持类型：
+	// - string: keystore 名称
+	// - map[string]string: 文件路径配置 {sign-cert, sign-key, enc-cert?, enc-key?}
+	KeyStore interface{} `yaml:"keystore,omitempty" json:"keystore,omitempty"`
+	// RootCerts 根证书名称列表或文件路径列表
+	// 如果为空则使用默认根证书池
+	RootCerts []string `yaml:"root-certs,omitempty" json:"rootCerts,omitempty"`
 	// ClientCA 客户端CA证书路径列表，用于验证客户端证书
 	// 示例: ["ca1.crt", "ca2.crt"]
 	ClientCA []string `yaml:"client-ca,omitempty" json:"clientCa,omitempty"`
@@ -750,4 +758,24 @@ func (c *Config) GetTrustedDir() string {
 		return filepath.Join(c.WorkDir, "trusted")
 	}
 	return "./trusted"
+}
+
+// GetKeyStoreStoreDir 获取 keystore 存储目录路径
+// 返回:
+//   - string: keystore 存储目录路径
+func (c *Config) GetKeyStoreStoreDir() string {
+	if c.WorkDir != "" {
+		return filepath.Join(c.WorkDir, "keystores")
+	}
+	return "./keystores"
+}
+
+// GetRootCertDir 获取根证书存储目录路径
+// 返回:
+//   - string: 根证书存储目录路径
+func (c *Config) GetRootCertDir() string {
+	if c.WorkDir != "" {
+		return filepath.Join(c.WorkDir, "rootcerts")
+	}
+	return "./rootcerts"
 }
