@@ -4,21 +4,35 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/security"
 	"github.com/Trisia/tlcpchan/security/keystore"
 )
 
 // SecurityController 安全参数管理控制器
+// 负责管理 keystore 和根证书，同时负责更新配置文件
 type SecurityController struct {
-	keyStoreMgr *security.KeyStoreManager
-	rootCertMgr *security.RootCertManager
+	keyStoreMgr *security.KeyStoreManager // keystore 管理器
+	rootCertMgr *security.RootCertManager // 根证书管理器
+	cfg         *config.Config            // 全局配置
+	configPath  string                    // 配置文件路径
 }
 
 // NewSecurityController 创建安全参数管理控制器
-func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager) *SecurityController {
+// 参数：
+//   - keyStoreMgr: keystore 管理器
+//   - rootCertMgr: 根证书管理器
+//   - cfg: 全局配置对象
+//   - configPath: 配置文件路径
+//
+// 返回：
+//   - *SecurityController: 新的控制器实例
+func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager, cfg *config.Config, configPath string) *SecurityController {
 	return &SecurityController{
 		keyStoreMgr: keyStoreMgr,
 		rootCertMgr: rootCertMgr,
+		cfg:         cfg,
+		configPath:  configPath,
 	}
 }
 
@@ -32,8 +46,8 @@ func (c *SecurityController) RegisterRoutes(r *Router) {
 
 	r.GET("/api/v1/security/rootcerts", c.ListRootCerts)
 	r.POST("/api/v1/security/rootcerts", c.AddRootCert)
-	r.GET("/api/v1/security/rootcerts/:name", c.GetRootCert)
-	r.DELETE("/api/v1/security/rootcerts/:name", c.DeleteRootCert)
+	r.GET("/api/v1/security/rootcerts/:filename", c.GetRootCert)
+	r.DELETE("/api/v1/security/rootcerts/:filename", c.DeleteRootCert)
 	r.POST("/api/v1/security/rootcerts/reload", c.ReloadRootCerts)
 }
 
@@ -44,12 +58,16 @@ func (c *SecurityController) ListKeyStores(w http.ResponseWriter, r *http.Reques
 }
 
 // CreateKeyStore 创建 keystore
+// 该方法会：
+// 1. 在 keystore 管理器中创建 keystore
+// 2. 更新配置文件中的 keystores 列表
+// 3. 保存配置文件到磁盘
 func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name         string                `json:"name"`
-		LoaderType   keystore.LoaderType   `json:"loaderType"`
-		LoaderConfig keystore.LoaderConfig `json:"loaderConfig"`
-		Protected    bool                  `json:"protected"`
+		Name       string              `json:"name"`
+		LoaderType keystore.LoaderType `json:"loaderType"`
+		Params     map[string]string   `json:"params"`
+		Protected  bool                `json:"protected"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -62,9 +80,20 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	info, err := c.keyStoreMgr.Create(req.Name, req.LoaderConfig, req.Protected)
+	info, err := c.keyStoreMgr.Create(req.Name, req.LoaderType, req.Params, req.Protected)
 	if err != nil {
 		InternalError(w, "创建失败: "+err.Error())
+		return
+	}
+
+	c.cfg.KeyStores = append(c.cfg.KeyStores, config.KeyStoreConfig{
+		Name:   req.Name,
+		Type:   req.LoaderType,
+		Params: req.Params,
+	})
+
+	if err := config.Save(c.configPath, c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
 		return
 	}
 
@@ -83,12 +112,30 @@ func (c *SecurityController) GetKeyStore(w http.ResponseWriter, r *http.Request)
 }
 
 // DeleteKeyStore 删除 keystore
+// 该方法会：
+// 1. 从 keystore 管理器中删除 keystore
+// 2. 从配置文件的 keystores 列表中移除
+// 3. 保存更新后的配置文件到磁盘
 func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Request) {
 	name := PathParam(r, "name")
 	if err := c.keyStoreMgr.Delete(name); err != nil {
 		InternalError(w, "删除失败: "+err.Error())
 		return
 	}
+
+	newKeyStores := make([]config.KeyStoreConfig, 0, len(c.cfg.KeyStores))
+	for _, ks := range c.cfg.KeyStores {
+		if ks.Name != name {
+			newKeyStores = append(newKeyStores, ks)
+		}
+	}
+	c.cfg.KeyStores = newKeyStores
+
+	if err := config.Save(c.configPath, c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+
 	Success(w, nil)
 }
 
@@ -115,9 +162,9 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	name := r.FormValue("name")
-	if name == "" {
-		BadRequest(w, "名称不能为空")
+	filename := r.FormValue("filename")
+	if filename == "" {
+		BadRequest(w, "文件名不能为空")
 		return
 	}
 
@@ -140,7 +187,7 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	cert, err := c.rootCertMgr.Add(name, certData)
+	cert, err := c.rootCertMgr.Add(filename, certData)
 	if err != nil {
 		InternalError(w, "添加失败: "+err.Error())
 		return
@@ -151,8 +198,8 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
 
 // GetRootCert 获取根证书
 func (c *SecurityController) GetRootCert(w http.ResponseWriter, r *http.Request) {
-	name := PathParam(r, "name")
-	cert, err := c.rootCertMgr.Get(name)
+	filename := PathParam(r, "filename")
+	cert, err := c.rootCertMgr.Get(filename)
 	if err != nil {
 		NotFound(w, "根证书不存在")
 		return
@@ -162,8 +209,8 @@ func (c *SecurityController) GetRootCert(w http.ResponseWriter, r *http.Request)
 
 // DeleteRootCert 删除根证书
 func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Request) {
-	name := PathParam(r, "name")
-	if err := c.rootCertMgr.Delete(name); err != nil {
+	filename := PathParam(r, "filename")
+	if err := c.rootCertMgr.Delete(filename); err != nil {
 		InternalError(w, "删除失败: "+err.Error())
 		return
 	}

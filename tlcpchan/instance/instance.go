@@ -64,7 +64,10 @@ type httpClientInstance struct {
 }
 
 // NewInstance 创建新的代理实例
-func NewInstance(cfg *config.InstanceConfig, keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager, log *logger.Logger) (Instance, error) {
+func NewInstance(cfg *config.InstanceConfig,
+	keyStoreMgr *security.KeyStoreManager,
+	rootCertMgr *security.RootCertManager,
+	log *logger.Logger) (Instance, error) {
 	base := &baseInstance{
 		cfg:             cfg,
 		instanceType:    ParseInstanceType(cfg.Type),
@@ -77,25 +80,25 @@ func NewInstance(cfg *config.InstanceConfig, keyStoreMgr *security.KeyStoreManag
 
 	switch base.instanceType {
 	case TypeServer:
-		p, err := proxy.NewServerProxy(cfg)
+		p, err := proxy.NewServerProxy(cfg, keyStoreMgr, rootCertMgr)
 		if err != nil {
 			return nil, err
 		}
 		return &serverInstance{baseInstance: base, proxy: p}, nil
 	case TypeClient:
-		p, err := proxy.NewClientProxy(cfg)
+		p, err := proxy.NewClientProxy(cfg, keyStoreMgr, rootCertMgr)
 		if err != nil {
 			return nil, err
 		}
 		return &clientInstance{baseInstance: base, proxy: p}, nil
 	case TypeHTTPServer:
-		p, err := proxy.NewHTTPServerProxy(cfg)
+		p, err := proxy.NewHTTPServerProxy(cfg, keyStoreMgr, rootCertMgr)
 		if err != nil {
 			return nil, err
 		}
 		return &httpServerInstance{baseInstance: base, proxy: p}, nil
 	case TypeHTTPClient:
-		p, err := proxy.NewHTTPClientProxy(cfg)
+		p, err := proxy.NewHTTPClientProxy(cfg, keyStoreMgr, rootCertMgr)
 		if err != nil {
 			return nil, err
 		}
@@ -174,26 +177,20 @@ func (i *serverInstance) Reload(cfg *config.InstanceConfig) error {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
 
-	if r, ok := interface{}(i.proxy).(interface {
-		Reload(*config.InstanceConfig) error
-	}); ok {
-		if err := r.Reload(cfg); err == nil {
-			i.mu.Lock()
-			i.cfg = cfg
-			i.mu.Unlock()
-			return nil
-		}
-		return fmt.Errorf("热加载不支持或失败")
+	if err := i.proxy.Reload(cfg); err == nil {
+		i.mu.Lock()
+		i.cfg = cfg
+		i.mu.Unlock()
+		return nil
 	}
-
-	return fmt.Errorf("该实例类型不支持热加载")
+	return fmt.Errorf("热加载不支持或失败")
 }
 
 func (i *serverInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewServerProxy(cfg)
+	newProxy, err := proxy.NewServerProxy(cfg, i.keyStoreManager, i.rootCertManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -233,26 +230,20 @@ func (i *clientInstance) Reload(cfg *config.InstanceConfig) error {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
 
-	if r, ok := interface{}(i.proxy).(interface {
-		Reload(*config.InstanceConfig) error
-	}); ok {
-		if err := r.Reload(cfg); err == nil {
-			i.mu.Lock()
-			i.cfg = cfg
-			i.mu.Unlock()
-			return nil
-		}
-		return fmt.Errorf("热加载不支持或失败")
+	if err := i.proxy.Reload(cfg); err == nil {
+		i.mu.Lock()
+		i.cfg = cfg
+		i.mu.Unlock()
+		return nil
 	}
-
-	return fmt.Errorf("该实例类型不支持热加载")
+	return fmt.Errorf("热加载不支持或失败")
 }
 
 func (i *clientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewClientProxy(cfg)
+	newProxy, err := proxy.NewClientProxy(cfg, i.keyStoreManager, i.rootCertManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -292,26 +283,20 @@ func (i *httpServerInstance) Reload(cfg *config.InstanceConfig) error {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
 
-	if r, ok := interface{}(i.proxy).(interface {
-		Reload(*config.InstanceConfig) error
-	}); ok {
-		if err := r.Reload(cfg); err == nil {
-			i.mu.Lock()
-			i.cfg = cfg
-			i.mu.Unlock()
-			return nil
-		}
-		return fmt.Errorf("热加载不支持或失败")
+	if err := i.proxy.Reload(cfg); err == nil {
+		i.mu.Lock()
+		i.cfg = cfg
+		i.mu.Unlock()
+		return nil
 	}
-
-	return fmt.Errorf("该实例类型不支持热加载")
+	return fmt.Errorf("热加载不支持或失败")
 }
 
 func (i *httpServerInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewHTTPServerProxy(cfg)
+	newProxy, err := proxy.NewHTTPServerProxy(cfg, i.keyStoreManager, i.rootCertManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -351,26 +336,20 @@ func (i *httpClientInstance) Reload(cfg *config.InstanceConfig) error {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
 
-	if r, ok := interface{}(i.proxy).(interface {
-		Reload(*config.InstanceConfig) error
-	}); ok {
-		if err := r.Reload(cfg); err == nil {
-			i.mu.Lock()
-			i.cfg = cfg
-			i.mu.Unlock()
-			return nil
-		}
-		return fmt.Errorf("热加载不支持或失败")
+	if err := i.proxy.Reload(cfg); err == nil {
+		i.mu.Lock()
+		i.cfg = cfg
+		i.mu.Unlock()
+		return nil
 	}
-
-	return fmt.Errorf("该实例类型不支持热加载")
+	return fmt.Errorf("热加载不支持或失败")
 }
 
 func (i *httpClientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewHTTPClientProxy(cfg)
+	newProxy, err := proxy.NewHTTPClientProxy(cfg, i.keyStoreManager, i.rootCertManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err

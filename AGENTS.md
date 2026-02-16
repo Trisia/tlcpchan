@@ -160,6 +160,8 @@ func TestProxyConnection(t *testing.T) {
 
 ### 函数注释规范
 
+无论是修改，还是创建都应该遵守函数注释规范！
+
 除非函数功能特别简单直观（如简单的 getter/setter），否则必须为函数编写详细注释。
 
 后端（Go）函数必须严格遵循注释规范，前端（TypeScript/React）函数可根据场景灵活处理。

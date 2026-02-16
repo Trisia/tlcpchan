@@ -83,9 +83,9 @@ func (m *Manager) List() []Instance {
 //   - name: 实例名称
 //
 // 返回:
-//   - error: 实例不存在或正在运行时返回错误
+//   - error: 实例不存在时返回错误
 //
-// 注意: 正在运行的实例必须先停止才能删除
+// 注意: 正在运行的实例会先停止后删除
 func (m *Manager) Delete(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -96,7 +96,11 @@ func (m *Manager) Delete(name string) error {
 	}
 
 	if inst.Status() == StatusRunning {
-		return fmt.Errorf("实例 %s 正在运行，请先停止", name)
+		if err := inst.Stop(); err != nil {
+			m.logger.Warn("停止实例 %s 失败，但继续删除: %v", name, err)
+		} else {
+			m.logger.Info("停止实例 %s 成功", name)
+		}
 	}
 
 	delete(m.instances, name)

@@ -16,7 +16,7 @@ import (
 
 // Loader 加载器接口
 type Loader interface {
-	Load(config LoaderConfig) (KeyStore, error)
+	Load(loaderType LoaderType, params map[string]string) (KeyStore, error)
 }
 
 // FileKeyStore 基于文件的 keystore 实现
@@ -187,11 +187,11 @@ func (fl *FileLoader) resolvePath(path string) string {
 	return path
 }
 
-func (fl *FileLoader) Load(config LoaderConfig) (KeyStore, error) {
-	signCertPath := fl.resolvePath(config.Params["sign-cert"])
-	signKeyPath := fl.resolvePath(config.Params["sign-key"])
-	encCertPath := fl.resolvePath(config.Params["enc-cert"])
-	encKeyPath := fl.resolvePath(config.Params["enc-key"])
+func (fl *FileLoader) Load(loaderType LoaderType, params map[string]string) (KeyStore, error) {
+	signCertPath := fl.resolvePath(params["sign-cert"])
+	signKeyPath := fl.resolvePath(params["sign-key"])
+	encCertPath := fl.resolvePath(params["enc-cert"])
+	encKeyPath := fl.resolvePath(params["enc-key"])
 
 	if signCertPath == "" || signKeyPath == "" {
 		return nil, fmt.Errorf("签名证书和密钥路径不能为空")
@@ -220,8 +220,8 @@ func NewNamedLoader(manager *Manager) *NamedLoader {
 	return &NamedLoader{manager: manager}
 }
 
-func (nl *NamedLoader) Load(config LoaderConfig) (KeyStore, error) {
-	name := config.Params["name"]
+func (nl *NamedLoader) Load(loaderType LoaderType, params map[string]string) (KeyStore, error) {
+	name := params["name"]
 	if name == "" {
 		return nil, fmt.Errorf("keystore名称不能为空")
 	}

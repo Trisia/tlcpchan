@@ -127,12 +127,11 @@ Content-Type: application/json
 {
   "name": "my-keystore",
   "loaderType": "file",
-  "loaderConfig": {
-    "type": "file",
-    "params": {
-      "sign-cert": "/path/to/sign.crt",
-      "sign-key": "/path/to/sign.key"
-    }
+  "params": {
+    "sign-cert": "/path/to/sign.crt",
+    "sign-key": "/path/to/sign.key",
+    "enc-cert": "/path/to/enc.crt",
+    "enc-key": "/path/to/enc.key"
   },
   "protected": false
 }
@@ -200,17 +199,36 @@ POST /api/v1/security/rootcerts/reload
 ```
 /etc/tlcpchan/
 ├── config/
-│   └── config.yaml
-├── keystores/              # Keystore 存储目录
-│   ├── my-keystore.yaml    # Keystore 元数据
-│   └── ...
+│   └── config.yaml        # 主配置文件（包含 keystores 配置）
 ├── rootcerts/             # 根证书存储目录
-│   ├── ca1.yaml           # 根证书元数据
-│   ├── certs/
-│   │   └── ca1.pem        # 根证书文件
+│   ├── ca1.pem            # 根证书文件（直接存放，无 yaml 元数据）
+│   ├── ca2.crt            # 支持 .pem, .cer, .crt, .der 格式
 │   └── ...
 └── logs/
 ```
+
+## Keystore 持久化说明
+
+Keystore 记录持久化在主配置文件 `config.yaml` 的 `keystores` 字段中，不再使用独立的 `keystores/` 目录。
+
+### 配置文件中的 Keystore 格式
+
+```yaml
+keystores:
+  - name: "my-keystore"
+    type: "file"
+    params:
+      sign-cert: "/path/to/sign.crt"
+      sign-key: "/path/to/sign.key"
+      enc-cert: "/path/to/enc.crt"  # TLCP 可选
+      enc-key: "/path/to/enc.key"    # TLCP 可选
+```
+
+### 职责划分
+
+- **Keystore Manager**：仅负责内存中的 keystore 管理，不关心持久化
+- **Security Controller**：负责更新配置文件中的 `keystores` 字段
+- **Config 模块**：负责配置文件的读写
 
 ---
 
@@ -294,8 +312,7 @@ manager.RegisterLoader(LoaderTypeSKF, &SKFLoader{})
 
 1. **文件权限**
    ```bash
-   chmod 700 /etc/tlcpchan/keystores
-   chmod 600 /etc/tlcpchan/keystores/*.yaml
+   chmod 600 /etc/tlcpchan/config/config.yaml
    chmod 600 /etc/tlcpchan/rootcerts/certs/*.pem
    ```
 

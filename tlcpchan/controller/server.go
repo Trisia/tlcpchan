@@ -46,7 +46,7 @@ func NewServer(opts ServerOptions) *Server {
 	if opts.KeyStoreManager != nil {
 		keyStoreMgr = opts.KeyStoreManager
 	} else {
-		keyStoreMgr = security.NewKeyStoreManager("")
+		keyStoreMgr = security.NewKeyStoreManager()
 	}
 
 	if opts.RootCertManager != nil {
@@ -62,7 +62,7 @@ func NewServer(opts ServerOptions) *Server {
 
 	instanceCtrl := NewInstanceController(mgr)
 	configCtrl := NewConfigController(opts.Config, opts.ConfigPath)
-	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr)
+	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController(opts.Version)
 	healthCtrl := NewHealthController(mgr)
 

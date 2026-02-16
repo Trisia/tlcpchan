@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/Trisia/tlcpchan/security/keystore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -79,12 +80,24 @@ func ParseAuthType(s string) AuthType {
 type Config struct {
 	// Server 服务端配置，包含API、UI和日志配置
 	Server ServerConfig `yaml:"server" json:"server"`
+	// KeyStores 密钥存储配置列表
+	KeyStores []KeyStoreConfig `yaml:"keystores" json:"keystores"`
 	// Instances 代理实例配置列表，每个实例代表一个独立的代理服务
 	Instances []InstanceConfig `yaml:"instances" json:"instances"`
 	// WorkDir 工作目录（运行时设置，不从配置文件读取）
 	// Linux默认: /etc/tlcpchan
 	// Windows默认: 程序所在目录
 	WorkDir string `yaml:"-" json:"-"`
+}
+
+// KeyStoreConfig 密钥存储配置
+type KeyStoreConfig struct {
+	// Name 密钥存储名称，唯一标识符（可选）
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
+	// Type 加载器类型
+	Type keystore.LoaderType `yaml:"type" json:"type"`
+	// Params 加载器参数
+	Params map[string]string `yaml:"params" json:"params"`
 }
 
 // ServerConfig 服务端配置，定义管理界面和日志设置
@@ -164,16 +177,6 @@ type InstanceConfig struct {
 	TLCP TLCPConfig `yaml:"tlcp,omitempty" json:"tlcp,omitempty"`
 	// TLS TLS协议专用配置
 	TLS TLSConfig `yaml:"tls,omitempty" json:"tls,omitempty"`
-	// Certs 证书配置，包含TLCP和TLS两种证书（旧版兼容）
-	Certs CertificatesConfig `yaml:"certificates,omitempty" json:"certificates,omitempty"`
-	// KeyStore 密钥存储配置
-	// 支持类型：
-	// - string: keystore 名称
-	// - map[string]string: 文件路径配置 {sign-cert, sign-key, enc-cert?, enc-key?}
-	KeyStore interface{} `yaml:"keystore,omitempty" json:"keystore,omitempty"`
-	// RootCerts 根证书名称列表或文件路径列表
-	// 如果为空则使用默认根证书池
-	RootCerts []string `yaml:"root-certs,omitempty" json:"rootCerts,omitempty"`
 	// ClientCA 客户端CA证书路径列表，用于验证客户端证书
 	// 示例: ["ca1.crt", "ca2.crt"]
 	ClientCA []string `yaml:"client-ca,omitempty" json:"clientCa,omitempty"`
@@ -191,6 +194,8 @@ type InstanceConfig struct {
 	SNI string `yaml:"sni,omitempty" json:"sni,omitempty"`
 	// Timeout 连接超时配置
 	Timeout *TimeoutConfig `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	// BufferSize 缓冲区大小，单位字节，默认 4096
+	BufferSize int `yaml:"buffer-size,omitempty" json:"bufferSize,omitempty"`
 }
 
 // TLCPConfig TLCP协议配置（国密协议）
@@ -222,6 +227,8 @@ type TLCPConfig struct {
 	SessionCache bool `yaml:"session-cache,omitempty" json:"sessionCache,omitempty"`
 	// InsecureSkipVerify 是否跳过证书验证（不安全，仅用于测试）
 	InsecureSkipVerify bool `yaml:"insecure-skip-verify,omitempty" json:"insecureSkipVerify,omitempty"`
+	// Keystore 密钥存储配置
+	Keystore *KeyStoreConfig `yaml:"keystore,omitempty" json:"keystore,omitempty"`
 }
 
 // TLSConfig TLS协议配置
@@ -254,27 +261,8 @@ type TLSConfig struct {
 	SessionCache bool `yaml:"session-cache,omitempty" json:"sessionCache,omitempty"`
 	// InsecureSkipVerify 是否跳过证书验证（不安全，仅用于测试）
 	InsecureSkipVerify bool `yaml:"insecure-skip-verify,omitempty" json:"insecureSkipVerify,omitempty"`
-}
-
-// CertificatesConfig 证书配置集合
-type CertificatesConfig struct {
-	// TLCP TLCP协议证书配置
-	TLCP CertConfig `yaml:"tlcp,omitempty" json:"tlcp,omitempty"`
-	// TLS TLS协议证书配置
-	TLS CertConfig `yaml:"tls,omitempty" json:"tls,omitempty"`
-}
-
-// CertConfig 单个证书配置
-type CertConfig struct {
-	// Cert 证书文件路径，支持PEM格式
-	// 示例: "server.crt" 或 "./certs/server.pem"
-	Cert string `yaml:"cert,omitempty" json:"cert,omitempty"`
-	// Key 私钥文件路径，支持PEM格式
-	// 示例: "server.key" 或 "./certs/server.key"
-	Key string `yaml:"key,omitempty" json:"key,omitempty"`
-	// KeyName 密钥存储名称（通过名称引用已管理的密钥）
-	// 示例: "my-server-key"
-	KeyName string `yaml:"key-name,omitempty" json:"keyName,omitempty"`
+	// Keystore 密钥存储配置
+	Keystore *KeyStoreConfig `yaml:"keystore,omitempty" json:"keystore,omitempty"`
 }
 
 // HTTPConfig HTTP代理配置
@@ -355,6 +343,7 @@ func Default() *Config {
 				Enabled:    true,
 			},
 		},
+		KeyStores: []KeyStoreConfig{},
 		Instances: []InstanceConfig{},
 	}
 }
@@ -377,23 +366,6 @@ func Load(path string) (*Config, error) {
 	cfg := Default()
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
-	}
-
-	// 兼容性处理：将 client_auth 转换为 auth
-	for i := range cfg.Instances {
-		inst := &cfg.Instances[i]
-		if inst.TLCP.ClientAuth != "" {
-			// 将 client_auth 转换为 auth
-			if inst.TLCP.ClientAuth == "require-and-verify-client-cert" {
-				inst.TLCP.Auth = "mutual"
-			} else if inst.TLCP.ClientAuth == "verify-client-cert-if-given" ||
-				inst.TLCP.ClientAuth == "request-client-cert" ||
-				inst.TLCP.ClientAuth == "require-any-client-cert" {
-				inst.TLCP.Auth = "one-way"
-			} else if inst.TLCP.ClientAuth == "no-client-cert" {
-				inst.TLCP.Auth = "none"
-			}
-		}
 	}
 
 	if err := Validate(cfg); err != nil {
@@ -434,6 +406,22 @@ func Save(path string, cfg *Config) error {
 func Validate(cfg *Config) error {
 	if cfg.Server.API.Address == "" {
 		cfg.Server.API.Address = ":30080"
+	}
+
+	// 验证 keystores
+	ksNames := make(map[string]bool)
+	for i, ks := range cfg.KeyStores {
+		if ks.Name == "" {
+			return fmt.Errorf("keystore %d: 名称不能为空", i)
+		}
+		if ksNames[ks.Name] {
+			return fmt.Errorf("keystore名称重复: %s", ks.Name)
+		}
+		ksNames[ks.Name] = true
+
+		if ks.Type == "" {
+			return fmt.Errorf("keystore %s: 加载器类型不能为空", ks.Name)
+		}
 	}
 
 	instanceNames := make(map[string]bool)
@@ -495,6 +483,11 @@ func Validate(cfg *Config) error {
 		// 设置默认超时配置
 		if inst.Timeout == nil {
 			cfg.Instances[i].Timeout = DefaultTimeout()
+		}
+
+		// 设置默认缓冲区大小
+		if inst.BufferSize <= 0 {
+			cfg.Instances[i].BufferSize = 4096
 		}
 	}
 

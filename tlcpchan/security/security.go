@@ -9,7 +9,6 @@ type (
 	KeyStore        = keystore.KeyStore
 	KeyStoreType    = keystore.KeyStoreType
 	LoaderType      = keystore.LoaderType
-	LoaderConfig    = keystore.LoaderConfig
 	KeyStoreInfo    = keystore.KeyStoreInfo
 	KeyStoreManager = keystore.Manager
 	RootCert        = rootcert.RootCert
@@ -26,8 +25,8 @@ const (
 	LoaderTypeSDF    = keystore.LoaderTypeSDF
 )
 
-func NewKeyStoreManager(baseDir string) *KeyStoreManager {
-	return keystore.NewManager(baseDir)
+func NewKeyStoreManager() *KeyStoreManager {
+	return keystore.NewManager()
 }
 
 func NewRootCertManager(baseDir string) *RootCertManager {

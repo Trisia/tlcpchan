@@ -71,154 +71,6 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
 
 ### 2.2 项目目录结构
 
-```
-tlcpchan/                          # 内核主程序
-├── main.go                        # 程序入口
-├── config/                        # 配置管理
-│   ├── config.go                  # 配置结构定义、加载/保存逻辑
-│   ├── config_test.go             # 配置测试
-│   └── config.yaml                # 默认配置文件
-├── logger/                        # 日志管理
-│   └── logger.go                  # 日志管理器
-├── security/                      # ✅ 安全参数管理（新增）
-│   ├── security.go                # 统一导出接口
-│   ├── keystore/                  # Keystore 管理
-│   │   ├── types.go               # 抽象接口和类型定义
-│   │   ├── loader.go              # 加载器实现（FileLoader、NamedLoader）
-│   │   ├── manager.go             # Keystore 管理器
-│   │   └── store.go               # YAML 持久化存储
-│   └── rootcert/                 # 根证书管理
-│       ├── types.go               # 根证书类型定义
-│       ├── manager.go             # 根证书管理器
-│       └── store.go               # 根证书持久化存储
-├── proxy/                         # 代理核心
-│   ├── simple.go                  # ✅ 简化版代理（移除 cert 依赖）
-│   └── vars.go                    # 变量定义
-├── instance/                      # 实例管理
-│   ├── manager.go                 # 实例管理器
-│   ├── instance.go                # 实例实现
-│   └── types.go                   # 类型定义
-├── controller/                    # API控制器
-│   ├── server.go                  # API服务器
-│   ├── router.go                  # 路由定义
-│   ├── instance.go                # 实例管理API
-│   ├── config.go                  # 配置管理API
-│   ├── security.go                # ✅ 安全参数管理API（新增）
-│   ├── health.go                  # 健康检查API
-│   ├── system.go                  # 系统信息API
-│   ├── middleware.go              # 中间件
-│   └── response.go                # 响应处理
-├── stats/                         # 流量统计
-│   └── collector.go               # 统计收集器
-├── bin/                           # 编译输出目录
-└── go.mod
-```
-tlcpchan/                          # 内核主程序
-├── main.go                        # 程序入口
-├── config/                        # 配置管理
-│   ├── config.go                  # 配置结构定义、加载/保存逻辑
-│   ├── config_test.go             # 配置测试
-│   └── config.yaml                # 默认配置文件
-├── logger/                        # 日志管理
-│   └── logger.go                  # 日志管理器
-├── cert/                          # 证书管理
-│   ├── loader.go                  # 证书加载器
-│   ├── loader_test.go             # 加载器测试
-│   ├── manager.go                 # 证书管理器
-│   ├── generator.go               # 证书生成器
-│   └── embedded.go                # 嵌入证书资源
-├── key/                           # 密钥存储管理
-│   ├── key.go                     # 密钥结构
-│   ├── manager.go                 # 密钥管理器
-│   ├── generator.go               # 密钥生成器
-│   ├── model.go                   # 数据模型
-│   ├── store.go                   # 存储实现
-│   └── validator.go               # 验证器
-├── proxy/                         # 代理核心
-│   ├── server.go                  # 服务端代理(TLCP/TLS→TCP)
-│   ├── client.go                  # 客户端代理(TCP→TLCP/TLS)
-│   ├── http_server.go             # HTTP服务端代理
-│   ├── http_client.go             # HTTP客户端代理
-│   ├── adapter.go                 # 协议适配器
-│   ├── adapter_test.go            # 适配器测试
-│   ├── conn.go                    # 连接处理
-│   └── vars.go                    # 变量定义
-├── instance/                      # 实例管理
-│   ├── manager.go                 # 实例管理器
-│   ├── instance.go                # 实例实现
-│   └── types.go                   # 类型定义
-├── controller/                    # API控制器
-│   ├── server.go                  # API服务器
-│   ├── router.go                  # 路由定义
-│   ├── instance.go                # 实例管理API
-│   ├── config.go                  # 配置管理API
-│   ├── cert.go                    # 证书管理API
-│   ├── keystore.go                # 密钥存储API
-│   ├── health.go                  # 健康检查API
-│   ├── system.go                  # 系统信息API
-│   ├── middleware.go              # 中间件
-│   └── response.go                # 响应处理
-├── stats/                         # 流量统计
-│   └── collector.go               # 统计收集器
-├── release/                       # 打包相关
-│   └── systemd/                   # systemd服务文件
-├── docs/
-│   └── config-examples.md         # 配置示例
-├── bin/                           # 编译输出目录
-└── go.mod
-
-tlcpchan-cli/                      # CLI工具
-├── main.go                        # 程序入口
-├── commands/                      # 命令实现
-│   ├── root.go                    # 根命令
-│   ├── instance.go                # 实例命令
-│   ├── config.go                  # 配置命令
-│   ├── cert.go                    # 证书命令
-│   ├── keystore.go                # 密钥存储命令
-│   ├── system.go                  # 系统命令
-│   └── version.go                 # 版本命令
-├── client/                        # API客户端
-│   └── client.go                  # HTTP客户端封装
-├── bin/                           # 编译输出目录
-└── go.mod
-
-tlcpchan-ui/                       # Web前端界面
-├── main.go                        # UI服务主入口
-├── server/                        # UI服务器
-├── proxy/                         # 代理实现
-├── web/                           # 前端项目
-│   ├── src/                       # 前端源代码
-│   │   ├── api/                   # API调用封装
-│   │   ├── assets/                # 静态资源
-│   │   ├── components/            # 通用组件
-│   │   ├── layouts/               # 页面布局
-│   │   ├── router/                # 路由配置
-│   │   ├── stores/                # 状态管理(Pinia)
-│   │   ├── types/                 # TypeScript类型定义
-│   │   ├── views/                 # 页面视图
-│   │   │   ├── Dashboard.vue      # 仪表板
-│   │   │   ├── Instances.vue      # 实例列表
-│   │   │   ├── InstanceDetail.vue # 实例详情
-│   │   │   ├── Certificates.vue   # 证书管理
-│   │   │   ├── KeyStores.vue      # 密钥存储
-│   │   │   ├── Logs.vue           # 日志查看
-│   │   │   └── Settings.vue       # 系统设置
-│   │   ├── App.vue                 # 根组件
-│   │   ├── main.ts                 # 入口文件
-│   │   └── style.css               # 全局样式
-│   ├── public/                     # 公共资源
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── vite.config.ts
-├── dist/                          # 前端构建产物
-│   ├── assets/
-│   ├── index.html
-│   └── version.txt
-├── bin/                           # 编译输出目录
-└── go.mod
-```
-
 ## 3. 核心模块设计
 
 ### 3.1 配置管理模块
@@ -262,56 +114,48 @@ type InstanceConfig struct {
     Listen   string            `yaml:"listen"`   // 监听地址
     Target   string            `yaml:"target"`   // 目标地址
     Protocol string            `yaml:"protocol"` // 协议：auto/tlcp/tls
-    Auth     string            `yaml:"auth"`     // 认证：none/one-way/mutual
     Enabled  bool              `yaml:"enabled"`  // 是否启用
     
     // TLS/TLCP 配置
     TLCP     TLCPConfig        `yaml:"tlcp"`
     TLS      TLSConfig         `yaml:"tls"`
     
-    // 证书配置
-    Certificates CertificatesConfig `yaml:"certificates"`
-    ClientCA     []string           `yaml:"client_ca"`     // 客户端CA证书（服务端验证）
-    ServerCA     []string           `yaml:"server_ca"`     // 服务端CA证书（客户端验证）
+    // 安全配置（详见 security.md）
+    ClientCA []string          `yaml:"client-ca,omitempty"` // 客户端CA证书（服务端验证）
+    ServerCA []string          `yaml:"server-ca,omitempty"` // 服务端CA证书（客户端验证）
     
     // HTTP代理配置
-    HTTP      HTTPConfig        `yaml:"http"`
+    HTTP      *HTTPConfig      `yaml:"http,omitempty"`
     
     // 日志配置
-    Log       *LogConfig        `yaml:"log"`
+    Log       *LogConfig        `yaml:"log,omitempty"`
     
     // 统计配置
-    Stats     *StatsConfig      `yaml:"stats"`
+    Stats     *StatsConfig      `yaml:"stats,omitempty"`
 }
 
 type TLCPConfig struct {
-    MinVersion       uint16   `yaml:"min_version"`       // 最低协议版本
-    MaxVersion       uint16   `yaml:"max_version"`       // 最高协议版本
-    CipherSuites     []uint16 `yaml:"cipher_suites"`     // 密码套件
-    CurvePreferences []uint16 `yaml:"curve_preferences"` // 曲线偏好
-    SessionTickets   bool     `yaml:"session_tickets"`   // 会话票据
-    SessionCache     bool     `yaml:"session_cache"`     // 会话缓存
-    InsecureSkipVerify bool   `yaml:"insecure_skip_verify"` // 跳过验证（客户端）
+    Auth             string              `yaml:"auth,omitempty"`              // 认证模式：none/one-way/mutual
+    MinVersion       string              `yaml:"min-version,omitempty"`       // 最低协议版本
+    MaxVersion       string              `yaml:"max-version,omitempty"`       // 最高协议版本
+    CipherSuites     []string            `yaml:"cipher-suites,omitempty"`     // 密码套件
+    CurvePreferences []string            `yaml:"curve-preferences,omitempty"` // 曲线偏好
+    SessionTickets   bool                `yaml:"session-tickets,omitempty"`   // 会话票据
+    SessionCache     bool                `yaml:"session-cache,omitempty"`     // 会话缓存
+    InsecureSkipVerify bool              `yaml:"insecure-skip-verify,omitempty"` // 跳过验证（客户端）
+    Keystore         *config.KeyStoreConfig `yaml:"keystore,omitempty"`     // Keystore 配置（详见 security.md）
 }
 
 type TLSConfig struct {
-    MinVersion       uint16   `yaml:"min_version"`
-    MaxVersion       uint16   `yaml:"max_version"`
-    CipherSuites     []uint16 `yaml:"cipher_suites"`
-    CurvePreferences []uint16 `yaml:"curve_preferences"`
-    SessionTickets   bool     `yaml:"session_tickets"`
-    SessionCache     bool     `yaml:"session_cache"`
-    InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
-}
-
-type CertificatesConfig struct {
-    TLCP CertConfig `yaml:"tlcp"` // TLCP证书配置
-    TLS  CertConfig `yaml:"tls"`  // TLS证书配置
-}
-
-type CertConfig struct {
-    Cert string `yaml:"cert"` // 证书文件路径
-    Key  string `yaml:"key"`  // 私钥文件路径
+    Auth             string              `yaml:"auth,omitempty"`              // 认证模式：none/one-way/mutual
+    MinVersion       string              `yaml:"min-version,omitempty"`       // 最低协议版本
+    MaxVersion       string              `yaml:"max-version,omitempty"`       // 最高协议版本
+    CipherSuites     []string            `yaml:"cipher-suites,omitempty"`     // 密码套件
+    CurvePreferences []string            `yaml:"curve-preferences,omitempty"` // 曲线偏好
+    SessionTickets   bool                `yaml:"session-tickets,omitempty"`   // 会话票据
+    SessionCache     bool                `yaml:"session-cache,omitempty"`     // 会话缓存
+    InsecureSkipVerify bool              `yaml:"insecure-skip-verify,omitempty"` // 跳过验证（客户端）
+    Keystore         *config.KeyStoreConfig `yaml:"keystore,omitempty"`     // Keystore 配置（详见 security.md）
 }
 
 type HTTPConfig struct {
@@ -400,220 +244,25 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 5. 根据配置修改响应头
 6. 返回给客户端
 
-### 3.3 证书管理模块
+### 3.3 安全参数管理模块
 
-#### 3.3.1 证书加载器接口
-
-```go
-type CertLoader interface {
-    Load(certFile, keyFile string) (*CertBundle, error)
-    Watch(certFile, keyFile string, onChange func(*CertBundle)) error
-}
-
-type CertBundle struct {
-    TLCP *tlcp.Certificate  // TLCP证书
-    TLS  *tls.Certificate   // TLS证书
-}
-```
-
-#### 3.3.2 热更新机制
-
-使用`GetCertificate`回调函数实现证书热更新：
-
-```go
-func (l *TLCPListener) GetCertificate(hello *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
-    // 动态加载最新证书
-    return l.certLoader.LoadCertificate()
-}
-```
-
-#### 3.3.3 证书生成器
-
-首次启动时自动生成：
-- 根CA证书（SM2/RSA）
-- 服务端证书（SM2/RSA）
-- 客户端证书（SM2/RSA）
-
-### 3.4 密钥存储管理模块
-
-密钥存储模块提供密钥和证书的集中管理功能，支持 TLCP（国密双证书）和 TLS 两种类型。
-
-#### 3.4.1 密钥存储类型
-
-```go
-type KeyStoreType string
-
-const (
-    KeyStoreTypeTLCP KeyStoreType = "tlcp"
-    KeyStoreTypeTLS  KeyStoreType = "tls"
-)
-```
-
-**TLCP 密钥存储**：包含签名证书/密钥和加密证书/密钥（国密双证书体系）
-**TLS 密钥存储**：包含单一证书/密钥
-
-#### 3.4.2 密钥管理器
-
-```go
-type Manager struct {
-    // 密钥存储管理
-}
-
-func (m *Manager) List() ([]*KeyStoreInfo, error)
-func (m *Manager) GetInfo(name string) (*KeyStoreInfo, error)
-func (m *Manager) Create(name string, keyType KeyStoreType, params KeyParams, 
-    signCert, signKey, encCert, encKey []byte) (*KeyStore, error)
-func (m *Manager) UpdateCertificates(name string, signCert, encCert []byte) (*KeyStore, error)
-func (m *Manager) Delete(name string) error
-func (m *Manager) Reload(name string) error
-func (m *Manager) Exists(name string) bool
-```
-
-#### 3.4.3 密钥存储信息
-
-```go
-type KeyStoreInfo struct {
-    Name        string                 // 密钥名称
-    Type        KeyStoreType           // 类型（tlcp/tls）
-    KeyParams   KeyParams              // 密钥参数
-    HasSignCert bool                   // 是否有签名证书
-    HasSignKey  bool                   // 是否有签名密钥
-    HasEncCert  bool                   // 是否有加密证书（仅国密）
-    HasEncKey   bool                   // 是否有加密密钥（仅国密）
-    CreatedAt   time.Time              // 创建时间
-    UpdatedAt   time.Time              // 更新时间
-}
-
-type KeyParams struct {
-    Algorithm string                   // 算法（SM2/RSA/ECDSA）
-    Length    int                      // 密钥长度
-    Type      string                   // 类型
-}
-```
-
-### 3.5 安全参数管理模块（新增）
+安全参数（Keystore、根证书）的详细配置和管理方法请参考 [security.md](./security.md)。
 
 安全参数管理模块统一管理 Keystore 和根证书，提供抽象的接口设计，支持多种加载方式。
 
-#### 3.5.1 核心概念
+安全参数管理模块统一管理 Keystore 和根证书，提供抽象的接口设计，支持多种加载方式。
+
+#### 3.3.1 核心概念
 
 | 概念 | 说明 |
 |------|------|
 | **Keystore** | 密钥存储，包含签名/加密证书和密钥 |
 | **RootCert** | 根证书，用于验证对端证书 |
 | **Loader** | Keystore 加载器，支持多种加载方式 |
-| **KeyStoreManager** | Keystore 管理器 |
-| **RootCertManager** | 根证书管理器 |
 
-#### 3.5.2 Keystore 抽象接口
+> **详细文档**：安全参数的完整配置和管理方法请参考 [security.md](./security.md)。
 
-```go
-// KeyStore 抽象 keystore 接口
-type KeyStore interface {
-    Type() KeyStoreType
-    TLCPCertificate() (*tlcp.Certificate, error)
-    TLSCertificate() (*tls.Certificate, error)
-    Reload() error
-}
-
-// Loader 加载器接口
-type Loader interface {
-    Load(config LoaderConfig) (KeyStore, error)
-}
-```
-
-#### 3.5.3 加载器类型
-
-| 类型 | 说明 |
-|------|------|
-| `file` | 从文件系统加载（默认） |
-| `named` | 通过名称引用已存在的 keystore |
-| `skf` | SKF 硬件接口（预留） |
-| `sdf` | SDF 硬件接口（预留） |
-
-#### 3.5.4 Keystore 管理器功能
-
-```go
-type Manager struct {
-    // ...
-}
-
-func (m *Manager) Create(name string, loaderConfig LoaderConfig, protected bool) (*KeyStoreInfo, error)
-func (m *Manager) Delete(name string) error
-func (m *Manager) Get(name string) (*KeyStoreInfo, error)
-func (m *Manager) List() []*KeyStoreInfo
-func (m *Manager) Reload(name string) error
-func (m *Manager) GetKeyStore(name string) (KeyStore, error)
-```
-
-**关键特性**：
-- **受保护的 Keystore**：实例配置直接创建的 keystore 标记为 `protected: true`，不允许删除
-- **命名规则**：`instance-<实例名>`
-- **热更新支持**：KeyStore 接口包含 `Reload()` 方法
-
-#### 3.5.5 根证书管理器
-
-```go
-type RootCertManager struct {
-    // ...
-}
-
-func (m *Manager) Add(name string, certData []byte) (*RootCert, error)
-func (m *Manager) Delete(name string) error
-func (m *Manager) Get(name string) (*RootCert, error)
-func (m *Manager) List() []*RootCert
-func (m *Manager) Reload() error
-func (m *Manager) GetPool() RootCertPool
-func (m *Manager) GetPoolForNames(names []string) (RootCertPool, error)
-```
-
-**根证书优先级**：
-1. 实例配置 `root-certs` 有值时，使用指定的根证书
-2. 否则使用全局默认根证书池
-
-#### 3.5.6 配置方式
-
-**方式一：通过名称引用（推荐）**
-```yaml
-keystore: "my-keystore"
-```
-
-**方式二：直接配置文件路径**
-```yaml
-keystore:
-  sign-cert: "/path/to/sign.crt"
-  sign-key: "/path/to/sign.key"
-  enc-cert: "/path/to/enc.crt"  # TLCP 可选
-  enc-key: "/path/to/enc.key"    # TLCP 可选
-```
-
-**方式三：完整配置（扩展用）**
-```yaml
-keystore:
-  type: "file"
-  params:
-    sign-cert-path: "/path/to/sign.crt"
-    sign-key-path: "/path/to/sign.key"
-```
-
-#### 3.5.7 扩展性设计
-
-实现自定义加载器只需实现 `Loader` 接口：
-
-```go
-type SKFLoader struct {
-    // ...
-}
-
-func (l *SKFLoader) Load(config LoaderConfig) (KeyStore, error) {
-    // 从 SKF 硬件接口加载
-}
-
-// 注册到管理器
-manager.RegisterLoader(LoaderTypeSKF, &SKFLoader{})
-```
-
-### 3.6 实例管理模块
+### 3.4 实例管理模块
 
 ```go
 type Instance interface {
@@ -637,7 +286,7 @@ func (m *InstanceManager) List() []Instance
 func (m *InstanceManager) Delete(name string) error
 ```
 
-### 3.7 统计模块
+### 3.5 统计模块
 
 ```go
 type Metrics struct {
@@ -686,6 +335,8 @@ type Metrics struct {
 | POST | /api/v1/security/rootcerts/reload | 重载所有根证书 |
 | GET | /api/v1/system/info | 系统信息 |
 | GET | /api/v1/system/health | 健康检查 |
+
+> **安全参数 API 详细文档**：请参考 [security.md](./security.md)
 
 ## 5. UI设计
 
@@ -779,312 +430,4 @@ COPY config /etc/tlcpchan
 EXPOSE 30080 30000
 ENTRYPOINT ["/usr/bin/tlcpchan"]
 ```
-
-## 10. 热加载机制设计
-
-### 10.1 概述
-
-热加载机制允许在不重启服务的情况下更新证书和配置，确保服务的高可用性。系统支持多层次的热加载：
-
-- **证书热重载**：更新端证书和 CA 证书池
-- **配置热重载**：更新代理实例配置
-- **API 触发**：通过 RESTful API 手动触发重载
-
-### 10.2 架构设计
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        热加载架构                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌───────────────┐ │
-│  │   API 触发      │    │  定时器自动     │    │  手动调用      │ │
-│  │  /reload-certs  │───▶│  HotReloader    │◀───│  Reload()      │ │
-│  │  /reload        │    │                 │    │               │ │
-│  └────────┬────────┘    └────────┬────────┘    └───────┬───────┘ │
-│           │                        │                     │          │
-│           └────────────────────────┼─────────────────────┘          │
-│                                    │                                │
-│  ┌─────────────────────────────────▼──────────────────────────────┐  │
-│  │                      TLCPAdapter                               │  │
-│  │  ┌──────────────────────────────────────────────────────────┐  │  │
-│  │  │ ReloadCertificates() - 仅重载证书                        │  │  │
-│  │  │  - tlcpCertRef.ReloadFromPath()                         │  │  │
-│  │  │  - tlsCertRef.ReloadFromPath()                          │  │  │
-│  │  │  - clientCAPool.Reload()                                 │  │  │
-│  │  │  - serverCAPool.Reload()                                 │  │  │
-│  │  └──────────────────────────────────────────────────────────┘  │  │
-│  │  ┌──────────────────────────────────────────────────────────┐  │  │
-│  │  │ ReloadConfig() - 完全重载配置                            │  │  │
-│  │  │  - 重新加载证书（如路径变更）                             │  │  │
-│  │  │  - 重建 CA 证书池                                         │  │  │
-│  │  │  - 更新协议配置                                           │  │  │
-│  │  └──────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                    │                                │
-│  ┌─────────────────────────────────┼───────────────────────────────┐  │
-│  │                                 │                               │  │
-│  ▼                                 ▼                               ▼  │
-│  ┌──────────────┐        ┌─────────────────┐        ┌───────────┐  │
-│  │ Certificate  │        │   HotCertPool   │        │  Instance │  │
-│  │  - Reload()  │        │   - Reload()    │        │ - Reload()│  │
-│  │  - ReloadF.. │        │   - Pool()      │        │           │  │
-│  └──────────────┘        └─────────────────┘        └───────────┘  │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-### 10.3 核心组件
-
-#### 10.3.1 Certificate 热重载
-
-`Certificate` 结构体支持两种重载方式：
-
-```go
-type Certificate struct {
-    Certificate []*x509.Certificate
-    PrivateKey  crypto.PrivateKey
-    certPEM     []byte      // 内存中的 PEM 数据
-    keyPEM      []byte
-    certPath    string      // 文件路径
-    keyPath     string
-    mu          sync.RWMutex
-}
-
-// Reload 从内存 PEM 数据重载
-func (c *Certificate) Reload() error
-
-// ReloadFromPath 从文件路径重载
-func (c *Certificate) ReloadFromPath() error
-```
-
-**关键特性**：
-- 使用读写锁保证并发安全
-- 原子更新证书和私钥
-- 新连接使用新证书，已有连接不受影响
-
-#### 10.3.2 HotCertPool CA 证书池热重载
-
-```go
-type HotCertPool struct {
-    mu         sync.RWMutex
-    paths      []string
-    pool       *x509.CertPool
-    smPool     *smx509.CertPool
-    lastReload time.Time
-}
-
-func (h *HotCertPool) Load() error
-func (h *HotCertPool) Reload() error
-func (h *HotCertPool) Pool() *x509.CertPool      // 读操作，加读锁
-func (h *HotCertPool) SMPool() *smx509.CertPool  // 读操作，加读锁
-```
-
-**设计要点**：
-- 读写分离：读操作加读锁，写操作加写锁
-- 支持国密（SM）和标准 x509 双证书池
-- 记录上次重载时间
-
-#### 10.3.3 TLCPAdapter 协议适配器热重载
-
-适配器是热加载的核心协调者：
-
-```go
-type TLCPAdapter struct {
-    mu           sync.RWMutex
-    tlcpConfig   *tlcp.Config
-    tlsConfig    *tls.Config
-    clientCAPool *cert.HotCertPool
-    serverCAPool *cert.HotCertPool
-    tlcpCertRef  *cert.Certificate  // 证书引用
-    tlsCertRef   *cert.Certificate
-    // ...
-}
-
-// ReloadCertificates 仅重载证书（轻量级）
-func (a *TLCPAdapter) ReloadCertificates() error {
-    // 重载端证书
-    a.tlcpCertRef.ReloadFromPath()
-    a.tlsCertRef.ReloadFromPath()
-    // 重载 CA 池
-    clientCAPool.Reload()
-    serverCAPool.Reload()
-}
-
-// ReloadConfig 完全重载配置（重量级）
-func (a *TLCPAdapter) ReloadConfig(cfg *config.InstanceConfig) error
-```
-
-**关键设计**：
-- 区分轻量级（仅证书）和重量级（完整配置）重载
-- 使用 `GetCertificate` 回调实现证书动态获取
-- 新配置原子替换，避免服务中断
-
-#### 10.3.4 HotReloader 定时器自动重载
-
-```go
-type HotReloader struct {
-    loader    *Loader
-    interval  time.Duration
-    stopCh    chan struct{}
-    stoppedCh chan struct{}
-}
-
-func NewHotReloader(loader *Loader, interval time.Duration) *HotReloader
-func (h *HotReloader) Start()  // 启动定时重载
-func (h *HotReloader) Stop()   // 停止定时重载
-```
-
-**工作流程**：
-1. 启动后台 goroutine
-2. 按设定间隔周期性调用 `loader.ReloadAll()`
-3. 支持优雅停止
-
-### 10.4 热加载流程
-
-#### 10.4.1 证书热重载流程
-
-```
-用户/API 触发
-      │
-      ▼
-┌─────────────────┐
-│ ReloadCertificates() │
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
-┌─────────┐ ┌─────────┐
-│ TLCP    │ │ TLS     │
-│ 证书    │ │ 证书    │
-│重载     │ │重载     │
-└────┬────┘ └────┬────┘
-     │           │
-     └─────┬─────┘
-           │
-           ▼
-    ┌──────────────┐
-    │  CA 证书池    │
-    │   重载       │
-    └──────┬───────┘
-           │
-           ▼
-      完成！新连接
-      自动使用新证书
-```
-
-#### 10.4.2 完整配置热重载流程
-
-```
-用户/API 触发
-      │
-      ▼
-┌─────────────────┐
-│  ReloadConfig() │
-└────────┬────────┘
-         │
-    ┌────▼────┐
-    │ 检查配置  │
-    │ 变更     │
-    └────┬────┘
-         │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
-┌─────────┐ ┌─────────┐
-│证书路径 │ │ 其他配置 │
-│变更？   │ │ 更新     │
-└────┬────┘ └────┬────┘
-     │           │
-     ▼           │
-┌─────────┐      │
-│重新加载 │      │
-│证书     │      │
-└────┬────┘      │
-     │           │
-     └─────┬─────┘
-           │
-           ▼
-    ┌──────────────┐
-    │  重建配置    │
-    │  原子替换    │
-    └──────┬───────┘
-           │
-           ▼
-        完成！
-```
-
-### 10.5 API 接口
-
-系统提供以下热加载 API：
-
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | `/api/v1/instances/:name/reload` | 重载实例完整配置 |
-| POST | `/api/v1/instances/:name/reload-certs` | 仅重载实例证书 |
-| POST | `/api/v1/certificates/reload` | 重载所有证书 |
-| POST | `/api/v1/keystores/:name/reload` | 重载指定密钥 |
-| POST | `/api/v1/config/reload` | 重载全局配置 |
-
-### 10.6 并发安全设计
-
-热加载机制在设计上充分考虑了并发安全：
-
-| 组件 | 并发机制 |
-|------|----------|
-| `Certificate` | `sync.RWMutex` 保护证书和私钥 |
-| `HotCertPool` | `sync.RWMutex` 保护证书池 |
-| `Manager.certs` | `sync.Map` 提升并发读性能 |
-| `Manager.certDir` | `atomic.Value` 无锁访问 |
-| `TLCPAdapter` | `sync.RWMutex` 保护配置更新 |
-
-### 10.7 最佳实践
-
-1. **证书更新**：优先使用 `ReloadCertificates()`，轻量高效
-2. **配置变更**：仅在必要时使用 `ReloadConfig()`
-3. **定时重载**：合理设置 `HotReloader` 间隔，避免频繁 I/O
-4. **监控**：关注重载失败日志，及时处理证书问题
-
-## 11. 安全参数管理热加载（新增）
-
-### 11.1 概述
-
-安全参数管理模块支持 Keystore 和根证书的热加载，无需重启服务即可更新安全参数。
-
-### 11.2 Keystore 热加载
-
-```go
-// KeyStore 接口包含 Reload() 方法
-type KeyStore interface {
-    // ...
-    Reload() error
-}
-
-// 管理器提供单个 keystore 重载
-func (m *Manager) Reload(name string) error
-```
-
-**工作流程**：
-1. 调用 `KeyStore.Reload()` 清空缓存
-2. 下次访问时重新加载证书密钥
-3. 新连接使用新证书，已有连接不受影响
-
-### 11.3 根证书热加载
-
-```go
-// 根证书管理器提供重载
-func (m *Manager) Reload() error
-```
-
-**API 接口**：
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | `/api/v1/security/keystores/:name/reload` | 重载指定 keystore |
-| POST | `/api/v1/security/rootcerts/reload` | 重载所有根证书 |
-
-### 11.4 设计特点
-
-- **读写分离**：使用 `sync.RWMutex` 保证并发安全
-- **原子更新**：新配置原子替换，避免服务中断
-- **向后兼容**：保留旧的热加载 API（已移除）
 

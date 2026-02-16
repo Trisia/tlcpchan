@@ -15,6 +15,7 @@ import (
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
+	"github.com/Trisia/tlcpchan/security/keystore"
 )
 
 var (
@@ -97,9 +98,21 @@ func main() {
 		}
 	}
 
-	keyStoreMgr := security.NewKeyStoreManager(cfg.GetKeyStoreStoreDir())
-	if err := keyStoreMgr.Initialize(); err != nil {
-		logger.Warn("初始化 keystore 管理器失败: %v", err)
+	keyStoreMgr := security.NewKeyStoreManager()
+
+	// 从配置加载 keystores
+	ksEntries := make([]keystore.ConfigEntry, 0, len(cfg.KeyStores))
+	for _, ksCfg := range cfg.KeyStores {
+		ksEntries = append(ksEntries, keystore.ConfigEntry{
+			Name:   ksCfg.Name,
+			Type:   ksCfg.Type,
+			Params: ksCfg.Params,
+		})
+	}
+	if err := keyStoreMgr.LoadFromConfigs(ksEntries); err != nil {
+		logger.Warn("加载 keystores 失败: %v", err)
+	} else {
+		logger.Info("已加载 %d 个 keystores", len(cfg.KeyStores))
 	}
 
 	rootCertMgr := security.NewRootCertManager(cfg.GetRootCertDir())
