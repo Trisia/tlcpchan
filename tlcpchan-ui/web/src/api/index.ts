@@ -44,8 +44,9 @@ export const instanceApi = {
   start: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/start`, { method: 'POST' }),
   stop: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/stop`, { method: 'POST' }),
   reload: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/reload`, { method: 'POST' }),
+  reloadCerts: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/reload-certs`, { method: 'POST' }),
   stats: (name: string, period?: string) =>
-    request<{ connections_total: number; connections_active: number; bytes_received: number; bytes_sent: number; latency_avg_ms: number }>(
+    request<{ totalConnections: number; activeConnections: number; bytesReceived: number; bytesSent: number; avgLatencyMs: number }>(
       `/instances/${name}/stats${period ? `?period=${period}` : ''}`
     ),
   logs: (name: string, lines?: number, level?: string) =>
@@ -54,20 +55,110 @@ export const instanceApi = {
     ),
 }
 
-export const certificateApi = {
-  list: () => request<{ certificates: Certificate[]; total: number }>('/certificates'),
-  get: (name: string) => request<Certificate>(`/certificates/${name}`),
-  reload: () => request<{ reloaded: boolean; updated: string[] }>('/certificates/reload', { method: 'POST' }),
-  generate: (data: {
-    type: 'tlcp' | 'tls'
+
+
+export const keyStoreApi = {
+  list: () => request<{ keystores: Array<{
     name: string
-    common_name: string
-    dns_names?: string[]
-    ip_addresses?: string[]
-    days?: number
-    ca_name?: string
-  }) => request<{ name: string; not_before: string; not_after: string }>('/certificates/generate', { method: 'POST', body: JSON.stringify(data) }),
-  delete: (name: string) => request<void>(`/certificates/${name}`, { method: 'DELETE' }),
+    type: 'tlcp' | 'tls'
+    keyParams: { algorithm: string; length: number; type: string }
+    hasSignCert: boolean
+    hasSignKey: boolean
+    hasEncCert?: boolean
+    hasEncKey?: boolean
+    createdAt: string
+    updatedAt: string
+  }> }>('/keystores'),
+  get: (name: string) => request<{
+    name: string
+    type: 'tlcp' | 'tls'
+    keyParams: { algorithm: string; length: number; type: string }
+    hasSignCert: boolean
+    hasSignKey: boolean
+    hasEncCert?: boolean
+    hasEncKey?: boolean
+    createdAt: string
+    updatedAt: string
+  }>(`/keystores/${name}`),
+  create: async (data: {
+    name: string
+    type: 'tlcp' | 'tls'
+    keyParams?: { algorithm: string; length: number }
+    signCert: File
+    signKey: File
+    encCert?: File
+    encKey?: File
+  }) => {
+    const formData = new FormData()
+    formData.append('name', data.name)
+    formData.append('type', data.type)
+    if (data.keyParams) {
+      formData.append('keyParams.algorithm', data.keyParams.algorithm)
+      formData.append('keyParams.length', String(data.keyParams.length))
+    }
+    formData.append('signCert', data.signCert)
+    formData.append('signKey', data.signKey)
+    if (data.encCert) formData.append('encCert', data.encCert)
+    if (data.encKey) formData.append('encKey', data.encKey)
+
+    const response = await fetch(`${API_BASE}/keystores`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text || response.statusText)
+    }
+    return response.json()
+  },
+  updateCertificates: async (name: string, data: {
+    signCert?: File
+    encCert?: File
+  }) => {
+    const formData = new FormData()
+    if (data.signCert) formData.append('signCert', data.signCert)
+    if (data.encCert) formData.append('encCert', data.encCert)
+
+    const response = await fetch(`${API_BASE}/keystores/${name}/certificates`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text || response.statusText)
+    }
+    return response.json()
+  },
+  delete: (name: string) => request<void>(`/keystores/${name}`, { method: 'DELETE' }),
+  reload: (name: string) => request<{ message: string }>(`/keystores/${name}/reload`, { method: 'POST' }),
+}
+
+export const trustedApi = {
+  list: () => request<Array<{
+    name: string
+    type: string
+    serialNumber?: string
+    subject?: string
+    issuer?: string
+    expiresAt?: string
+    isCA?: boolean
+  }>>('/trusted'),
+  upload: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`${API_BASE}/trusted`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text || response.statusText)
+    }
+    return response.json()
+  },
+  delete: (name: string) => request<void>(`/trusted?name=${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  reload: () => request<{ message: string }>('/trusted/reload', { method: 'POST' }),
 }
 
 export const systemApi = {

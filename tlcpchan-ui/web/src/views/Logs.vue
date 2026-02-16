@@ -38,8 +38,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useInstanceStore } from '@/stores/instance'
-import { instanceApi } from '@/api'
+import axios from 'axios'
 
+const API_BASE = '/api/v1'
 const store = useInstanceStore()
 
 const instances = computed(() => store.instances)
@@ -48,24 +49,32 @@ const logLevel = ref('')
 const logs = ref<Array<{ time: string; level: string; message: string }>>([])
 const loading = ref(false)
 
-onMounted(async () => {
-  await store.fetchInstances()
-  const first = instances.value[0]
-  if (first) {
-    selectedInstance.value = first.name
-    await fetchLogs()
-  }
+onMounted(() => {
+  store.fetchInstances()
+  setTimeout(() => {
+    const first = instances.value[0]
+    if (first) {
+      selectedInstance.value = first.name
+      fetchLogs()
+    }
+  }, 100)
 })
 
-async function fetchLogs() {
+function fetchLogs() {
   if (!selectedInstance.value) return
   loading.value = true
-  try {
-    const data = await instanceApi.logs(selectedInstance.value, 500, logLevel.value || undefined)
-    logs.value = data.logs
-  } finally {
-    loading.value = false
-  }
+  const params = new URLSearchParams({ lines: String(500) })
+  if (logLevel.value) params.append('level', logLevel.value)
+  axios.get(`${API_BASE}/instances/${selectedInstance.value}/logs?${params.toString()}`)
+    .then((res) => {
+      logs.value = res.data.logs
+    })
+    .catch((err) => {
+      console.error('获取日志失败', err)
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 
 function formatTime(timeStr: string): string {

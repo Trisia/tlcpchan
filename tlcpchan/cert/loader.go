@@ -16,6 +16,104 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
+// HotCertPool 可热重载的证书池
+type HotCertPool struct {
+	mu         sync.RWMutex
+	paths      []string
+	pool       *x509.CertPool
+	smPool     *smx509.CertPool
+	lastReload time.Time
+}
+
+// NewHotCertPool 创建可热重载的证书池
+// 参数:
+//   - paths: CA 证书文件路径列表
+//
+// 返回:
+//   - *HotCertPool: 可热重载的证书池实例
+func NewHotCertPool(paths []string) *HotCertPool {
+	return &HotCertPool{
+		paths: paths,
+	}
+}
+
+// Load 加载证书池
+// 返回:
+//   - error: 加载失败时返回错误
+func (h *HotCertPool) Load() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	pool := x509.NewCertPool()
+	smPool := smx509.NewCertPool()
+
+	for _, path := range h.paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("读取CA证书失败 %s: %w", path, err)
+		}
+
+		added := false
+		if smPool.AppendCertsFromPEM(data) {
+			added = true
+		}
+		if pool.AppendCertsFromPEM(data) {
+			added = true
+		}
+		if !added {
+			return fmt.Errorf("解析CA证书失败 %s", path)
+		}
+	}
+
+	h.pool = pool
+	h.smPool = smPool
+	h.lastReload = time.Now()
+	return nil
+}
+
+// Reload 重新加载证书池
+// 返回:
+//   - error: 重载失败时返回错误
+func (h *HotCertPool) Reload() error {
+	return h.Load()
+}
+
+// Pool 获取标准 x509 证书池
+// 返回:
+//   - *x509.CertPool: 标准证书池
+func (h *HotCertPool) Pool() *x509.CertPool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.pool
+}
+
+// SMPool 获取国密 smx509 证书池
+// 返回:
+//   - *smx509.CertPool: 国密证书池
+func (h *HotCertPool) SMPool() *smx509.CertPool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.smPool
+}
+
+// Paths 获取证书路径列表
+// 返回:
+//   - []string: 证书文件路径列表
+func (h *HotCertPool) Paths() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return append([]string{}, h.paths...)
+}
+
+// LastReload 获取上次重载时间
+// 返回:
+//   - time.Time: 上次重载时间
+func (h *HotCertPool) LastReload() time.Time {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.lastReload
+}
+
 // CertType 证书类型
 type CertType int
 

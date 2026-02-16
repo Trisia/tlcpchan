@@ -11,23 +11,23 @@ type Snapshot struct {
 	// Timestamp 快照时间
 	Timestamp time.Time `json:"timestamp"`
 	// TotalConnections 累计连接总数
-	TotalConnections int64 `json:"total_connections"`
+	TotalConnections int64 `json:"totalConnections"`
 	// ActiveConnections 当前活跃连接数
-	ActiveConnections int64 `json:"active_connections"`
+	ActiveConnections int64 `json:"activeConnections"`
 	// BytesReceived 累计接收字节数，单位: 字节
-	BytesReceived int64 `json:"bytes_received"`
+	BytesReceived int64 `json:"bytesReceived"`
 	// BytesSent 累计发送字节数，单位: 字节
-	BytesSent int64 `json:"bytes_sent"`
+	BytesSent int64 `json:"bytesSent"`
 	// Requests 累计请求数（HTTP代理）
 	Requests int64 `json:"requests"`
 	// Errors 累计错误数
 	Errors int64 `json:"errors"`
 	// AvgLatency 平均延迟，单位: 纳秒
-	AvgLatency int64 `json:"avg_latency_ns"`
+	AvgLatency int64 `json:"avgLatencyNs"`
 	// MaxLatency 最大延迟，单位: 纳秒
-	MaxLatency int64 `json:"max_latency_ns"`
+	MaxLatency int64 `json:"maxLatencyNs"`
 	// MinLatency 最小延迟，单位: 纳秒
-	MinLatency int64 `json:"min_latency_ns"`
+	MinLatency int64 `json:"minLatencyNs"`
 }
 
 // Collector 统计信息收集器
@@ -302,23 +302,23 @@ func (c *Collector) Reset() {
 // Stats 统计信息DTO，用于API返回
 type Stats struct {
 	// TotalConnections 累计连接总数
-	TotalConnections int64 `json:"total_connections"`
+	TotalConnections int64 `json:"totalConnections"`
 	// ActiveConnections 当前活跃连接数
-	ActiveConnections int64 `json:"active_connections"`
+	ActiveConnections int64 `json:"activeConnections"`
 	// BytesReceived 累计接收字节数，单位: 字节
-	BytesReceived int64 `json:"bytes_received"`
+	BytesReceived int64 `json:"bytesReceived"`
 	// BytesSent 累计发送字节数，单位: 字节
-	BytesSent int64 `json:"bytes_sent"`
+	BytesSent int64 `json:"bytesSent"`
 	// Requests 累计请求数（HTTP代理）
 	Requests int64 `json:"requests"`
 	// Errors 累计错误数
 	Errors int64 `json:"errors"`
 	// AvgLatencyMs 平均延迟，单位: 毫秒
-	AvgLatencyMs float64 `json:"avg_latency_ms"`
+	AvgLatencyMs float64 `json:"avgLatencyMs"`
 	// MaxLatencyMs 最大延迟，单位: 毫秒
-	MaxLatencyMs float64 `json:"max_latency_ms"`
+	MaxLatencyMs float64 `json:"maxLatencyMs"`
 	// MinLatencyMs 最小延迟，单位: 毫秒
-	MinLatencyMs float64 `json:"min_latency_ms"`
+	MinLatencyMs float64 `json:"minLatencyMs"`
 }
 
 func (c *Collector) GetStats() Stats {

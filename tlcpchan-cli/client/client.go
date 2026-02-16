@@ -202,6 +202,11 @@ func (c *Client) ReloadInstance(name string) error {
 	return err
 }
 
+func (c *Client) ReloadInstanceCertificates(name string) error {
+	_, err := c.Post("/api/v1/instances/"+url.PathEscape(name)+"/reload-certs", nil)
+	return err
+}
+
 func (c *Client) InstanceStats(name string) (map[string]interface{}, error) {
 	data, err := c.Get("/api/v1/instances/" + url.PathEscape(name) + "/stats")
 	if err != nil {
@@ -226,31 +231,35 @@ func (c *Client) InstanceLogs(name string) ([]map[string]interface{}, error) {
 	return logs, nil
 }
 
-type Certificate struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	ExpiresAt string `json:"expires_at,omitempty"`
+type TrustedCertificate struct {
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	SerialNumber string `json:"serialNumber,omitempty"`
+	Subject      string `json:"subject,omitempty"`
+	Issuer       string `json:"issuer,omitempty"`
+	ExpiresAt    string `json:"expiresAt,omitempty"`
+	IsCA         bool   `json:"isCA,omitempty"`
 }
 
-func (c *Client) ListCertificates() ([]Certificate, error) {
-	data, err := c.Get("/api/v1/certificates")
+func (c *Client) ListTrustedCertificates() ([]TrustedCertificate, error) {
+	data, err := c.Get("/api/v1/trusted")
 	if err != nil {
 		return nil, err
 	}
-	var certs []Certificate
+	var certs []TrustedCertificate
 	if err := json.Unmarshal(data, &certs); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 	return certs, nil
 }
 
-func (c *Client) DeleteCertificate(name string) error {
-	u := fmt.Sprintf("/api/v1/certificates?name=%s", url.QueryEscape(name))
+func (c *Client) DeleteTrustedCertificate(name string) error {
+	u := fmt.Sprintf("/api/v1/trusted?name=%s", url.QueryEscape(name))
 	return c.Delete(u)
 }
 
-func (c *Client) ReloadCertificates() error {
-	_, err := c.Post("/api/v1/certificates/reload", nil)
+func (c *Client) ReloadTrustedCertificates() error {
+	_, err := c.Post("/api/v1/trusted/reload", nil)
 	return err
 }
 

@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TLCP](https://img.shields.io/badge/TLCP-1.1-green.svg)](https://github.com/Trisia/gotlcp)
 
+**该项目目前处于开发中...**
+
 一款 TLCP/TLS 协议代理工具，支持双协议并行工作，基于国密算法实现安全通信。
 
 ## 功能特性

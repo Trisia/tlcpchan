@@ -69,6 +69,68 @@ type ProtocolHealthInfo struct {
 	Error string `json:"error,omitempty"`
 }
 
+/**
+ * @api {post} /api/v1/instances/:name/health 健康检测（POST）
+ * @apiName CheckHealthPost
+ * @apiGroup Health
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 执行实例的健康检测，支持完整握手测试
+ *
+ * @apiParam {String} name 实例名称（路径参数）
+ * @apiParam {Boolean} [full_handshake=false] 是否执行完整握手测试
+ *
+ * @apiSuccess {Boolean} success 是否成功
+ * @apiSuccess {Number} latency_ms 连接延迟（毫秒）
+ * @apiSuccess {String} [error] 错误信息
+ * @apiSuccess {Object} [tlcp_info] TLCP检测结果
+ * @apiSuccess {Object} [tls_info] TLS检测结果
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "success": true,
+ *       "latency_ms": 5.2,
+ *       "tlcp_info": {
+ *         "success": true,
+ *         "latency_ms": 5.2,
+ *         "cert_valid": true,
+ *         "cert_expiry": "2025-12-31T23:59:59Z",
+ *         "cert_days_remaining": 365
+ *       }
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     实例名称不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     实例不存在
+ */
+
+/**
+ * @api {get} /api/v1/instances/:name/health 健康检测（GET）
+ * @apiName CheckHealthGet
+ * @apiGroup Health
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 执行实例的健康检测（简化版，不执行完整握手）
+ *
+ * @apiParam {String} name 实例名称（路径参数）
+ *
+ * @apiSuccess {Boolean} success 是否成功
+ * @apiSuccess {Number} latency_ms 连接延迟（毫秒）
+ * @apiSuccess {String} [error] 错误信息
+ * @apiSuccess {Object} [tlcp_info] TLCP检测结果
+ * @apiSuccess {Object} [tls_info] TLS检测结果
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "success": true,
+ *       "latency_ms": 5.2
+ *     }
+ */
 // Check 执行实例健康检测
 // POST /api/v1/instances/:name/health
 func (c *HealthController) Check(w http.ResponseWriter, r *http.Request) {

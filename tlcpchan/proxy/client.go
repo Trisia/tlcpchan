@@ -287,6 +287,43 @@ func (p *ClientProxy) Stats() stats.Stats {
 	return p.stats.GetStats()
 }
 
+// Reload 热重载配置
+// 参数:
+//   - cfg: 新的实例配置
+//
+// 返回:
+//   - error: 重载失败时返回错误
+//
+// 注意: 该方法不会停止服务，证书重载通过热加载机制实现
+func (p *ClientProxy) Reload(cfg *config.InstanceConfig) error {
+	p.mu.Lock()
+	oldCfg := p.cfg
+	p.cfg = cfg
+	p.mu.Unlock()
+
+	if err := p.adapter.ReloadConfig(cfg); err != nil {
+		p.mu.Lock()
+		p.cfg = oldCfg
+		p.mu.Unlock()
+		return err
+	}
+
+	p.ClearProtocolCache()
+	p.logger.Info("客户端代理配置热重载成功: %s", p.cfg.Name)
+	return nil
+}
+
+// ReloadCertificates 仅重载证书
+// 返回:
+//   - error: 重载失败时返回错误
+func (p *ClientProxy) ReloadCertificates() error {
+	if err := p.adapter.ReloadCertificates(); err != nil {
+		return err
+	}
+	p.logger.Info("客户端代理证书热重载成功: %s", p.cfg.Name)
+	return nil
+}
+
 // ClearProtocolCache 清除协议检测缓存
 // 注意: 当目标服务协议变更时应调用此方法
 func (p *ClientProxy) ClearProtocolCache() {

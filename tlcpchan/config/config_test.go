@@ -808,7 +808,7 @@ func TestGetCertDir(t *testing.T) {
 
 func TestConfigWithCertDir(t *testing.T) {
 	yamlContent := `
-cert_dir: "/etc/tlcpchan/certs"
+cert-dir: "/etc/tlcpchan/certs"
 server:
   api:
     address: ":9090"
@@ -821,7 +821,7 @@ instances:
     auth: "one-way"
     enabled: true
     tlcp:
-      client_auth: "require-and-verify-client-cert"
+      client-auth: "require-and-verify-client-cert"
 `
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")

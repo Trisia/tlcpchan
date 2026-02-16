@@ -8,13 +8,13 @@
           </template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
-            <el-descriptions-item label="Go版本">{{ info?.go_version }}</el-descriptions-item>
+            <el-descriptions-item label="Go版本">{{ info?.goVersion }}</el-descriptions-item>
             <el-descriptions-item label="操作系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
-            <el-descriptions-item label="启动时间">{{ formatTime(info?.start_time) }}</el-descriptions-item>
+            <el-descriptions-item label="启动时间">{{ formatTime(info?.startTime) }}</el-descriptions-item>
             <el-descriptions-item label="运行时长">{{ formatUptime(info?.uptime || 0) }}</el-descriptions-item>
             <el-descriptions-item label="进程ID">{{ info?.pid }}</el-descriptions-item>
             <el-descriptions-item label="Goroutines">{{ info?.goroutines }}</el-descriptions-item>
-            <el-descriptions-item label="内存使用">{{ info?.memory.alloc_mb }} MB / {{ info?.memory.sys_mb }} MB</el-descriptions-item>
+            <el-descriptions-item label="内存使用">{{ info?.memory.allocMb }} MB / {{ info?.memory.sysMb }} MB</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
@@ -36,7 +36,7 @@
               <span :class="{ 'text-danger': health?.certificates.expired }">{{ health?.certificates.expired }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="即将过期">
-              <span :class="{ 'text-warning': health?.certificates.expiring_soon }">{{ health?.certificates.expiring_soon }}</span>
+              <span :class="{ 'text-warning': health?.certificates.expiringSoon }">{{ health?.certificates.expiringSoon }}</span>
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
@@ -63,8 +63,9 @@
 import { onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSystemStore } from '@/stores/system'
-import { configApi, systemApi } from '@/api'
+import axios from 'axios'
 
+const API_BASE = '/api/v1'
 const store = useSystemStore()
 
 const info = computed(() => store.info)
@@ -89,15 +90,28 @@ function formatUptime(seconds: number): string {
   return `${minutes}分钟`
 }
 
-async function reloadConfig() {
-  await configApi.reload()
-  ElMessage.success('配置已重载')
+function reloadConfig() {
+  axios.post(`${API_BASE}/config/reload`)
+    .then(() => {
+      ElMessage.success('配置已重载')
+    })
+    .catch((err) => {
+      console.error('重载配置失败', err)
+    })
 }
 
-async function shutdown() {
-  await ElMessageBox.confirm('确定要关闭服务吗？此操作不可恢复。', '警告', { type: 'warning' })
-  await systemApi.health()
-  ElMessage.warning('服务正在关闭...')
+function shutdown() {
+  ElMessageBox.confirm('确定要关闭服务吗？此操作不可恢复。', '警告', { type: 'warning' })
+    .then(() => {
+      axios.get(`${API_BASE}/system/health`)
+        .then(() => {
+          ElMessage.warning('服务正在关闭...')
+        })
+        .catch((err) => {
+          console.error('关闭服务失败', err)
+        })
+    })
+    .catch(() => {})
 }
 </script>
 

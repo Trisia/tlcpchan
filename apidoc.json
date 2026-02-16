@@ -1,0 +1,8 @@
+{
+  "name": "TLCP Channel API",
+  "version": "1.0.0",
+  "description": "TLCP/TLS 协议代理工具 API 文档",
+  "title": "TLCP Channel API 文档",
+  "url": "http://localhost:30080",
+  "sampleUrl": "http://localhost:30080"
+}

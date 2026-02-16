@@ -45,6 +45,40 @@ func NewSystemController(version string) *SystemController {
 	}
 }
 
+/**
+ * @api {get} /api/v1/system/info 获取系统信息
+ * @apiName GetSystemInfo
+ * @apiGroup System
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 获取系统运行时信息
+ *
+ * @apiSuccess {String} go_version Go版本
+ * @apiSuccess {String} os 操作系统
+ * @apiSuccess {String} arch 架构
+ * @apiSuccess {Number} num_cpu CPU核心数
+ * @apiSuccess {Number} num_goroutine Goroutine数量
+ * @apiSuccess {Number} mem_alloc_mb 已分配内存（MB）
+ * @apiSuccess {Number} mem_total_mb 总分配内存（MB）
+ * @apiSuccess {Number} mem_sys_mb 系统内存（MB）
+ * @apiSuccess {String} start_time 启动时间
+ * @apiSuccess {String} uptime 运行时长
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "go_version": "go1.21.0",
+ *       "os": "linux",
+ *       "arch": "amd64",
+ *       "num_cpu": 8,
+ *       "num_goroutine": 25,
+ *       "mem_alloc_mb": 10,
+ *       "mem_total_mb": 50,
+ *       "mem_sys_mb": 100,
+ *       "start_time": "2024-01-01T00:00:00Z",
+ *       "uptime": "24h0m0s"
+ *     }
+ */
 func (c *SystemController) Info(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -65,6 +99,24 @@ func (c *SystemController) Info(w http.ResponseWriter, r *http.Request) {
 	Success(w, info)
 }
 
+/**
+ * @api {get} /api/v1/system/health 系统健康检查
+ * @apiName GetSystemHealth
+ * @apiGroup System
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 检查系统健康状态
+ *
+ * @apiSuccess {String} status 健康状态
+ * @apiSuccess {String} version 版本号
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "status": "healthy",
+ *       "version": "1.0.0"
+ *     }
+ */
 func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
 	Success(w, HealthStatus{
 		Status:  "healthy",
@@ -72,6 +124,24 @@ func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+/**
+ * @api {get} /api/v1/system/version 获取版本信息
+ * @apiName GetVersion
+ * @apiGroup System
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 获取系统版本信息
+ *
+ * @apiSuccess {String} version 版本号
+ * @apiSuccess {String} go_version Go版本
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "version": "1.0.0",
+ *       "go_version": "go1.21.0"
+ *     }
+ */
 func (c *SystemController) Version(w http.ResponseWriter, r *http.Request) {
 	Success(w, VersionInfo{
 		Version:   c.version,

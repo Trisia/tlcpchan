@@ -186,6 +186,18 @@ func instanceReload(args []string) error {
 	return nil
 }
 
+func instanceReloadCerts(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("请指定实例名称")
+	}
+
+	if err := cli.ReloadInstanceCertificates(args[0]); err != nil {
+		return err
+	}
+	fmt.Printf("实例 %s 证书已重载\n", args[0])
+	return nil
+}
+
 func instanceStats(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("请指定实例名称")

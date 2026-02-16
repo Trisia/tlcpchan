@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -20,47 +19,53 @@ import (
 
 var (
 	configFile  = flag.String("config", "", "配置文件路径")
+	workDirFlag = flag.String("workdir", "", "工作目录路径")
 	showVersion = flag.Bool("version", false, "显示版本信息")
 	version     = "1.0.0"
 )
 
 func init() {
 	flag.StringVar(configFile, "c", "", "配置文件路径(缩写)")
+	flag.StringVar(workDirFlag, "w", "", "工作目录路径(缩写)")
 	flag.BoolVar(showVersion, "v", false, "显示版本信息(缩写)")
 }
 
 // getWorkDir 获取工作目录
-// Linux: /etc/tlcpchan
-// Windows: 程序所在目录
+// 如果传入了工作目录参数则使用该参数，否则使用可执行文件所在目录
+// 参数:
+//   - customDir: 自定义工作目录，为空则使用默认值
+//
 // 返回:
 //   - string: 工作目录路径
-func getWorkDir() string {
-	if runtime.GOOS == "windows" {
-		exe, err := os.Executable()
-		if err != nil {
-			return "."
-		}
-		return filepath.Dir(exe)
+func getWorkDir(customDir string) string {
+	if customDir != "" {
+		return customDir
 	}
-	return "/etc/tlcpchan"
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return filepath.Dir(exe)
 }
 
 // ensureWorkDir 确保工作目录及其子目录存在
+// 参数:
+//   - dir: 工作目录路径
+//
 // 返回:
 //   - string: 工作目录路径
-func ensureWorkDir() string {
-	workDir := getWorkDir()
+func ensureWorkDir(dir string) string {
 	dirs := []string{
-		workDir,
-		filepath.Join(workDir, "certs"),
-		filepath.Join(workDir, "trusted"),
-		filepath.Join(workDir, "logs"),
-		filepath.Join(workDir, "config"),
+		dir,
+		filepath.Join(dir, "trusted"),
+		filepath.Join(dir, "logs"),
+		filepath.Join(dir, "config"),
+		filepath.Join(dir, "keys"),
 	}
-	for _, dir := range dirs {
-		os.MkdirAll(dir, 0755)
+	for _, d := range dirs {
+		os.MkdirAll(d, 0755)
 	}
-	return workDir
+	return dir
 }
 
 func main() {
@@ -72,21 +77,22 @@ func main() {
 	}
 
 	// 初始化工作目录
-	workDir := ensureWorkDir()
+	wd := getWorkDir(*workDirFlag)
+	wd = ensureWorkDir(wd)
 
 	// 确定配置文件路径
 	configPath := *configFile
 	if configPath == "" {
-		configPath = filepath.Join(workDir, "config", "config.yaml")
+		configPath = filepath.Join(wd, "config", "config.yaml")
 	}
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		cfg = config.Default()
-		cfg.WorkDir = workDir
+		cfg.WorkDir = wd
 		logger.Info("使用默认配置: %v", err)
 	} else {
-		cfg.WorkDir = workDir
+		cfg.WorkDir = wd
 	}
 
 	if cfg.Server.Log != nil {
@@ -120,10 +126,11 @@ func main() {
 	}
 
 	opts := controller.ServerOptions{
-		Config:     cfg,
-		ConfigPath: configPath,
-		CertDir:    cfg.GetCertDir(),
-		Version:    version,
+		Config:      cfg,
+		ConfigPath:  configPath,
+		KeyStoreDir: cfg.GetKeyStoreDir(),
+		TrustedDir:  cfg.GetTrustedDir(),
+		Version:     version,
 	}
 	apiServer := controller.NewServer(opts)
 

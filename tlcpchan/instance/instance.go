@@ -24,8 +24,10 @@ type Instance interface {
 	Start() error
 	// Stop 停止实例
 	Stop() error
-	// Reload 热重载配置
+	// Reload 热重载配置（不中断服务）
 	Reload(cfg *config.InstanceConfig) error
+	// Restart 重启实例（停止后重新启动）
+	Restart(cfg *config.InstanceConfig) error
 	// Status 返回当前状态
 	Status() Status
 	// Stats 返回统计信息
@@ -195,6 +197,23 @@ func (i *serverInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
+
+	if r, ok := interface{}(i.proxy).(interface {
+		Reload(*config.InstanceConfig) error
+	}); ok {
+		if err := r.Reload(cfg); err == nil {
+			i.mu.Lock()
+			i.cfg = cfg
+			i.mu.Unlock()
+			return nil
+		}
+		return fmt.Errorf("热加载不支持或失败")
+	}
+
+	return fmt.Errorf("该实例类型不支持热加载")
+}
+
+func (i *serverInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
@@ -204,7 +223,9 @@ func (i *serverInstance) Reload(cfg *config.InstanceConfig) error {
 		return err
 	}
 	i.proxy = newProxy
+	i.mu.Lock()
 	i.cfg = cfg
+	i.mu.Unlock()
 	return i.proxy.Start()
 }
 
@@ -235,6 +256,23 @@ func (i *clientInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
+
+	if r, ok := interface{}(i.proxy).(interface {
+		Reload(*config.InstanceConfig) error
+	}); ok {
+		if err := r.Reload(cfg); err == nil {
+			i.mu.Lock()
+			i.cfg = cfg
+			i.mu.Unlock()
+			return nil
+		}
+		return fmt.Errorf("热加载不支持或失败")
+	}
+
+	return fmt.Errorf("该实例类型不支持热加载")
+}
+
+func (i *clientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
@@ -244,7 +282,9 @@ func (i *clientInstance) Reload(cfg *config.InstanceConfig) error {
 		return err
 	}
 	i.proxy = newProxy
+	i.mu.Lock()
 	i.cfg = cfg
+	i.mu.Unlock()
 	return i.proxy.Start()
 }
 
@@ -275,6 +315,23 @@ func (i *httpServerInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
+
+	if r, ok := interface{}(i.proxy).(interface {
+		Reload(*config.InstanceConfig) error
+	}); ok {
+		if err := r.Reload(cfg); err == nil {
+			i.mu.Lock()
+			i.cfg = cfg
+			i.mu.Unlock()
+			return nil
+		}
+		return fmt.Errorf("热加载不支持或失败")
+	}
+
+	return fmt.Errorf("该实例类型不支持热加载")
+}
+
+func (i *httpServerInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
@@ -284,7 +341,9 @@ func (i *httpServerInstance) Reload(cfg *config.InstanceConfig) error {
 		return err
 	}
 	i.proxy = newProxy
+	i.mu.Lock()
 	i.cfg = cfg
+	i.mu.Unlock()
 	return i.proxy.Start()
 }
 
@@ -315,6 +374,23 @@ func (i *httpClientInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
 		return fmt.Errorf("实例 %s 未在运行", i.Name())
 	}
+
+	if r, ok := interface{}(i.proxy).(interface {
+		Reload(*config.InstanceConfig) error
+	}); ok {
+		if err := r.Reload(cfg); err == nil {
+			i.mu.Lock()
+			i.cfg = cfg
+			i.mu.Unlock()
+			return nil
+		}
+		return fmt.Errorf("热加载不支持或失败")
+	}
+
+	return fmt.Errorf("该实例类型不支持热加载")
+}
+
+func (i *httpClientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
@@ -324,7 +400,9 @@ func (i *httpClientInstance) Reload(cfg *config.InstanceConfig) error {
 		return err
 	}
 	i.proxy = newProxy
+	i.mu.Lock()
 	i.cfg = cfg
+	i.mu.Unlock()
 	return i.proxy.Start()
 }
 

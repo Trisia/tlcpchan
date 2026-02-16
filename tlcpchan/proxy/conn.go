@@ -15,7 +15,7 @@ import (
 // bufferPool 内存池，用于io.Copy的缓冲区复用
 var bufferPool = sync.Pool{
 	New: func() interface{} {
-		buf := make([]byte, 32*1024)
+		buf := make([]byte, 4*1024)
 		return &buf
 	},
 }

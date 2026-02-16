@@ -128,7 +128,7 @@ func (m *Manager) StartAll() []error {
 			m.logger.Error("启动实例 %s 失败: %v", inst.Name(), err)
 			errors = append(errors, fmt.Errorf("启动实例 %s 失败: %w", inst.Name(), err))
 		} else {
-			m.logger.Info("启动实例 %s 成功", inst.Name())
+			m.logger.Info("启动实例 %s 成功, 监听 %s", inst.Name(), inst.Config().Listen)
 		}
 	}
 	return errors

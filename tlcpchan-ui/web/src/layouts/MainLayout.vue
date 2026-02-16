@@ -13,9 +13,13 @@
           <el-icon><Connection /></el-icon>
           <span>实例管理</span>
         </el-menu-item>
-        <el-menu-item index="/certificates">
-          <el-icon><Key /></el-icon>
-          <span>证书管理</span>
+        <el-menu-item index="/keystores">
+          <el-icon><Lock /></el-icon>
+          <span>密钥管理</span>
+        </el-menu-item>
+        <el-menu-item index="/trusted">
+          <el-icon><Shield /></el-icon>
+          <span>信任证书</span>
         </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon><Document /></el-icon>
@@ -52,6 +56,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { Shield } from '@element-plus/icons-vue'
 import { uiApi, systemApi } from '@/api'
 
 const route = useRoute()

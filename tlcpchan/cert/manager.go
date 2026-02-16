@@ -3,8 +3,10 @@ package cert
 import (
 	"crypto/tls"
 	"fmt"
+	"math/big"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
@@ -12,79 +14,55 @@ import (
 
 // Manager 证书管理器，负责证书的加载、缓存和生命周期管理
 type Manager struct {
-	// loader 证书加载器
-	loader *Loader
-	// certs 证书信息缓存，key为证书名称
-	certs map[string]*CertInfo
-	// certDir 证书密钥目录路径，用于存储证书和私钥文件
-	certDir string
-	// trustedDir 受信任证书目录路径，用于存储根证书和CA证书
-	trustedDir string
-	mu         sync.RWMutex
+	loader     *Loader
+	certs      sync.Map
+	certList   []*CertInfo
+	certListMu sync.RWMutex
+	certDir    atomic.Value
+	trustedDir atomic.Value
 }
 
 // CertInfo 证书信息，包含证书的基本属性和过期时间
 type CertInfo struct {
-	// Name 证书名称，用于标识和检索
-	Name string
-	// Type 证书类型，可选值: CertTypeTLCP, CertTypeTLS
-	Type CertType
-	// Cert 证书对象
-	Cert *Certificate
-	// NotAfter 证书过期时间
-	NotAfter time.Time
+	Name         string
+	SerialNumber *big.Int
+	Type         CertType
+	Cert         *Certificate
+	NotAfter     time.Time
 }
 
 // NewManager 创建新的证书管理器
-// 返回:
-//   - *Manager: 证书管理器实例
 func NewManager() *Manager {
-	return &Manager{
-		loader: NewLoader(),
-		certs:  make(map[string]*CertInfo),
+	m := &Manager{
+		loader:   NewLoader(),
+		certList: make([]*CertInfo, 0),
 	}
+	m.certDir.Store("")
+	m.trustedDir.Store("")
+	return m
 }
 
 // NewManagerWithCertDir 创建带证书目录的证书管理器
-// 参数:
-//   - certDir: 证书目录路径，相对路径将基于此目录解析
-//
-// 返回:
-//   - *Manager: 证书管理器实例
 func NewManagerWithCertDir(certDir string) *Manager {
-	return &Manager{
-		loader:  NewLoader(),
-		certs:   make(map[string]*CertInfo),
-		certDir: certDir,
-	}
+	m := NewManager()
+	m.certDir.Store(certDir)
+	return m
 }
 
 // NewManagerWithDirs 创建带证书目录和受信任证书目录的证书管理器
-// 参数:
-//   - certDir: 证书密钥目录路径，用于存储证书和私钥文件
-//   - trustedDir: 受信任证书目录路径，用于存储根证书和CA证书
-//
-// 返回:
-//   - *Manager: 证书管理器实例
 func NewManagerWithDirs(certDir, trustedDir string) *Manager {
-	return &Manager{
-		loader:     NewLoader(),
-		certs:      make(map[string]*CertInfo),
-		certDir:    certDir,
-		trustedDir: trustedDir,
-	}
+	m := NewManager()
+	m.certDir.Store(certDir)
+	m.trustedDir.Store(trustedDir)
+	return m
 }
 
 func (m *Manager) SetCertDir(dir string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.certDir = dir
+	m.certDir.Store(dir)
 }
 
 func (m *Manager) GetCertDir() string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.certDir
+	return m.certDir.Load().(string)
 }
 
 func (m *Manager) resolvePath(path string) string {
@@ -94,35 +72,23 @@ func (m *Manager) resolvePath(path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
-	// 根据文件扩展名判断证书类型
+	certDir := m.certDir.Load().(string)
+	trustedDir := m.trustedDir.Load().(string)
+
 	ext := filepath.Ext(path)
 	isCertFile := ext == ".crt" || ext == ".cer" || ext == ".pem" || ext == ".key"
 
-	// 如果是证书或密钥文件，使用certDir
-	if isCertFile && m.certDir != "" {
-		return filepath.Join(m.certDir, path)
+	if isCertFile && certDir != "" {
+		return filepath.Join(certDir, path)
 	}
-	// 否则使用trustedDir（用于CA证书等）
-	if m.trustedDir != "" {
-		return filepath.Join(m.trustedDir, path)
+	if trustedDir != "" {
+		return filepath.Join(trustedDir, path)
 	}
 	return path
 }
 
 // Load 加载证书并缓存
-// 参数:
-//   - name: 证书名称，用于后续检索
-//   - certPath: 证书文件路径，相对路径将基于certDir解析
-//   - keyPath: 私钥文件路径，相对路径将基于certDir解析
-//   - certType: 证书类型（CertTypeTLCP或CertTypeTLS）
-//
-// 返回:
-//   - *CertInfo: 证书信息
-//   - error: 加载失败时返回错误
 func (m *Manager) Load(name, certPath, keyPath string, certType CertType) (*CertInfo, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	certPath = m.resolvePath(certPath)
 	keyPath = m.resolvePath(keyPath)
 
@@ -139,16 +105,31 @@ func (m *Manager) Load(name, certPath, keyPath string, certType CertType) (*Cert
 		return nil, fmt.Errorf("加载证书失败: %w", err)
 	}
 
-	info := &CertInfo{
-		Name:     name,
-		Type:     certType,
-		Cert:     cert,
-		NotAfter: cert.ExpiresAt(),
+	leaf := cert.Leaf()
+	serialNumber := big.NewInt(0)
+	if leaf != nil {
+		serialNumber = leaf.SerialNumber
 	}
-	m.certs[name] = info
+
+	info := &CertInfo{
+		Name:         name,
+		SerialNumber: serialNumber,
+		Type:         certType,
+		Cert:         cert,
+		NotAfter:     cert.ExpiresAt(),
+	}
+
+	m.certs.Store(name, info)
 	m.loader.Store(name, cert)
+	m.appendToCertList(info)
 
 	return info, nil
+}
+
+func (m *Manager) appendToCertList(info *CertInfo) {
+	m.certListMu.Lock()
+	defer m.certListMu.Unlock()
+	m.certList = append(m.certList, info)
 }
 
 func (m *Manager) LoadTLCP(name, certPath, keyPath string) (*CertInfo, error) {
@@ -160,17 +141,15 @@ func (m *Manager) LoadTLS(name, certPath, keyPath string) (*CertInfo, error) {
 }
 
 func (m *Manager) Get(name string) *CertInfo {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.certs[name]
+	if v, ok := m.certs.Load(name); ok {
+		return v.(*CertInfo)
+	}
+	return nil
 }
 
 func (m *Manager) GetTLSCertificate(name string) (*tls.Certificate, error) {
-	m.mu.RLock()
-	info, ok := m.certs[name]
-	m.mu.RUnlock()
-
-	if !ok {
+	info := m.Get(name)
+	if info == nil {
 		return nil, fmt.Errorf("证书 %s 不存在", name)
 	}
 
@@ -183,11 +162,8 @@ func (m *Manager) GetTLSCertificate(name string) (*tls.Certificate, error) {
 }
 
 func (m *Manager) GetTLCPCertificate(name string) (*tlcp.Certificate, error) {
-	m.mu.RLock()
-	info, ok := m.certs[name]
-	m.mu.RUnlock()
-
-	if !ok {
+	info := m.Get(name)
+	if info == nil {
 		return nil, fmt.Errorf("证书 %s 不存在", name)
 	}
 
@@ -200,41 +176,66 @@ func (m *Manager) GetTLCPCertificate(name string) (*tlcp.Certificate, error) {
 }
 
 func (m *Manager) List() []*CertInfo {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	list := make([]*CertInfo, 0, len(m.certs))
-	for _, info := range m.certs {
-		list = append(list, info)
-	}
-	return list
+	m.certListMu.RLock()
+	defer m.certListMu.RUnlock()
+	result := make([]*CertInfo, len(m.certList))
+	copy(result, m.certList)
+	return result
 }
 
-func (m *Manager) Delete(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, ok := m.certs[name]; !ok {
-		return fmt.Errorf("证书 %s 不存在", name)
+// GetBySerialNumber 通过序列号获取证书
+func (m *Manager) GetBySerialNumber(serialNumber *big.Int) *CertInfo {
+	m.certListMu.RLock()
+	defer m.certListMu.RUnlock()
+	for _, info := range m.certList {
+		if info.SerialNumber != nil && info.SerialNumber.Cmp(serialNumber) == 0 {
+			return info
+		}
 	}
-
-	delete(m.certs, name)
-	m.loader.Delete(name)
 	return nil
 }
 
-// Reload 重新加载指定证书
-// 参数:
-//   - name: 证书名称
-//
-// 返回:
-//   - error: 证书不存在或重载失败时返回错误
-func (m *Manager) Reload(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// GetBySerialNumberString 通过序列号字符串获取证书
+func (m *Manager) GetBySerialNumberString(serialNumberStr string) *CertInfo {
+	m.certListMu.RLock()
+	defer m.certListMu.RUnlock()
+	for _, info := range m.certList {
+		if info.SerialNumber != nil && info.SerialNumber.String() == serialNumberStr {
+			return info
+		}
+	}
+	return nil
+}
 
-	info, ok := m.certs[name]
-	if !ok {
+func (m *Manager) Delete(name string) error {
+	info := m.Get(name)
+	if info == nil {
+		return fmt.Errorf("证书 %s 不存在", name)
+	}
+
+	m.certs.Delete(name)
+	m.loader.Delete(name)
+	m.removeFromCertList(name)
+
+	return nil
+}
+
+func (m *Manager) removeFromCertList(name string) {
+	m.certListMu.Lock()
+	defer m.certListMu.Unlock()
+	var newList []*CertInfo
+	for _, item := range m.certList {
+		if item.Name != name {
+			newList = append(newList, item)
+		}
+	}
+	m.certList = newList
+}
+
+// Reload 重新加载指定证书
+func (m *Manager) Reload(name string) error {
+	info := m.Get(name)
+	if info == nil {
 		return fmt.Errorf("证书 %s 不存在", name)
 	}
 
@@ -247,15 +248,12 @@ func (m *Manager) Reload(name string) error {
 }
 
 // ReloadAll 重新加载所有证书
-// 返回:
-//   - []error: 重载失败的错误列表，为空表示全部成功
 func (m *Manager) ReloadAll() []error {
-	m.mu.RLock()
-	names := make([]string, 0, len(m.certs))
-	for name := range m.certs {
-		names = append(names, name)
-	}
-	m.mu.RUnlock()
+	var names []string
+	m.certs.Range(func(key, value interface{}) bool {
+		names = append(names, key.(string))
+		return true
+	})
 
 	var errs []error
 	for _, name := range names {

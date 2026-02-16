@@ -8,6 +8,7 @@ import (
 	"github.com/Trisia/tlcpchan/cert"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/instance"
+	"github.com/Trisia/tlcpchan/key"
 	"github.com/Trisia/tlcpchan/logger"
 )
 
@@ -25,8 +26,10 @@ type ServerOptions struct {
 	Config *config.Config
 	// ConfigPath 配置文件路径
 	ConfigPath string
-	// CertDir 证书目录路径
-	CertDir string
+	// KeyStoreDir 密钥存储目录路径（keystore，存放证书和密钥对）
+	KeyStoreDir string
+	// TrustedDir 信任证书目录路径（存放根证书/CA证书）
+	TrustedDir string
 	// Version 版本号
 	Version string
 }
@@ -44,6 +47,7 @@ func NewServer(opts ServerOptions) *Server {
 
 	log := logger.Default()
 	certMgr := cert.NewManager()
+	keyMgr := key.NewManager(opts.KeyStoreDir)
 	mgr := instance.NewManager(log, certMgr)
 	for i := range opts.Config.Instances {
 		mgr.Create(&opts.Config.Instances[i])
@@ -51,13 +55,15 @@ func NewServer(opts ServerOptions) *Server {
 
 	instanceCtrl := NewInstanceController(mgr)
 	configCtrl := NewConfigController(opts.Config, opts.ConfigPath)
-	certCtrl := NewCertController(opts.CertDir)
+	keyStoreCtrl := NewKeyStoreController(keyMgr)
+	trustedCtrl := NewTrustedController(opts.TrustedDir)
 	systemCtrl := NewSystemController(opts.Version)
 	healthCtrl := NewHealthController(mgr, certMgr)
 
 	instanceCtrl.RegisterRoutes(router)
 	configCtrl.RegisterRoutes(router)
-	certCtrl.RegisterRoutes(router)
+	keyStoreCtrl.RegisterRoutes(router)
+	trustedCtrl.RegisterRoutes(router)
 	systemCtrl.RegisterRoutes(router)
 	healthCtrl.RegisterRoutes(router)
 

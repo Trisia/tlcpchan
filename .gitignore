@@ -59,3 +59,6 @@ dist/
 .env
 .env.local
 .env.*.local
+
+
+docs/apidoc

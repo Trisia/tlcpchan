@@ -98,12 +98,21 @@ func (l *EmbeddedCertLoader) LoadSMCertPool(caPaths []string) (*smx509.CertPool,
 // LoadX509CertPool 加载标准X509 CA证书池
 // 参数:
 //   - caPaths: CA证书文件路径列表
+//   - includeSystem: 是否包含操作系统信任的根证书
 //
 // 返回:
 //   - *x509.CertPool: X509证书池
 //   - error: 读取或解析证书失败时返回错误
-func (l *EmbeddedCertLoader) LoadX509CertPool(caPaths []string) (*x509.CertPool, error) {
-	pool := x509.NewCertPool()
+func (l *EmbeddedCertLoader) LoadX509CertPool(caPaths []string, includeSystem ...bool) (*x509.CertPool, error) {
+	var pool *x509.CertPool
+
+	// 如果需要，先加载系统根证书
+	if len(includeSystem) > 0 && includeSystem[0] {
+		pool, _ = x509.SystemCertPool()
+	}
+	if pool == nil {
+		pool = x509.NewCertPool()
+	}
 
 	for _, path := range caPaths {
 		data, err := os.ReadFile(path)
@@ -111,9 +120,7 @@ func (l *EmbeddedCertLoader) LoadX509CertPool(caPaths []string) (*x509.CertPool,
 			return nil, fmt.Errorf("读取CA证书失败 %s: %w", path, err)
 		}
 
-		if !pool.AppendCertsFromPEM(data) {
-			return nil, fmt.Errorf("解析CA证书失败 %s", path)
-		}
+		pool.AppendCertsFromPEM(data)
 	}
 
 	return pool, nil

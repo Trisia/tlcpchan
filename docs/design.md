@@ -49,7 +49,8 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
 │         │                │         │  └───────────────────┘  │ │
 │         │                │         │            │            │ │
 │         │                │         │  ┌─────────▼─────────┐  │ │
-│         │                │         │  │   Cert Loader     │  │ │
+│         │                │         │  │   Cert Manager    │  │ │
+│         │                │         │  │   Key Manager     │  │ │
 │         │                │         │  │   Stats Module    │  │ │
 │         │                │         │  │   Logger Module   │  │ │
 │         │                │         │  │   Config Module   │  │ │
@@ -66,72 +67,108 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
 ```
 tlcpchan/                          # 内核主程序
 ├── main.go                        # 程序入口
-├── internal/
-│   ├── config/                    # 配置管理
-│   │   ├── config.go              # 配置结构定义
-│   │   ├── loader.go              # YAML配置加载器
-│   │   └── validator.go           # 配置验证器
-│   ├── logger/                    # 日志管理
-│   │   ├── logger.go              # 日志管理器
-│   │   └── writer.go              # 多输出Writer
-│   ├── cert/                      # 证书管理
-│   │   ├── loader.go              # 证书加载器接口
-│   │   ├── pem_loader.go          # PEM格式加载器
-│   │   ├── tlcp.go                # TLCP证书处理
-│   │   ├── tls.go                 # TLS证书处理
-│   │   └── generator.go           # 证书生成器
-│   ├── proxy/                     # 代理核心
-│   │   ├── server.go              # 服务端代理(TLCP/TLS→TCP)
-│   │   ├── client.go              # 客户端代理(TCP→TLCP/TLS)
-│   │   ├── http_server.go         # HTTP服务端代理
-│   │   ├── http_client.go         # HTTP客户端代理
-│   │   ├── adapter.go             # 协议适配器
-│   │   └── conn.go                # 连接处理
-│   ├── instance/                  # 实例管理
-│   │   ├── manager.go             # 实例管理器
-│   │   └── instance.go            # 实例定义
-│   ├── controller/                # API控制器
-│   │   ├── server.go              # API服务器
-│   │   ├── router.go              # 路由定义
-│   │   ├── instance.go            # 实例管理API
-│   │   ├── config.go              # 配置管理API
-│   │   ├── cert.go                # 证书管理API
-│   │   ├── stats.go               # 统计查询API
-│   │   └── system.go              # 系统信息API
-│   └── stats/                     # 流量统计
-│       ├── collector.go           # 统计收集器
-│       └── metrics.go             # 指标定义
-├── release/                       # 打包相关
-│   ├── systemd/                   # systemd服务文件
-│   └── scripts/                   # 构建脚本
-├── config/                        # 默认配置
+├── config/                        # 配置管理
+│   ├── config.go                  # 配置结构定义、加载/保存逻辑
+│   ├── config_test.go             # 配置测试
 │   └── config.yaml                # 默认配置文件
+├── logger/                        # 日志管理
+│   └── logger.go                  # 日志管理器
+├── cert/                          # 证书管理
+│   ├── loader.go                  # 证书加载器
+│   ├── loader_test.go             # 加载器测试
+│   ├── manager.go                 # 证书管理器
+│   ├── generator.go               # 证书生成器
+│   └── embedded.go                # 嵌入证书资源
+├── key/                           # 密钥存储管理
+│   ├── key.go                     # 密钥结构
+│   ├── manager.go                 # 密钥管理器
+│   ├── generator.go               # 密钥生成器
+│   ├── model.go                   # 数据模型
+│   ├── store.go                   # 存储实现
+│   └── validator.go               # 验证器
+├── proxy/                         # 代理核心
+│   ├── server.go                  # 服务端代理(TLCP/TLS→TCP)
+│   ├── client.go                  # 客户端代理(TCP→TLCP/TLS)
+│   ├── http_server.go             # HTTP服务端代理
+│   ├── http_client.go             # HTTP客户端代理
+│   ├── adapter.go                 # 协议适配器
+│   ├── adapter_test.go            # 适配器测试
+│   ├── conn.go                    # 连接处理
+│   └── vars.go                    # 变量定义
+├── instance/                      # 实例管理
+│   ├── manager.go                 # 实例管理器
+│   ├── instance.go                # 实例实现
+│   └── types.go                   # 类型定义
+├── controller/                    # API控制器
+│   ├── server.go                  # API服务器
+│   ├── router.go                  # 路由定义
+│   ├── instance.go                # 实例管理API
+│   ├── config.go                  # 配置管理API
+│   ├── cert.go                    # 证书管理API
+│   ├── keystore.go                # 密钥存储API
+│   ├── health.go                  # 健康检查API
+│   ├── system.go                  # 系统信息API
+│   ├── middleware.go              # 中间件
+│   └── response.go                # 响应处理
+├── stats/                         # 流量统计
+│   └── collector.go               # 统计收集器
+├── release/                       # 打包相关
+│   └── systemd/                   # systemd服务文件
+├── docs/
+│   └── config-examples.md         # 配置示例
+├── bin/                           # 编译输出目录
 └── go.mod
 
 tlcpchan-cli/                      # CLI工具
 ├── main.go                        # 程序入口
-├── internal/
-│   ├── commands/                  # 命令实现
-│   │   ├── root.go                # 根命令
-│   │   ├── start.go               # 启动命令
-│   │   ├── stop.go                # 停止命令
-│   │   ├── status.go              # 状态命令
-│   │   ├── config.go              # 配置命令
-│   │   └── cert.go                # 证书命令
-│   └── client/                    # API客户端
-│       └── client.go              # HTTP客户端封装
-├── release/                       # 打包相关
+├── commands/                      # 命令实现
+│   ├── root.go                    # 根命令
+│   ├── instance.go                # 实例命令
+│   ├── config.go                  # 配置命令
+│   ├── cert.go                    # 证书命令
+│   ├── keystore.go                # 密钥存储命令
+│   ├── system.go                  # 系统命令
+│   └── version.go                 # 版本命令
+├── client/                        # API客户端
+│   └── client.go                  # HTTP客户端封装
+├── bin/                           # 编译输出目录
 └── go.mod
 
-tlcpchan-ui/                       # Web前端
-├── src/                           # 源代码
-│   ├── views/                     # 页面组件
-│   ├── components/                # 通用组件
-│   ├── api/                       # API封装
-│   ├── stores/                    # 状态管理
-│   └── router/                    # 路由配置
-├── package.json
-└── vite.config.ts
+tlcpchan-ui/                       # Web前端界面
+├── main.go                        # UI服务主入口
+├── server/                        # UI服务器
+├── proxy/                         # 代理实现
+├── web/                           # 前端项目
+│   ├── src/                       # 前端源代码
+│   │   ├── api/                   # API调用封装
+│   │   ├── assets/                # 静态资源
+│   │   ├── components/            # 通用组件
+│   │   ├── layouts/               # 页面布局
+│   │   ├── router/                # 路由配置
+│   │   ├── stores/                # 状态管理(Pinia)
+│   │   ├── types/                 # TypeScript类型定义
+│   │   ├── views/                 # 页面视图
+│   │   │   ├── Dashboard.vue      # 仪表板
+│   │   │   ├── Instances.vue      # 实例列表
+│   │   │   ├── InstanceDetail.vue # 实例详情
+│   │   │   ├── Certificates.vue   # 证书管理
+│   │   │   ├── KeyStores.vue      # 密钥存储
+│   │   │   ├── Logs.vue           # 日志查看
+│   │   │   └── Settings.vue       # 系统设置
+│   │   ├── App.vue                 # 根组件
+│   │   ├── main.ts                 # 入口文件
+│   │   └── style.css               # 全局样式
+│   ├── public/                     # 公共资源
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── dist/                          # 前端构建产物
+│   ├── assets/
+│   ├── index.html
+│   └── version.txt
+├── bin/                           # 编译输出目录
+└── go.mod
 ```
 
 ## 3. 核心模块设计
@@ -349,7 +386,64 @@ func (l *TLCPListener) GetCertificate(hello *tlcp.ClientHelloInfo) (*tlcp.Certif
 - 服务端证书（SM2/RSA）
 - 客户端证书（SM2/RSA）
 
-### 3.4 实例管理模块
+### 3.4 密钥存储管理模块
+
+密钥存储模块提供密钥和证书的集中管理功能，支持 TLCP（国密双证书）和 TLS 两种类型。
+
+#### 3.4.1 密钥存储类型
+
+```go
+type KeyStoreType string
+
+const (
+    KeyStoreTypeTLCP KeyStoreType = "tlcp"
+    KeyStoreTypeTLS  KeyStoreType = "tls"
+)
+```
+
+**TLCP 密钥存储**：包含签名证书/密钥和加密证书/密钥（国密双证书体系）
+**TLS 密钥存储**：包含单一证书/密钥
+
+#### 3.4.2 密钥管理器
+
+```go
+type Manager struct {
+    // 密钥存储管理
+}
+
+func (m *Manager) List() ([]*KeyStoreInfo, error)
+func (m *Manager) GetInfo(name string) (*KeyStoreInfo, error)
+func (m *Manager) Create(name string, keyType KeyStoreType, params KeyParams, 
+    signCert, signKey, encCert, encKey []byte) (*KeyStore, error)
+func (m *Manager) UpdateCertificates(name string, signCert, encCert []byte) (*KeyStore, error)
+func (m *Manager) Delete(name string) error
+func (m *Manager) Reload(name string) error
+func (m *Manager) Exists(name string) bool
+```
+
+#### 3.4.3 密钥存储信息
+
+```go
+type KeyStoreInfo struct {
+    Name        string                 // 密钥名称
+    Type        KeyStoreType           // 类型（tlcp/tls）
+    KeyParams   KeyParams              // 密钥参数
+    HasSignCert bool                   // 是否有签名证书
+    HasSignKey  bool                   // 是否有签名密钥
+    HasEncCert  bool                   // 是否有加密证书（仅国密）
+    HasEncKey   bool                   // 是否有加密密钥（仅国密）
+    CreatedAt   time.Time              // 创建时间
+    UpdatedAt   time.Time              // 更新时间
+}
+
+type KeyParams struct {
+    Algorithm string                   // 算法（SM2/RSA/ECDSA）
+    Length    int                      // 密钥长度
+    Type      string                   // 类型
+}
+```
+
+### 3.5 实例管理模块
 
 ```go
 type Instance interface {
@@ -373,7 +467,7 @@ func (m *InstanceManager) List() []Instance
 func (m *InstanceManager) Delete(name string) error
 ```
 
-### 3.5 统计模块
+### 3.6 统计模块
 
 ```go
 type Metrics struct {
@@ -412,6 +506,12 @@ type Metrics struct {
 | GET | /api/v1/config | 获取当前配置 |
 | GET | /api/v1/certificates | 获取证书列表 |
 | POST | /api/v1/certificates/reload | 热更新证书 |
+| GET | /api/v1/keystores | 获取密钥列表 |
+| GET | /api/v1/keystores/:name | 获取密钥详情 |
+| POST | /api/v1/keystores | 创建密钥 |
+| POST | /api/v1/keystores/:name/certificates | 更新密钥证书 |
+| DELETE | /api/v1/keystores/:name | 删除密钥 |
+| POST | /api/v1/keystores/:name/reload | 重载密钥 |
 | GET | /api/v1/system/info | 系统信息 |
 | GET | /api/v1/system/health | 健康检查 |
 
@@ -440,14 +540,28 @@ type Metrics struct {
 
 ```
 tlcpchan-ui/
-├── ui-server/                     # Go静态资源服务器
-│   ├── main.go                    # 服务入口
-│   └── handler.go                 # 静态文件处理
-├── dist/                          # 构建产物（嵌入Go）
-└── src/                           # Vue源代码
+├── main.go                        # UI服务主入口
+├── server/                        # UI服务器实现
+├── proxy/                         # 代理实现
+├── web/                           # Vue前端项目
+│   ├── src/                       # 前端源代码
+│   ├── public/                    # 公共资源
+│   └── package.json
+├── dist/                          # 前端构建产物（嵌入Go二进制）
+└── bin/                           # 编译输出目录
 ```
 
-UI服务作为独立进程运行，通过环境变量或配置文件连接后端API。
+UI服务作为独立进程运行，提供：
+1. 静态资源服务 - 托管 Vue 前端
+2. API 代理 - 转发请求到 tlcpchan 核心服务
+3. 独立部署 - 可与核心服务分离部署
+
+前端技术栈：
+- Vue 3 + TypeScript
+- Vite 构建工具
+- Element Plus UI组件库
+- Pinia 状态管理
+- Vue Router 路由
 
 ## 6. 部署设计
 
@@ -494,105 +608,267 @@ EXPOSE 30080 30000
 ENTRYPOINT ["/usr/bin/tlcpchan"]
 ```
 
-## 7. 安全设计
+## 10. 热加载机制设计
 
-### 7.1 证书安全
+### 10.1 概述
 
-- 私钥文件权限设置为600
-- 支持证书热更新，无需重启
-- 证书文件变更监控
+热加载机制允许在不重启服务的情况下更新证书和配置，确保服务的高可用性。系统支持多层次的热加载：
 
-### 7.2 网络安全
+- **证书热重载**：更新端证书和 CA 证书池
+- **配置热重载**：更新代理实例配置
+- **API 触发**：通过 RESTful API 手动触发重载
 
-- API服务默认绑定127.0.0.1
-- 支持通过配置绑定其他地址
-- 日志中不记录敏感信息
+### 10.2 架构设计
 
-### 7.3 日志安全
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        热加载架构                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌───────────────┐ │
+│  │   API 触发      │    │  定时器自动     │    │  手动调用      │ │
+│  │  /reload-certs  │───▶│  HotReloader    │◀───│  Reload()      │ │
+│  │  /reload        │    │                 │    │               │ │
+│  └────────┬────────┘    └────────┬────────┘    └───────┬───────┘ │
+│           │                        │                     │          │
+│           └────────────────────────┼─────────────────────┘          │
+│                                    │                                │
+│  ┌─────────────────────────────────▼──────────────────────────────┐  │
+│  │                      TLCPAdapter                               │  │
+│  │  ┌──────────────────────────────────────────────────────────┐  │  │
+│  │  │ ReloadCertificates() - 仅重载证书                        │  │  │
+│  │  │  - tlcpCertRef.ReloadFromPath()                         │  │  │
+│  │  │  - tlsCertRef.ReloadFromPath()                          │  │  │
+│  │  │  - clientCAPool.Reload()                                 │  │  │
+│  │  │  - serverCAPool.Reload()                                 │  │  │
+│  │  └──────────────────────────────────────────────────────────┘  │  │
+│  │  ┌──────────────────────────────────────────────────────────┐  │  │
+│  │  │ ReloadConfig() - 完全重载配置                            │  │  │
+│  │  │  - 重新加载证书（如路径变更）                             │  │  │
+│  │  │  - 重建 CA 证书池                                         │  │  │
+│  │  │  - 更新协议配置                                           │  │  │
+│  │  └──────────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                    │                                │
+│  ┌─────────────────────────────────┼───────────────────────────────┐  │
+│  │                                 │                               │  │
+│  ▼                                 ▼                               ▼  │
+│  ┌──────────────┐        ┌─────────────────┐        ┌───────────┐  │
+│  │ Certificate  │        │   HotCertPool   │        │  Instance │  │
+│  │  - Reload()  │        │   - Reload()    │        │ - Reload()│  │
+│  │  - ReloadF.. │        │   - Pool()      │        │           │  │
+│  └──────────────┘        └─────────────────┘        └───────────┘  │
+└───────────────────────────────────────────────────────────────────────┘
+```
 
-- 不记录证书私钥
-- 可配置日志脱敏规则
-- 日志文件权限控制
+### 10.3 核心组件
 
-## 8. 性能设计
+#### 10.3.1 Certificate 热重载
 
-### 8.1 连接池
+`Certificate` 结构体支持两种重载方式：
 
-- 复用后端连接
-- 连接健康检查
-- 连接超时控制
+```go
+type Certificate struct {
+    Certificate []*x509.Certificate
+    PrivateKey  crypto.PrivateKey
+    certPEM     []byte      // 内存中的 PEM 数据
+    keyPEM      []byte
+    certPath    string      // 文件路径
+    keyPath     string
+    mu          sync.RWMutex
+}
 
-### 8.2 并发处理
+// Reload 从内存 PEM 数据重载
+func (c *Certificate) Reload() error
 
-- 每连接一个goroutine
-- 协程池可选（高并发场景）
-- 优雅关闭
+// ReloadFromPath 从文件路径重载
+func (c *Certificate) ReloadFromPath() error
+```
 
-### 8.3 内存管理
+**关键特性**：
+- 使用读写锁保证并发安全
+- 原子更新证书和私钥
+- 新连接使用新证书，已有连接不受影响
 
-- 流量缓冲区复用
-- 统计数据周期清理
-- 大文件传输流式处理
+#### 10.3.2 HotCertPool CA 证书池热重载
 
-## 9. 扩展性设计
+```go
+type HotCertPool struct {
+    mu         sync.RWMutex
+    paths      []string
+    pool       *x509.CertPool
+    smPool     *smx509.CertPool
+    lastReload time.Time
+}
 
-### 9.1 插件机制
+func (h *HotCertPool) Load() error
+func (h *HotCertPool) Reload() error
+func (h *HotCertPool) Pool() *x509.CertPool      // 读操作，加读锁
+func (h *HotCertPool) SMPool() *smx509.CertPool  // 读操作，加读锁
+```
 
-预留插件接口，支持：
-- 自定义认证
-- 流量处理
-- 日志输出
+**设计要点**：
+- 读写分离：读操作加读锁，写操作加写锁
+- 支持国密（SM）和标准 x509 双证书池
+- 记录上次重载时间
 
-### 9.2 配置扩展
+#### 10.3.3 TLCPAdapter 协议适配器热重载
 
-配置文件支持：
-- 环境变量引用
-- 配置文件包含
-- 动态配置加载
+适配器是热加载的核心协调者：
 
-## 10. 开发计划
+```go
+type TLCPAdapter struct {
+    mu           sync.RWMutex
+    tlcpConfig   *tlcp.Config
+    tlsConfig    *tls.Config
+    clientCAPool *cert.HotCertPool
+    serverCAPool *cert.HotCertPool
+    tlcpCertRef  *cert.Certificate  // 证书引用
+    tlsCertRef   *cert.Certificate
+    // ...
+}
 
-### 阶段0：文档准备
-- [x] 设计文档
-- [ ] 需求文档
-- [ ] API文档
+// ReloadCertificates 仅重载证书（轻量级）
+func (a *TLCPAdapter) ReloadCertificates() error {
+    // 重载端证书
+    a.tlcpCertRef.ReloadFromPath()
+    a.tlsCertRef.ReloadFromPath()
+    // 重载 CA 池
+    clientCAPool.Reload()
+    serverCAPool.Reload()
+}
 
-### 阶段1：核心功能
-- [ ] 配置管理
-- [ ] 日志管理
-- [ ] 证书加载
-- [ ] 服务端代理
-- [ ] 客户端代理
-- [ ] 实例管理
+// ReloadConfig 完全重载配置（重量级）
+func (a *TLCPAdapter) ReloadConfig(cfg *config.InstanceConfig) error
+```
 
-### 阶段2：API服务
-- [ ] API服务器
-- [ ] 实例管理API
-- [ ] 配置管理API
-- [ ] 统计查询API
+**关键设计**：
+- 区分轻量级（仅证书）和重量级（完整配置）重载
+- 使用 `GetCertificate` 回调实现证书动态获取
+- 新配置原子替换，避免服务中断
 
-### 阶段3：HTTP代理
-- [ ] HTTP服务器代理
-- [ ] HTTP客户端代理
-- [ ] 头部处理
+#### 10.3.4 HotReloader 定时器自动重载
 
-### 阶段4：证书工具
-- [ ] 证书生成
-- [ ] 首次初始化
+```go
+type HotReloader struct {
+    loader    *Loader
+    interval  time.Duration
+    stopCh    chan struct{}
+    stoppedCh chan struct{}
+}
 
-### 阶段5：UI前端
-- [ ] 项目框架
-- [ ] 仪表盘
-- [ ] 实例管理
-- [ ] 证书管理
-- [ ] 日志查看
+func NewHotReloader(loader *Loader, interval time.Duration) *HotReloader
+func (h *HotReloader) Start()  // 启动定时重载
+func (h *HotReloader) Stop()   // 停止定时重载
+```
 
-### 阶段6：CLI工具
-- [ ] 命令实现
-- [ ] API客户端
+**工作流程**：
+1. 启动后台 goroutine
+2. 按设定间隔周期性调用 `loader.ReloadAll()`
+3. 支持优雅停止
 
-### 阶段7：打包发布
-- [ ] 多平台构建
-- [ ] 安装包制作
-- [ ] GitHub CI
-- [ ] Docker镜像
+### 10.4 热加载流程
+
+#### 10.4.1 证书热重载流程
+
+```
+用户/API 触发
+      │
+      ▼
+┌─────────────────┐
+│ ReloadCertificates() │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌─────────┐ ┌─────────┐
+│ TLCP    │ │ TLS     │
+│ 证书    │ │ 证书    │
+│重载     │ │重载     │
+└────┬────┘ └────┬────┘
+     │           │
+     └─────┬─────┘
+           │
+           ▼
+    ┌──────────────┐
+    │  CA 证书池    │
+    │   重载       │
+    └──────┬───────┘
+           │
+           ▼
+      完成！新连接
+      自动使用新证书
+```
+
+#### 10.4.2 完整配置热重载流程
+
+```
+用户/API 触发
+      │
+      ▼
+┌─────────────────┐
+│  ReloadConfig() │
+└────────┬────────┘
+         │
+    ┌────▼────┐
+    │ 检查配置  │
+    │ 变更     │
+    └────┬────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌─────────┐ ┌─────────┐
+│证书路径 │ │ 其他配置 │
+│变更？   │ │ 更新     │
+└────┬────┘ └────┬────┘
+     │           │
+     ▼           │
+┌─────────┐      │
+│重新加载 │      │
+│证书     │      │
+└────┬────┘      │
+     │           │
+     └─────┬─────┘
+           │
+           ▼
+    ┌──────────────┐
+    │  重建配置    │
+    │  原子替换    │
+    └──────┬───────┘
+           │
+           ▼
+        完成！
+```
+
+### 10.5 API 接口
+
+系统提供以下热加载 API：
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| POST | `/api/v1/instances/:name/reload` | 重载实例完整配置 |
+| POST | `/api/v1/instances/:name/reload-certs` | 仅重载实例证书 |
+| POST | `/api/v1/certificates/reload` | 重载所有证书 |
+| POST | `/api/v1/keystores/:name/reload` | 重载指定密钥 |
+| POST | `/api/v1/config/reload` | 重载全局配置 |
+
+### 10.6 并发安全设计
+
+热加载机制在设计上充分考虑了并发安全：
+
+| 组件 | 并发机制 |
+|------|----------|
+| `Certificate` | `sync.RWMutex` 保护证书和私钥 |
+| `HotCertPool` | `sync.RWMutex` 保护证书池 |
+| `Manager.certs` | `sync.Map` 提升并发读性能 |
+| `Manager.certDir` | `atomic.Value` 无锁访问 |
+| `TLCPAdapter` | `sync.RWMutex` 保护配置更新 |
+
+### 10.7 最佳实践
+
+1. **证书更新**：优先使用 `ReloadCertificates()`，轻量高效
+2. **配置变更**：仅在必要时使用 `ReloadConfig()`
+3. **定时重载**：合理设置 `HotReloader` 间隔，避免频繁 I/O
+4. **监控**：关注重载失败日志，及时处理证书问题
