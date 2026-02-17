@@ -20,7 +20,7 @@ func NewHealthController(instanceManager *instance.Manager) *HealthController {
 
 // RegisterRoutes 注册路由
 func (c *HealthController) RegisterRoutes(r *Router) {
-	r.GET("/api/v1/health", c.Health)
+	r.GET("/api/health", c.Health)
 	r.GET("/health", c.Health)
 }
 

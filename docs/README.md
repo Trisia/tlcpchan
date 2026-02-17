@@ -236,25 +236,25 @@ instances:
 ### 基础 URL
 
 ```
-http://localhost:30080/api/v1
+http://localhost:30080/api
 ```
 
 ### 常用接口
 
 ```bash
 # 获取实例列表
-curl http://localhost:30080/api/v1/instances
+curl http://localhost:30080/api/instances
 
 # 创建实例
-curl -X POST http://localhost:30080/api/v1/instances \
+curl -X POST http://localhost:30080/api/instances \
   -H "Content-Type: application/json" \
   -d '{"name":"test","type":"server","protocol":"tlcp","listen":":443","target":"127.0.0.1:8080"}'
 
 # 启动实例
-curl -X POST http://localhost:30080/api/v1/instances/test/start
+curl -X POST http://localhost:30080/api/instances/test/start
 
 # 健康检查
-curl http://localhost:30080/api/v1/system/health
+curl http://localhost:30080/api/system/health
 ```
 
 完整 API 文档请参考 [API 使用指南](./api-usage.md) 和 [API 接口文档](./api.md)。
@@ -321,7 +321,7 @@ A: 检查以下几点：
 
 ```bash
 tlcpchan-cli instance show <name>
-curl http://localhost:30080/api/v1/instances/<name>
+curl http://localhost:30080/api/instances/<name>
 ```
 
 ### Q: 如何更新证书而不重启服务？
@@ -331,7 +331,7 @@ curl http://localhost:30080/api/v1/instances/<name>
 tlcpchan-cli cert reload
 
 # 或通过 API
-curl -X POST http://localhost:30080/api/v1/certificates/reload
+curl -X POST http://localhost:30080/api/certificates/reload
 ```
 
 ### Q: 如何启用双向认证？
@@ -356,7 +356,7 @@ instances:
 tail -f /etc/tlcpchan/logs/tlcpchan.log
 
 # 通过 API 查看实例日志
-curl "http://localhost:30080/api/v1/instances/<name>/logs?lines=100"
+curl "http://localhost:30080/api/instances/<name>/logs?lines=100"
 
 # 通过 CLI 查看
 tlcpchan-cli instance logs <name>
@@ -389,12 +389,12 @@ tlcpchan -log-level debug
 
 1. 查看系统资源使用：
 ```bash
-curl http://localhost:30080/api/v1/system/info
+curl http://localhost:30080/api/system/info
 ```
 
 2. 查看实例统计：
 ```bash
-curl http://localhost:30080/api/v1/instances/<name>/stats
+curl http://localhost:30080/api/instances/<name>/stats
 ```
 
 3. 检查连接数：

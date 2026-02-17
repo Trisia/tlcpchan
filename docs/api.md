@@ -4,7 +4,7 @@
 
 ### 1.1 基本信息
 
-- 基础URL：`http://localhost:30080/api/v1`
+- 基础URL：`http://localhost:30080/api`
 - 内容类型：`application/json`
 - 字符编码：`UTF-8`
 
@@ -47,7 +47,7 @@ Content-Type: text/plain
 **请求**
 
 ```
-GET /api/v1/instances
+GET /api/instances
 ```
 
 **响应**
@@ -75,7 +75,7 @@ GET /api/v1/instances
 **请求**
 
 ```
-POST /api/v1/instances
+POST /api/instances
 Content-Type: application/json
 
 {
@@ -120,7 +120,7 @@ HTTP 201 Created
 **请求**
 
 ```
-GET /api/v1/instances/:name
+GET /api/instances/:name
 ```
 
 **响应**
@@ -160,7 +160,7 @@ GET /api/v1/instances/:name
 **请求**
 
 ```
-PUT /api/v1/instances/:name
+PUT /api/instances/:name
 Content-Type: application/json
 
 {
@@ -183,7 +183,7 @@ Content-Type: application/json
 **请求**
 
 ```
-DELETE /api/v1/instances/:name
+DELETE /api/instances/:name
 ```
 
 **响应**
@@ -197,7 +197,7 @@ HTTP 204 No Content
 **请求**
 
 ```
-POST /api/v1/instances/:name/start
+POST /api/instances/:name/start
 ```
 
 **响应**
@@ -214,7 +214,7 @@ POST /api/v1/instances/:name/start
 **请求**
 
 ```
-POST /api/v1/instances/:name/stop
+POST /api/instances/:name/stop
 ```
 
 **响应**
@@ -231,7 +231,7 @@ POST /api/v1/instances/:name/stop
 **请求**
 
 ```
-POST /api/v1/instances/:name/reload
+POST /api/instances/:name/reload
 ```
 
 **响应**
@@ -248,7 +248,7 @@ POST /api/v1/instances/:name/reload
 **请求**
 
 ```
-GET /api/v1/instances/:name/stats
+GET /api/instances/:name/stats
 ```
 
 **查询参数**
@@ -276,7 +276,7 @@ GET /api/v1/instances/:name/stats
 **请求**
 
 ```
-GET /api/v1/instances/:name/logs
+GET /api/instances/:name/logs
 ```
 
 **查询参数**
@@ -307,7 +307,7 @@ GET /api/v1/instances/:name/logs
 **请求**
 
 ```
-GET /api/v1/config
+GET /api/config
 ```
 
 **响应**
@@ -328,7 +328,7 @@ GET /api/v1/config
 **请求**
 
 ```
-POST /api/v1/config/reload
+POST /api/config/reload
 ```
 
 **响应**
@@ -351,7 +351,7 @@ POST /api/v1/config/reload
 **请求**
 
 ```
-POST /api/v1/config/validate
+POST /api/config/validate
 Content-Type: application/json
 
 {
@@ -390,7 +390,7 @@ HTTP 400 Bad Request
 **请求**
 
 ```
-GET /api/v1/certificates
+GET /api/certificates
 ```
 
 **响应**
@@ -418,7 +418,7 @@ GET /api/v1/certificates
 **请求**
 
 ```
-GET /api/v1/certificates/:name
+GET /api/certificates/:name
 ```
 
 **响应**
@@ -445,7 +445,7 @@ GET /api/v1/certificates/:name
 **请求**
 
 ```
-POST /api/v1/certificates/reload
+POST /api/certificates/reload
 ```
 
 **响应**
@@ -462,7 +462,7 @@ POST /api/v1/certificates/reload
 **请求**
 
 ```
-POST /api/v1/certificates/generate
+POST /api/certificates/generate
 Content-Type: application/json
 
 {
@@ -493,7 +493,7 @@ Content-Type: application/json
 **请求**
 
 ```
-DELETE /api/v1/certificates/:name
+DELETE /api/certificates/:name
 ```
 
 **响应**
@@ -509,7 +509,7 @@ HTTP 204 No Content
 **请求**
 
 ```
-GET /api/v1/system/info
+GET /api/system/info
 ```
 
 **响应**
@@ -536,7 +536,7 @@ GET /api/v1/system/info
 **请求**
 
 ```
-GET /api/v1/system/health
+GET /api/system/health
 ```
 
 **响应**
@@ -562,7 +562,7 @@ GET /api/v1/system/health
 **请求**
 
 ```
-POST /api/v1/system/shutdown
+POST /api/system/shutdown
 ```
 
 **响应**

@@ -150,7 +150,7 @@ type InstanceConfig struct {
 }
 
 func (c *Client) ListInstances() ([]Instance, error) {
-	data, err := c.Get("/api/v1/instances")
+	data, err := c.Get("/api/instances")
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (c *Client) ListInstances() ([]Instance, error) {
 }
 
 func (c *Client) GetInstance(name string) (*Instance, error) {
-	data, err := c.Get("/api/v1/instances/" + url.PathEscape(name))
+	data, err := c.Get("/api/instances/" + url.PathEscape(name))
 	if err != nil {
 		return nil, err
 	}
@@ -174,41 +174,41 @@ func (c *Client) GetInstance(name string) (*Instance, error) {
 }
 
 func (c *Client) CreateInstance(cfg *InstanceConfig) error {
-	_, err := c.Post("/api/v1/instances", cfg)
+	_, err := c.Post("/api/instances", cfg)
 	return err
 }
 
 func (c *Client) UpdateInstance(name string, cfg *InstanceConfig) error {
-	_, err := c.Put("/api/v1/instances/"+url.PathEscape(name), cfg)
+	_, err := c.Put("/api/instances/"+url.PathEscape(name), cfg)
 	return err
 }
 
 func (c *Client) DeleteInstance(name string) error {
-	return c.Delete("/api/v1/instances/" + url.PathEscape(name))
+	return c.Delete("/api/instances/" + url.PathEscape(name))
 }
 
 func (c *Client) StartInstance(name string) error {
-	_, err := c.Post("/api/v1/instances/"+url.PathEscape(name)+"/start", nil)
+	_, err := c.Post("/api/instances/"+url.PathEscape(name)+"/start", nil)
 	return err
 }
 
 func (c *Client) StopInstance(name string) error {
-	_, err := c.Post("/api/v1/instances/"+url.PathEscape(name)+"/stop", nil)
+	_, err := c.Post("/api/instances/"+url.PathEscape(name)+"/stop", nil)
 	return err
 }
 
 func (c *Client) ReloadInstance(name string) error {
-	_, err := c.Post("/api/v1/instances/"+url.PathEscape(name)+"/reload", nil)
+	_, err := c.Post("/api/instances/"+url.PathEscape(name)+"/reload", nil)
 	return err
 }
 
 func (c *Client) ReloadInstanceCertificates(name string) error {
-	_, err := c.Post("/api/v1/instances/"+url.PathEscape(name)+"/reload-certs", nil)
+	_, err := c.Post("/api/instances/"+url.PathEscape(name)+"/reload-certs", nil)
 	return err
 }
 
 func (c *Client) InstanceStats(name string) (map[string]interface{}, error) {
-	data, err := c.Get("/api/v1/instances/" + url.PathEscape(name) + "/stats")
+	data, err := c.Get("/api/instances/" + url.PathEscape(name) + "/stats")
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (c *Client) InstanceStats(name string) (map[string]interface{}, error) {
 }
 
 func (c *Client) InstanceLogs(name string) ([]map[string]interface{}, error) {
-	data, err := c.Get("/api/v1/instances/" + url.PathEscape(name) + "/logs")
+	data, err := c.Get("/api/instances/" + url.PathEscape(name) + "/logs")
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ type TrustedCertificate struct {
 }
 
 func (c *Client) ListTrustedCertificates() ([]TrustedCertificate, error) {
-	data, err := c.Get("/api/v1/trusted")
+	data, err := c.Get("/api/trusted")
 	if err != nil {
 		return nil, err
 	}
@@ -254,17 +254,17 @@ func (c *Client) ListTrustedCertificates() ([]TrustedCertificate, error) {
 }
 
 func (c *Client) DeleteTrustedCertificate(name string) error {
-	u := fmt.Sprintf("/api/v1/trusted?name=%s", url.QueryEscape(name))
+	u := fmt.Sprintf("/api/trusted?name=%s", url.QueryEscape(name))
 	return c.Delete(u)
 }
 
 func (c *Client) ReloadTrustedCertificates() error {
-	_, err := c.Post("/api/v1/trusted/reload", nil)
+	_, err := c.Post("/api/trusted/reload", nil)
 	return err
 }
 
 func (c *Client) GetConfig() (map[string]interface{}, error) {
-	data, err := c.Get("/api/v1/config")
+	data, err := c.Get("/api/config")
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (c *Client) GetConfig() (map[string]interface{}, error) {
 }
 
 func (c *Client) ReloadConfig() error {
-	_, err := c.Post("/api/v1/config/reload", nil)
+	_, err := c.Post("/api/config/reload", nil)
 	return err
 }
 
@@ -294,7 +294,7 @@ type SystemInfo struct {
 }
 
 func (c *Client) GetSystemInfo() (*SystemInfo, error) {
-	data, err := c.Get("/api/v1/system/info")
+	data, err := c.Get("/api/system/info")
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ type HealthStatus struct {
 }
 
 func (c *Client) HealthCheck() (*HealthStatus, error) {
-	data, err := c.Get("/api/v1/system/health")
+	data, err := c.Get("/api/system/health")
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,7 @@ type VersionInfo struct {
 }
 
 func (c *Client) GetVersion() (*VersionInfo, error) {
-	data, err := c.Get("/api/v1/system/version")
+	data, err := c.Get("/api/system/version")
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +360,7 @@ type ProtocolHealthInfo struct {
 
 // CheckInstanceHealth 执行实例健康检测
 func (c *Client) CheckInstanceHealth(name string, fullHandshake bool) (*InstanceHealthCheckResult, error) {
-	path := fmt.Sprintf("/api/v1/instances/%s/health", name)
+	path := fmt.Sprintf("/api/instances/%s/health", name)
 	data, err := c.Post(path, map[string]bool{"full_handshake": fullHandshake})
 	if err != nil {
 		return nil, err

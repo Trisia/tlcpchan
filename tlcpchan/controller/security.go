@@ -38,17 +38,17 @@ func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *s
 
 // RegisterRoutes 注册路由
 func (c *SecurityController) RegisterRoutes(r *Router) {
-	r.GET("/api/v1/security/keystores", c.ListKeyStores)
-	r.POST("/api/v1/security/keystores", c.CreateKeyStore)
-	r.GET("/api/v1/security/keystores/:name", c.GetKeyStore)
-	r.DELETE("/api/v1/security/keystores/:name", c.DeleteKeyStore)
-	r.POST("/api/v1/security/keystores/:name/reload", c.ReloadKeyStore)
+	r.GET("/api/security/keystores", c.ListKeyStores)
+	r.POST("/api/security/keystores", c.CreateKeyStore)
+	r.GET("/api/security/keystores/:name", c.GetKeyStore)
+	r.DELETE("/api/security/keystores/:name", c.DeleteKeyStore)
+	r.POST("/api/security/keystores/:name/reload", c.ReloadKeyStore)
 
-	r.GET("/api/v1/security/rootcerts", c.ListRootCerts)
-	r.POST("/api/v1/security/rootcerts", c.AddRootCert)
-	r.GET("/api/v1/security/rootcerts/:filename", c.GetRootCert)
-	r.DELETE("/api/v1/security/rootcerts/:filename", c.DeleteRootCert)
-	r.POST("/api/v1/security/rootcerts/reload", c.ReloadRootCerts)
+	r.GET("/api/security/rootcerts", c.ListRootCerts)
+	r.POST("/api/security/rootcerts", c.AddRootCert)
+	r.GET("/api/security/rootcerts/:filename", c.GetRootCert)
+	r.DELETE("/api/security/rootcerts/:filename", c.DeleteRootCert)
+	r.POST("/api/security/rootcerts/reload", c.ReloadRootCerts)
 }
 
 // ListKeyStores 列出所有 keystore

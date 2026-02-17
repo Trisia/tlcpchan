@@ -26,7 +26,7 @@ func TestSystemController_Version(t *testing.T) {
 			router := NewRouter()
 			ctrl.RegisterRoutes(router)
 
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/system/version", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/system/version", nil)
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)
 
@@ -69,7 +69,7 @@ func TestSystemController_Health(t *testing.T) {
 			router := NewRouter()
 			ctrl.RegisterRoutes(router)
 
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/system/health", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/system/health", nil)
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)
 
@@ -98,7 +98,7 @@ func TestSystemController_Info(t *testing.T) {
 	router := NewRouter()
 	ctrl.RegisterRoutes(router)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/info", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/system/info", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -137,9 +137,9 @@ func TestSystemController_Routes(t *testing.T) {
 		method  string
 		pattern string
 	}{
-		{http.MethodGet, "/api/v1/system/info"},
-		{http.MethodGet, "/api/v1/system/health"},
-		{http.MethodGet, "/api/v1/system/version"},
+		{http.MethodGet, "/api/system/info"},
+		{http.MethodGet, "/api/system/health"},
+		{http.MethodGet, "/api/system/version"},
 	}
 
 	for _, route := range routes {

@@ -1,6 +1,6 @@
 import type { Instance, Certificate, SystemInfo, HealthInfo, VersionInfo, UIVersionInfo } from '@/types'
 
-const API_BASE = '/api/v1'
+const API_BASE = '/api'
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${url}`, {

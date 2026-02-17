@@ -260,14 +260,6 @@ func (p *ClientProxy) Reload(cfg *config.InstanceConfig) error {
 	return nil
 }
 
-func (p *ClientProxy) ReloadCertificates() error {
-	if err := p.adapter.ReloadCertificates(); err != nil {
-		return err
-	}
-	p.logger.Info("客户端代理证书热重载成功: %s", p.cfg.Name)
-	return nil
-}
-
 func (p *ClientProxy) ClearProtocolCache() {
 	p.cacheMu.Lock()
 	defer p.cacheMu.Unlock()

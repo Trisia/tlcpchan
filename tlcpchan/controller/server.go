@@ -25,8 +25,6 @@ type Server struct {
 type ServerOptions struct {
 	Config          *config.Config
 	ConfigPath      string
-	KeyStoreDir     string
-	TrustedDir      string
 	Version         string
 	KeyStoreManager *security.KeyStoreManager
 	RootCertManager *security.RootCertManager
@@ -61,7 +59,7 @@ func NewServer(opts ServerOptions) *Server {
 	}
 
 	instanceCtrl := NewInstanceController(mgr)
-	configCtrl := NewConfigController(opts.Config, opts.ConfigPath)
+	configCtrl := NewConfigController(opts.ConfigPath)
 	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController(opts.Version)
 	healthCtrl := NewHealthController(mgr)

@@ -361,7 +361,8 @@ func (a *TLCPAdapter) TLSListener(l net.Listener) net.Listener {
 }
 
 func (a *TLCPAdapter) AutoListener(l net.Listener) net.Listener {
-	return NewAutoProtocolListener(l, a.getTLCPConfig(), a.getTLSConfig())
+	timeout := a.getTimeoutConfig().Handshake
+	return NewAutoProtocolListener(l, a.getTLCPConfig(), a.getTLSConfig(), timeout)
 }
 
 func (a *TLCPAdapter) WrapServerListener(l net.Listener) net.Listener {
@@ -378,12 +379,27 @@ func (a *TLCPAdapter) WrapServerListener(l net.Listener) net.Listener {
 	}
 }
 
+func (a *TLCPAdapter) getTimeoutConfig() *config.TimeoutConfig {
+	if a.cfg.Timeout != nil {
+		return a.cfg.Timeout
+	}
+	return config.DefaultTimeout()
+}
+
 func (a *TLCPAdapter) DialTLCP(network, addr string) (net.Conn, error) {
-	return tlcp.Dial(network, addr, a.getTLCPConfig())
+	timeout := a.getTimeoutConfig().Dial
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+	return tlcp.DialWithDialer(dialer, network, addr, a.getTLCPConfig())
 }
 
 func (a *TLCPAdapter) DialTLS(network, addr string) (net.Conn, error) {
-	return tls.Dial(network, addr, a.getTLSConfig())
+	timeout := a.getTimeoutConfig().Dial
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+	return tls.DialWithDialer(dialer, network, addr, a.getTLSConfig())
 }
 
 func (a *TLCPAdapter) DialWithProtocol(network, addr string, protocol ProtocolType) (net.Conn, error) {
@@ -419,31 +435,6 @@ func (a *TLCPAdapter) TLSConfig() *tls.Config {
 	return a.getTLSConfig()
 }
 
-func (a *TLCPAdapter) ReloadCertificates() error {
-	var errs []error
-
-	if a.tlcpKeyStore != nil {
-		if err := a.tlcpKeyStore.Reload(); err != nil {
-			errs = append(errs, fmt.Errorf("重载TLCP证书失败: %w", err))
-		}
-	}
-	if a.tlsKeyStore != nil {
-		if err := a.tlsKeyStore.Reload(); err != nil {
-			errs = append(errs, fmt.Errorf("重载TLS证书失败: %w", err))
-		}
-	}
-
-	if err := a.rootCertManager.Reload(); err != nil {
-		errs = append(errs, fmt.Errorf("重载根证书池失败: %w", err))
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("部分证书重载失败: %v", errs)
-	}
-
-	return nil
-}
-
 func (a *TLCPAdapter) ReloadConfig(cfg *config.InstanceConfig) error {
 	a.mu.Lock()
 	oldCfg := a.cfg
@@ -470,20 +461,20 @@ func (a *TLCPAdapter) reloadServerConfig(cfg, oldCfg *config.InstanceConfig) err
 		tlsAuth = string(config.AuthNone)
 	}
 
-	if keyStoreChanged(cfg.TLCP.Keystore, oldCfg.TLCP.Keystore) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil && ks != nil {
-			a.tlcpKeyStore = ks
-		} else {
-			a.tlcpKeyStore = nil
+	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
+		if a.tlcpKeyStore == nil || !a.tlcpKeyStore.Equals(newTLCPKS) {
+			a.tlcpKeyStore = newTLCPKS
 		}
+	} else {
+		a.tlcpKeyStore = nil
 	}
 
-	if keyStoreChanged(cfg.TLS.Keystore, oldCfg.TLS.Keystore) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil && ks != nil {
-			a.tlsKeyStore = ks
-		} else {
-			a.tlsKeyStore = nil
+	if newTLSKS, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil {
+		if a.tlsKeyStore == nil || !a.tlsKeyStore.Equals(newTLSKS) {
+			a.tlsKeyStore = newTLSKS
 		}
+	} else {
+		a.tlsKeyStore = nil
 	}
 
 	if len(cfg.ClientCA) > 0 {
@@ -524,20 +515,20 @@ func (a *TLCPAdapter) reloadClientConfig(cfg, oldCfg *config.InstanceConfig) err
 		tlsAuth = string(config.AuthNone)
 	}
 
-	if keyStoreChanged(cfg.TLCP.Keystore, oldCfg.TLCP.Keystore) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil && ks != nil {
-			a.tlcpKeyStore = ks
-		} else {
-			a.tlcpKeyStore = nil
+	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
+		if a.tlcpKeyStore == nil || !a.tlcpKeyStore.Equals(newTLCPKS) {
+			a.tlcpKeyStore = newTLCPKS
 		}
+	} else {
+		a.tlcpKeyStore = nil
 	}
 
-	if keyStoreChanged(cfg.TLS.Keystore, oldCfg.TLS.Keystore) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil && ks != nil {
-			a.tlsKeyStore = ks
-		} else {
-			a.tlsKeyStore = nil
+	if newTLSKS, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil {
+		if a.tlsKeyStore == nil || !a.tlsKeyStore.Equals(newTLSKS) {
+			a.tlsKeyStore = newTLSKS
 		}
+	} else {
+		a.tlsKeyStore = nil
 	}
 
 	if len(cfg.ServerCA) > 0 {
@@ -580,38 +571,19 @@ func (a *TLCPAdapter) reloadClientConfig(cfg, oldCfg *config.InstanceConfig) err
 	return nil
 }
 
-func keyStoreChanged(newKS, oldKS *config.KeyStoreConfig) bool {
-	if newKS == nil && oldKS == nil {
-		return false
-	}
-	if newKS == nil || oldKS == nil {
-		return true
-	}
-	if newKS.Type != oldKS.Type {
-		return true
-	}
-	if len(newKS.Params) != len(oldKS.Params) {
-		return true
-	}
-	for k, v := range newKS.Params {
-		if oldKS.Params[k] != v {
-			return true
-		}
-	}
-	return false
-}
-
 type AutoProtocolListener struct {
 	net.Listener
-	tlcpConfig *tlcp.Config
-	tlsConfig  *tls.Config
+	tlcpConfig       *tlcp.Config
+	tlsConfig        *tls.Config
+	handshakeTimeout time.Duration
 }
 
-func NewAutoProtocolListener(l net.Listener, tlcpCfg *tlcp.Config, tlsCfg *tls.Config) *AutoProtocolListener {
+func NewAutoProtocolListener(l net.Listener, tlcpCfg *tlcp.Config, tlsCfg *tls.Config, handshakeTimeout time.Duration) *AutoProtocolListener {
 	return &AutoProtocolListener{
-		Listener:   l,
-		tlcpConfig: tlcpCfg,
-		tlsConfig:  tlsCfg,
+		Listener:         l,
+		tlcpConfig:       tlcpCfg,
+		tlsConfig:        tlsCfg,
+		handshakeTimeout: handshakeTimeout,
 	}
 }
 
@@ -621,24 +593,26 @@ func (l *AutoProtocolListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	return newAutoProtocolConn(conn, l.tlcpConfig, l.tlsConfig), nil
+	return newAutoProtocolConn(conn, l.tlcpConfig, l.tlsConfig, l.handshakeTimeout), nil
 }
 
 type autoProtocolConn struct {
 	net.Conn
-	tlcpConfig *tlcp.Config
-	tlsConfig  *tls.Config
-	peeked     []byte
-	handshaked bool
-	conn       net.Conn
-	mu         sync.Mutex
+	tlcpConfig       *tlcp.Config
+	tlsConfig        *tls.Config
+	handshakeTimeout time.Duration
+	peeked           []byte
+	handshaked       bool
+	conn             net.Conn
+	mu               sync.Mutex
 }
 
-func newAutoProtocolConn(conn net.Conn, tlcpCfg *tlcp.Config, tlsCfg *tls.Config) *autoProtocolConn {
+func newAutoProtocolConn(conn net.Conn, tlcpCfg *tlcp.Config, tlsCfg *tls.Config, handshakeTimeout time.Duration) *autoProtocolConn {
 	return &autoProtocolConn{
-		Conn:       conn,
-		tlcpConfig: tlcpCfg,
-		tlsConfig:  tlsCfg,
+		Conn:             conn,
+		tlcpConfig:       tlcpCfg,
+		tlsConfig:        tlsCfg,
+		handshakeTimeout: handshakeTimeout,
 	}
 }
 
@@ -672,7 +646,11 @@ func (c *autoProtocolConn) Handshake() error {
 	}
 
 	peekBuf := make([]byte, 6)
-	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	timeout := c.handshakeTimeout
+	if timeout == 0 {
+		timeout = 15 * time.Second
+	}
+	c.Conn.SetReadDeadline(time.Now().Add(timeout))
 	n, err := ioReadFull(c.Conn, peekBuf)
 	c.Conn.SetReadDeadline(time.Time{})
 

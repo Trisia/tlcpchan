@@ -122,8 +122,12 @@ func (p *ServerProxy) handleConnection(clientConn net.Conn) {
 		}
 	}
 
+	timeout := 10 * time.Second
+	if p.cfg.Timeout != nil {
+		timeout = p.cfg.Timeout.Dial
+	}
 	dialer := &net.Dialer{
-		Timeout: 10 * time.Second,
+		Timeout: timeout,
 	}
 	targetConn, err := dialer.Dial("tcp", p.cfg.Target)
 	if err != nil {
@@ -212,13 +216,5 @@ func (p *ServerProxy) Reload(cfg *config.InstanceConfig) error {
 	}
 
 	p.logger.Info("服务端代理配置热重载成功: %s", p.cfg.Name)
-	return nil
-}
-
-func (p *ServerProxy) ReloadCertificates() error {
-	if err := p.adapter.ReloadCertificates(); err != nil {
-		return err
-	}
-	p.logger.Info("服务端代理证书热重载成功: %s", p.cfg.Name)
 	return nil
 }

@@ -46,7 +46,7 @@ func NewSystemController(version string) *SystemController {
 }
 
 /**
- * @api {get} /api/v1/system/info 获取系统信息
+ * @api {get} /api/system/info 获取系统信息
  * @apiName GetSystemInfo
  * @apiGroup System
  * @apiVersion 1.0.0
@@ -100,7 +100,7 @@ func (c *SystemController) Info(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {get} /api/v1/system/health 系统健康检查
+ * @api {get} /api/system/health 系统健康检查
  * @apiName GetSystemHealth
  * @apiGroup System
  * @apiVersion 1.0.0
@@ -125,7 +125,7 @@ func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {get} /api/v1/system/version 获取版本信息
+ * @api {get} /api/system/version 获取版本信息
  * @apiName GetVersion
  * @apiGroup System
  * @apiVersion 1.0.0
@@ -150,7 +150,7 @@ func (c *SystemController) Version(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *SystemController) RegisterRoutes(router *Router) {
-	router.GET("/api/v1/system/info", c.Info)
-	router.GET("/api/v1/system/health", c.Health)
-	router.GET("/api/v1/system/version", c.Version)
+	router.GET("/api/system/info", c.Info)
+	router.GET("/api/system/health", c.Health)
+	router.GET("/api/system/version", c.Version)
 }

@@ -377,7 +377,7 @@ A: 使用 API 或 CLI 工具的证书重载功能：
 
 ```bash
 # 通过 API
-curl -X POST http://localhost:30080/api/v1/certificates/reload
+curl -X POST http://localhost:30080/api/certificates/reload
 
 # 通过 CLI（如果已安装）
 tlcpchan-cli cert reload

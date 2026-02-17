@@ -311,30 +311,30 @@ type Metrics struct {
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| GET | /api/v1/instances | 获取实例列表 |
-| POST | /api/v1/instances | 创建实例 |
-| GET | /api/v1/instances/:name | 获取实例详情 |
-| PUT | /api/v1/instances/:name | 更新实例配置 |
-| DELETE | /api/v1/instances/:name | 删除实例 |
-| POST | /api/v1/instances/:name/start | 启动实例 |
-| POST | /api/v1/instances/:name/stop | 停止实例 |
-| POST | /api/v1/instances/:name/reload | 重载实例 |
-| GET | /api/v1/instances/:name/stats | 获取统计信息 |
-| GET | /api/v1/instances/:name/logs | 获取日志 |
-| POST | /api/v1/config/reload | 重载全局配置 |
-| GET | /api/v1/config | 获取当前配置 |
-| GET | /api/v1/security/keystores | 获取 keystore 列表 |
-| POST | /api/v1/security/keystores | 创建 keystore |
-| GET | /api/v1/security/keystores/:name | 获取 keystore 详情 |
-| DELETE | /api/v1/security/keystores/:name | 删除 keystore |
-| POST | /api/v1/security/keystores/:name/reload | 重载 keystore |
-| GET | /api/v1/security/rootcerts | 获取根证书列表 |
-| POST | /api/v1/security/rootcerts | 添加根证书 |
-| GET | /api/v1/security/rootcerts/:name | 获取根证书详情 |
-| DELETE | /api/v1/security/rootcerts/:name | 删除根证书 |
-| POST | /api/v1/security/rootcerts/reload | 重载所有根证书 |
-| GET | /api/v1/system/info | 系统信息 |
-| GET | /api/v1/system/health | 健康检查 |
+| GET | /api/instances | 获取实例列表 |
+| POST | /api/instances | 创建实例 |
+| GET | /api/instances/:name | 获取实例详情 |
+| PUT | /api/instances/:name | 更新实例配置 |
+| DELETE | /api/instances/:name | 删除实例 |
+| POST | /api/instances/:name/start | 启动实例 |
+| POST | /api/instances/:name/stop | 停止实例 |
+| POST | /api/instances/:name/reload | 重载实例 |
+| GET | /api/instances/:name/stats | 获取统计信息 |
+| GET | /api/instances/:name/logs | 获取日志 |
+| POST | /api/config/reload | 重载全局配置 |
+| GET | /api/config | 获取当前配置 |
+| GET | /api/security/keystores | 获取 keystore 列表 |
+| POST | /api/security/keystores | 创建 keystore |
+| GET | /api/security/keystores/:name | 获取 keystore 详情 |
+| DELETE | /api/security/keystores/:name | 删除 keystore |
+| POST | /api/security/keystores/:name/reload | 重载 keystore |
+| GET | /api/security/rootcerts | 获取根证书列表 |
+| POST | /api/security/rootcerts | 添加根证书 |
+| GET | /api/security/rootcerts/:name | 获取根证书详情 |
+| DELETE | /api/security/rootcerts/:name | 删除根证书 |
+| POST | /api/security/rootcerts/reload | 重载所有根证书 |
+| GET | /api/system/info | 系统信息 |
+| GET | /api/system/health | 健康检查 |
 
 > **安全参数 API 详细文档**：请参考 [security.md](./security.md)
 

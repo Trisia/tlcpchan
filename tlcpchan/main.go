@@ -82,6 +82,7 @@ func main() {
 	} else {
 		cfg.WorkDir = wd
 	}
+	config.Init(cfg)
 
 	if cfg.Server.Log != nil {
 		logCfg := logger.LogConfig{
@@ -137,8 +138,6 @@ func main() {
 	opts := controller.ServerOptions{
 		Config:          cfg,
 		ConfigPath:      configPath,
-		KeyStoreDir:     cfg.GetKeyStoreStoreDir(),
-		TrustedDir:      cfg.GetTrustedDir(),
 		Version:         version,
 		KeyStoreManager: keyStoreMgr,
 		RootCertManager: rootCertMgr,

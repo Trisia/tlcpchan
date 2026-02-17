@@ -21,6 +21,7 @@ type KeyStore interface {
 	TLCPCertificate() (*tlcp.Certificate, error)
 	TLSCertificate() (*tls.Certificate, error)
 	Reload() error
+	Equals(other KeyStore) bool
 }
 
 // LoaderType 加载器类型

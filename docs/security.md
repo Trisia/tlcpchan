@@ -115,13 +115,13 @@ instances:
 #### 列出所有 Keystore
 
 ```bash
-GET /api/v1/security/keystores
+GET /api/security/keystores
 ```
 
 #### 创建 Keystore
 
 ```bash
-POST /api/v1/security/keystores
+POST /api/security/keystores
 Content-Type: application/json
 
 {
@@ -140,19 +140,19 @@ Content-Type: application/json
 #### 获取 Keystore 详情
 
 ```bash
-GET /api/v1/security/keystores/:name
+GET /api/security/keystores/:name
 ```
 
 #### 删除 Keystore
 
 ```bash
-DELETE /api/v1/security/keystores/:name
+DELETE /api/security/keystores/:name
 ```
 
 #### 重载 Keystore
 
 ```bash
-POST /api/v1/security/keystores/:name/reload
+POST /api/security/keystores/:name/reload
 ```
 
 ---
@@ -162,13 +162,13 @@ POST /api/v1/security/keystores/:name/reload
 #### 列出所有根证书
 
 ```bash
-GET /api/v1/security/rootcerts
+GET /api/security/rootcerts
 ```
 
 #### 添加根证书
 
 ```bash
-POST /api/v1/security/rootcerts
+POST /api/security/rootcerts
 Content-Type: multipart/form-data
 
 name=my-ca&cert=@ca.crt
@@ -177,19 +177,19 @@ name=my-ca&cert=@ca.crt
 #### 获取根证书详情
 
 ```bash
-GET /api/v1/security/rootcerts/:name
+GET /api/security/rootcerts/:name
 ```
 
 #### 删除根证书
 
 ```bash
-DELETE /api/v1/security/rootcerts/:name
+DELETE /api/security/rootcerts/:name
 ```
 
 #### 重载所有根证书
 
 ```bash
-POST /api/v1/security/rootcerts/reload
+POST /api/security/rootcerts/reload
 ```
 
 ---
@@ -274,7 +274,7 @@ keystores:
 
 ```bash
 # 重载单个 keystore
-curl -X POST http://localhost:30080/api/v1/security/keystores/my-keystore/reload
+curl -X POST http://localhost:30080/api/security/keystores/my-keystore/reload
 
 # 重载所有 keystore（暂未实现）
 ```
@@ -283,7 +283,7 @@ curl -X POST http://localhost:30080/api/v1/security/keystores/my-keystore/reload
 
 ```bash
 # 重载所有根证书
-curl -X POST http://localhost:30080/api/v1/security/rootcerts/reload
+curl -X POST http://localhost:30080/api/security/rootcerts/reload
 ```
 
 ---

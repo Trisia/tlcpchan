@@ -314,7 +314,7 @@ services:
     environment:
       - TLCPCHAN_LOG_LEVEL=info
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:30080/api/v1/system/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:30080/api/system/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -412,7 +412,7 @@ tlcpchan -version
 ### 检查健康状态
 
 ```bash
-curl http://localhost:30080/api/v1/system/health
+curl http://localhost:30080/api/system/health
 ```
 
 预期响应：

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
@@ -697,62 +698,6 @@ func ValidClientAuthValues() []string {
 	}
 }
 
-// ResolveCertPath 解析证书路径为绝对路径
-// 参数:
-//   - path: 原始路径，可以是相对路径或绝对路径
-//
-// 返回:
-//   - string: 解析后的路径，相对路径会基于证书目录解析
-func (c *Config) ResolveCertPath(path string) string {
-	if path == "" {
-		return ""
-	}
-
-	if filepath.IsAbs(path) {
-		return path
-	}
-
-	certDir := c.GetCertDir()
-	if certDir != "" {
-		return filepath.Join(certDir, path)
-	}
-
-	return path
-}
-
-// GetKeyStoreDir 获取密钥存储目录路径
-// 返回:
-//   - string: 密钥存储目录路径，固定为工作目录下的 keys 子目录
-//     用途: 存储证书和密钥对（keystore），包括签名证书/密钥、加密证书/密钥（TLCP）
-func (c *Config) GetKeyStoreDir() string {
-	if c.WorkDir != "" {
-		return filepath.Join(c.WorkDir, "keys")
-	}
-	return "./keys"
-}
-
-// GetCertDir 获取证书目录路径（旧版兼容，不推荐使用）
-// 返回:
-//   - string: 证书目录路径，固定为工作目录下的 certs 子目录
-//     用途: 旧版兼容，新代码应使用 keystore 替代
-func (c *Config) GetCertDir() string {
-	if c.WorkDir != "" {
-		return filepath.Join(c.WorkDir, "certs")
-	}
-	return "./certs"
-}
-
-// GetTrustedDir 获取信任证书目录路径
-// 返回:
-//   - string: 信任证书目录路径，固定为工作目录下的 trusted 子目录
-//     用途: 存储受信任的根证书、CA 证书，用于验证对端证书
-func (c *Config) GetTrustedDir() string {
-	if c.WorkDir != "" {
-		return filepath.Join(c.WorkDir, "trusted")
-	}
-	return "./trusted"
-}
-
 // GetKeyStoreStoreDir 获取 keystore 存储目录路径
 // 返回:
 //   - string: keystore 存储目录路径
@@ -771,4 +716,68 @@ func (c *Config) GetRootCertDir() string {
 		return filepath.Join(c.WorkDir, "rootcerts")
 	}
 	return "./rootcerts"
+}
+
+var (
+	globalConfig *Config
+	configMutex  sync.RWMutex
+)
+
+// Init 初始化全局配置单例
+// 参数:
+//   - cfg: 配置实例
+//
+// 注意: 该方法应该在程序启动时调用一次
+func Init(cfg *Config) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	globalConfig = cfg
+}
+
+// Get 获取当前全局配置
+// 返回:
+//   - *Config: 当前全局配置实例，如果未初始化则返回 nil
+func Get() *Config {
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+	return globalConfig
+}
+
+// Set 更新全局配置
+// 参数:
+//   - cfg: 新的配置实例
+func Set(cfg *Config) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	globalConfig = cfg
+}
+
+// LoadAndInit 从文件加载配置并初始化全局单例
+// 参数:
+//   - path: 配置文件路径
+//
+// 返回:
+//   - error: 加载失败时返回错误
+func LoadAndInit(path string) error {
+	cfg, err := Load(path)
+	if err != nil {
+		return err
+	}
+	Init(cfg)
+	return nil
+}
+
+// SaveAndUpdate 保存配置到文件并更新全局单例
+// 参数:
+//   - path: 配置文件路径
+//   - cfg: 配置实例
+//
+// 返回:
+//   - error: 保存失败时返回错误
+func SaveAndUpdate(path string, cfg *Config) error {
+	if err := Save(path, cfg); err != nil {
+		return err
+	}
+	Set(cfg)
+	return nil
 }

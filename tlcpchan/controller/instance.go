@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"reflect"
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/instance"
@@ -22,7 +21,7 @@ func NewInstanceController(mgr *instance.Manager) *InstanceController {
 }
 
 /**
- * @api {get} /api/v1/instances 获取实例列表
+ * @api {get} /api/instances 获取实例列表
  * @apiName ListInstances
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -81,7 +80,7 @@ func (c *InstanceController) List(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {get} /api/v1/instances/:name 获取实例详情
+ * @api {get} /api/instances/:name 获取实例详情
  * @apiName GetInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -144,7 +143,7 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {post} /api/v1/instances 创建实例
+ * @api {post} /api/instances 创建实例
  * @apiName CreateInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -248,7 +247,7 @@ func (c *InstanceController) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {put} /api/v1/instances/:name 更新实例配置
+ * @api {put} /api/instances/:name 更新实例配置
  * @apiName UpdateInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -333,7 +332,7 @@ func (c *InstanceController) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {delete} /api/v1/instances/:name 删除实例
+ * @api {delete} /api/instances/:name 删除实例
  * @apiName DeleteInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -363,7 +362,7 @@ func (c *InstanceController) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {post} /api/v1/instances/:name/start 启动实例
+ * @api {post} /api/instances/:name/start 启动实例
  * @apiName StartInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -409,7 +408,7 @@ func (c *InstanceController) Start(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {post} /api/v1/instances/:name/stop 停止实例
+ * @api {post} /api/instances/:name/stop 停止实例
  * @apiName StopInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -455,7 +454,7 @@ func (c *InstanceController) Stop(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {post} /api/v1/instances/:name/reload 热重载实例
+ * @api {post} /api/instances/:name/reload 热重载实例
  * @apiName ReloadInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -502,7 +501,7 @@ func (c *InstanceController) Reload(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {post} /api/v1/instances/:name/restart 重启实例
+ * @api {post} /api/instances/:name/restart 重启实例
  * @apiName RestartInstance
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -549,7 +548,7 @@ func (c *InstanceController) Restart(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {get} /api/v1/instances/:name/stats 获取实例统计
+ * @api {get} /api/instances/:name/stats 获取实例统计
  * @apiName GetInstanceStats
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -597,7 +596,7 @@ func (c *InstanceController) Stats(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * @api {get} /api/v1/instances/:name/logs 获取实例日志
+ * @api {get} /api/instances/:name/logs 获取实例日志
  * @apiName GetInstanceLogs
  * @apiGroup Instance
  * @apiVersion 1.0.0
@@ -649,93 +648,16 @@ func (c *InstanceController) Logs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-/**
- * @api {post} /api/v1/instances/:name/reload-certs 重载证书
- * @apiName ReloadInstanceCertificates
- * @apiGroup Instance
- * @apiVersion 1.0.0
- *
- * @apiDescription 仅重载实例的证书（端证书和CA证书池），不重启服务
- *
- * @apiParam {String} name 实例名称（路径参数），实例的唯一标识符
- *
- * @apiSuccess {String} status 实例状态
- *
- * @apiSuccessExample {json} Success-Response:
- *     HTTP/1.1 200 OK
- *     {
- *       "status": "running"
- *     }
- *
- * @apiErrorExample {text} Error-Response:
- *     HTTP/1.1 404 Not Found
- *     Content-Type: text/plain
- *
- *     实例不存在
- */
-func (c *InstanceController) ReloadCertificates(w http.ResponseWriter, r *http.Request) {
-	name := PathParam(r, "name")
-	inst, ok := c.manager.Get(name)
-	if !ok {
-		NotFound(w, "实例不存在")
-		return
-	}
-
-	// 使用反射来调用 ReloadCertificates 方法
-	// 先获取实例的底层值
-	val := reflect.ValueOf(inst)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-
-	// 查找 proxy 字段
-	proxyField := val.FieldByName("proxy")
-	if !proxyField.IsValid() {
-		// 如果没有 proxy 字段，回退到完整重载
-		cfg := inst.Config()
-		if err := inst.Reload(cfg); err != nil {
-			BadRequest(w, err.Error())
-			return
-		}
-		c.log.Info("重载实例（回退方式）: %s", name)
-		Success(w, map[string]string{"status": string(inst.Status())})
-		return
-	}
-
-	// 尝试调用 ReloadCertificates 方法
-	if rcMethod := proxyField.MethodByName("ReloadCertificates"); rcMethod.IsValid() {
-		results := rcMethod.Call(nil)
-		if len(results) > 0 && !results[0].IsNil() {
-			err := results[0].Interface().(error)
-			BadRequest(w, err.Error())
-			return
-		}
-		c.log.Info("重载实例证书: %s", name)
-		Success(w, map[string]string{"status": string(inst.Status())})
-		return
-	}
-
-	// 如果没有 ReloadCertificates 方法，回退到完整重载
-	cfg := inst.Config()
-	if err := inst.Reload(cfg); err != nil {
-		BadRequest(w, err.Error())
-		return
-	}
-	c.log.Info("重载实例（回退方式）: %s", name)
-	Success(w, map[string]string{"status": string(inst.Status())})
-}
-
 func (c *InstanceController) RegisterRoutes(router *Router) {
-	router.GET("/api/v1/instances", c.List)
-	router.POST("/api/v1/instances", c.Create)
-	router.GET("/api/v1/instances/:name", c.Get)
-	router.PUT("/api/v1/instances/:name", c.Update)
-	router.DELETE("/api/v1/instances/:name", c.Delete)
-	router.POST("/api/v1/instances/:name/start", c.Start)
-	router.POST("/api/v1/instances/:name/stop", c.Stop)
-	router.POST("/api/v1/instances/:name/reload", c.Reload)
-	router.POST("/api/v1/instances/:name/restart", c.Restart)
-	router.POST("/api/v1/instances/:name/reload-certs", c.ReloadCertificates)
-	router.GET("/api/v1/instances/:name/stats", c.Stats)
-	router.GET("/api/v1/instances/:name/logs", c.Logs)
+	router.GET("/api/instances", c.List)
+	router.POST("/api/instances", c.Create)
+	router.GET("/api/instances/:name", c.Get)
+	router.PUT("/api/instances/:name", c.Update)
+	router.DELETE("/api/instances/:name", c.Delete)
+	router.POST("/api/instances/:name/start", c.Start)
+	router.POST("/api/instances/:name/stop", c.Stop)
+	router.POST("/api/instances/:name/reload", c.Reload)
+	router.POST("/api/instances/:name/restart", c.Restart)
+	router.GET("/api/instances/:name/stats", c.Stats)
+	router.GET("/api/instances/:name/logs", c.Logs)
 }
