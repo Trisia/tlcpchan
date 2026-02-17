@@ -51,17 +51,137 @@ func (c *SecurityController) RegisterRoutes(r *Router) {
 	r.POST("/api/security/rootcerts/reload", c.ReloadRootCerts)
 }
 
-// ListKeyStores 列出所有 keystore
+/**
+ * @api {get} /api/security/keystores 列出所有 keystore
+ * @apiName ListKeyStores
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 获取系统中所有配置的密钥库（keystore）列表
+ *
+ * @apiSuccess {Object[]} - keystore 列表数组
+ * @apiSuccess {String} -.name keystore 名称，唯一标识符
+ * @apiSuccess {String} -.type keystore 类型，可选值："tlcp"（国密）、"tls"（标准）
+ * @apiSuccess {String} -.loaderType 加载器类型，可选值："file"（文件）、"named"（命名）、"skf"（SKF设备）、"sdf"（SDF设备）
+ * @apiSuccess {Object} -.params 加载器参数，键值对形式，具体内容取决于加载器类型
+ * @apiSuccess {Boolean} -.protected 是否受保护，true 表示需要密码访问
+ * @apiSuccess {String} -.createdAt 创建时间，ISO 8601 格式
+ * @apiSuccess {String} -.updatedAt 更新时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     [
+ *       {
+ *         "name": "tlcp-server",
+ *         "type": "tlcp",
+ *         "loaderType": "file",
+ *         "params": {
+ *           "sign-cert": "sign.crt",
+ *           "sign-key": "sign.key",
+ *           "enc-cert": "enc.crt",
+ *           "enc-key": "enc.key"
+ *         },
+ *         "protected": false,
+ *         "createdAt": "2024-01-01T00:00:00Z",
+ *         "updatedAt": "2024-01-01T00:00:00Z"
+ *       },
+ *       {
+ *         "name": "tls-client",
+ *         "type": "tls",
+ *         "loaderType": "file",
+ *         "params": {
+ *           "cert": "client.crt",
+ *           "key": "client.key"
+ *         },
+ *         "protected": false,
+ *         "createdAt": "2024-01-01T00:00:00Z",
+ *         "updatedAt": "2024-01-01T00:00:00Z"
+ *       }
+ *     ]
+ */
 func (c *SecurityController) ListKeyStores(w http.ResponseWriter, r *http.Request) {
 	keyStores := c.keyStoreMgr.List()
 	Success(w, keyStores)
 }
 
-// CreateKeyStore 创建 keystore
-// 该方法会：
-// 1. 在 keystore 管理器中创建 keystore
-// 2. 更新配置文件中的 keystores 列表
-// 3. 保存配置文件到磁盘
+/**
+ * @api {post} /api/security/keystores 创建 keystore
+ * @apiName CreateKeyStore
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 创建新的密钥库（keystore），创建成功后会自动更新配置文件
+ *
+ * @apiBody {String} name keystore 名称，唯一标识符，只能包含字母、数字、下划线和连字符
+ * @apiBody {String} loaderType 加载器类型，可选值："file"（文件加载器）、"named"（命名加载器）、"skf"（SKF设备）、"sdf"（SDF设备）
+ * @apiBody {Object} params 加载器参数，键值对形式，具体内容取决于加载器类型：
+ *   - file 加载器：
+ *     - TLCP: {"sign-cert": "...", "sign-key": "...", "enc-cert": "...", "enc-key": "..."}
+ *     - TLS: {"cert": "...", "key": "..."}
+ * @apiBody {Boolean} [protected=false] 是否受保护，true 表示需要密码访问
+ *
+ * @apiSuccess {String} name keystore 名称
+ * @apiSuccess {String} type keystore 类型，可选值："tlcp"、"tls"
+ * @apiSuccess {String} loaderType 加载器类型
+ * @apiSuccess {Object} params 加载器参数
+ * @apiSuccess {Boolean} protected 是否受保护
+ * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
+ * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "tlcp-server",
+ *       "type": "tlcp",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "sign-cert": "sign.crt",
+ *         "sign-key": "sign.key",
+ *         "enc-cert": "enc.crt",
+ *         "enc-key": "enc.key"
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiParamExample {json} Request-Example (TLCP):
+ *     {
+ *       "name": "tlcp-server",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "sign-cert": "sign.crt",
+ *         "sign-key": "sign.key",
+ *         "enc-cert": "enc.crt",
+ *         "enc-key": "enc.key"
+ *       },
+ *       "protected": false
+ *     }
+ *
+ * @apiParamExample {json} Request-Example (TLS):
+ *     {
+ *       "name": "tls-client",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "cert": "client.crt",
+ *         "key": "client.key"
+ *       },
+ *       "protected": false
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     无效的请求: json: cannot unmarshal string into Go value
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     名称不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     创建失败: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     保存配置失败: 具体错误信息
+ */
 func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name       string              `json:"name"`
@@ -100,7 +220,45 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 	Success(w, info)
 }
 
-// GetKeyStore 获取 keystore
+/**
+ * @api {get} /api/security/keystores/:name 获取 keystore 详情
+ * @apiName GetKeyStore
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 获取指定密钥库（keystore）的详细信息
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ *
+ * @apiSuccess {String} name keystore 名称
+ * @apiSuccess {String} type keystore 类型，可选值："tlcp"、"tls"
+ * @apiSuccess {String} loaderType 加载器类型，可选值："file"、"named"、"skf"、"sdf"
+ * @apiSuccess {Object} params 加载器参数
+ * @apiSuccess {Boolean} protected 是否受保护
+ * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
+ * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "tlcp-server",
+ *       "type": "tlcp",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "sign-cert": "sign.crt",
+ *         "sign-key": "sign.key",
+ *         "enc-cert": "enc.crt",
+ *         "enc-key": "enc.key"
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     keystore 不存在
+ */
 func (c *SecurityController) GetKeyStore(w http.ResponseWriter, r *http.Request) {
 	name := PathParam(r, "name")
 	info, err := c.keyStoreMgr.Get(name)
@@ -111,11 +269,27 @@ func (c *SecurityController) GetKeyStore(w http.ResponseWriter, r *http.Request)
 	Success(w, info)
 }
 
-// DeleteKeyStore 删除 keystore
-// 该方法会：
-// 1. 从 keystore 管理器中删除 keystore
-// 2. 从配置文件的 keystores 列表中移除
-// 3. 保存更新后的配置文件到磁盘
+/**
+ * @api {delete} /api/security/keystores/:name 删除 keystore
+ * @apiName DeleteKeyStore
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 删除指定的密钥库（keystore），删除后会自动更新配置文件
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     null
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     删除失败: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     保存配置失败: 具体错误信息
+ */
 func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Request) {
 	name := PathParam(r, "name")
 	if err := c.keyStoreMgr.Delete(name); err != nil {
@@ -139,7 +313,24 @@ func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Reque
 	Success(w, nil)
 }
 
-// ReloadKeyStore 重载 keystore
+/**
+ * @api {post} /api/security/keystores/:name/reload 重载 keystore
+ * @apiName ReloadKeyStore
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 重新加载指定的密钥库（keystore），从数据源重新读取证书和密钥
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     null
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     重载失败: 具体错误信息
+ */
 func (c *SecurityController) ReloadKeyStore(w http.ResponseWriter, r *http.Request) {
 	name := PathParam(r, "name")
 	if err := c.keyStoreMgr.Reload(name); err != nil {
@@ -149,13 +340,82 @@ func (c *SecurityController) ReloadKeyStore(w http.ResponseWriter, r *http.Reque
 	Success(w, nil)
 }
 
-// ListRootCerts 列出所有根证书
+/**
+ * @api {get} /api/security/rootcerts 列出所有根证书
+ * @apiName ListRootCerts
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 获取系统中所有已加载的根证书列表
+ *
+ * @apiSuccess {Object[]} - 根证书列表数组
+ * @apiSuccess {String} -.filename 证书文件名，唯一标识符
+ * @apiSuccess {String} -.subject 证书主题（Subject）
+ * @apiSuccess {String} -.issuer 证书颁发者（Issuer）
+ * @apiSuccess {String} -.notAfter 证书过期时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     [
+ *       {
+ *         "filename": "root-ca.crt",
+ *         "subject": "CN=Root CA, O=Example Org",
+ *         "issuer": "CN=Root CA, O=Example Org",
+ *         "notAfter": "2030-01-01T00:00:00Z"
+ *       },
+ *       {
+ *         "filename": "sm2-root-ca.crt",
+ *         "subject": "CN=SM2 Root CA, O=Example Org",
+ *         "issuer": "CN=SM2 Root CA, O=Example Org",
+ *         "notAfter": "2030-01-01T00:00:00Z"
+ *       }
+ *     ]
+ */
 func (c *SecurityController) ListRootCerts(w http.ResponseWriter, r *http.Request) {
 	certs := c.rootCertMgr.List()
 	Success(w, certs)
 }
 
-// AddRootCert 添加根证书
+/**
+ * @api {post} /api/security/rootcerts 添加根证书
+ * @apiName AddRootCert
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 上传并添加新的根证书到系统中
+ *
+ * @apiUse MultipartForm
+ *
+ * @apiParam {String} filename 文件名，表单字段，用于指定保存的证书文件名
+ * @apiParam {File} cert 证书文件，表单字段，PEM 或 DER 格式的证书文件，最大 10MB
+ *
+ * @apiSuccess {String} filename 证书文件名
+ * @apiSuccess {String} subject 证书主题（Subject）
+ * @apiSuccess {String} issuer 证书颁发者（Issuer）
+ * @apiSuccess {String} notAfter 证书过期时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "filename": "root-ca.crt",
+ *       "subject": "CN=Root CA, O=Example Org",
+ *       "issuer": "CN=Root CA, O=Example Org",
+ *       "notAfter": "2030-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     解析表单失败: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     文件名不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     证书文件不能为空: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     添加失败: 具体错误信息
+ */
 func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		BadRequest(w, "解析表单失败: "+err.Error())
@@ -196,7 +456,34 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
 	Success(w, cert)
 }
 
-// GetRootCert 获取根证书
+/**
+ * @api {get} /api/security/rootcerts/:filename 获取根证书详情
+ * @apiName GetRootCert
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 获取指定根证书的详细信息
+ *
+ * @apiParam {String} filename 证书文件名（路径参数），唯一标识符
+ *
+ * @apiSuccess {String} filename 证书文件名
+ * @apiSuccess {String} subject 证书主题（Subject）
+ * @apiSuccess {String} issuer 证书颁发者（Issuer）
+ * @apiSuccess {String} notAfter 证书过期时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "filename": "root-ca.crt",
+ *       "subject": "CN=Root CA, O=Example Org",
+ *       "issuer": "CN=Root CA, O=Example Org",
+ *       "notAfter": "2030-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     根证书不存在
+ */
 func (c *SecurityController) GetRootCert(w http.ResponseWriter, r *http.Request) {
 	filename := PathParam(r, "filename")
 	cert, err := c.rootCertMgr.Get(filename)
@@ -207,7 +494,24 @@ func (c *SecurityController) GetRootCert(w http.ResponseWriter, r *http.Request)
 	Success(w, cert)
 }
 
-// DeleteRootCert 删除根证书
+/**
+ * @api {delete} /api/security/rootcerts/:filename 删除根证书
+ * @apiName DeleteRootCert
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 删除指定的根证书
+ *
+ * @apiParam {String} filename 证书文件名（路径参数），唯一标识符
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     null
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     删除失败: 具体错误信息
+ */
 func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Request) {
 	filename := PathParam(r, "filename")
 	if err := c.rootCertMgr.Delete(filename); err != nil {
@@ -217,7 +521,22 @@ func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Reque
 	Success(w, nil)
 }
 
-// ReloadRootCerts 重载所有根证书
+/**
+ * @api {post} /api/security/rootcerts/reload 重载所有根证书
+ * @apiName ReloadRootCerts
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 重新从证书目录加载所有根证书
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     null
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     重载失败: 具体错误信息
+ */
 func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Request) {
 	if err := c.rootCertMgr.Reload(); err != nil {
 		InternalError(w, "重载失败: "+err.Error())

@@ -24,7 +24,38 @@ func (c *HealthController) RegisterRoutes(r *Router) {
 	r.GET("/health", c.Health)
 }
 
-// Health 健康检查
+/**
+ * @api {get} /api/health 健康检查
+ * @apiName HealthCheck
+ * @apiGroup Health
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 检查系统健康状态，返回系统是否正常运行
+ *
+ * @apiSuccess {String} status 健康状态，固定值 "ok" 表示系统正常
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "status": "ok"
+ *     }
+ */
+/**
+ * @api {get} /health 健康检查（备用路径）
+ * @apiName HealthCheckAlt
+ * @apiGroup Health
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 检查系统健康状态的备用路径，功能与 /api/health 完全相同
+ *
+ * @apiSuccess {String} status 健康状态，固定值 "ok" 表示系统正常
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "status": "ok"
+ *     }
+ */
 func (c *HealthController) Health(w http.ResponseWriter, r *http.Request) {
 	Success(w, map[string]interface{}{
 		"status": "ok",

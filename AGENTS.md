@@ -1,5 +1,9 @@
 # AGENTS.md - TLCP Channel 项目指南
 
+
+在执行时有不清楚部分，先拟一个方案，并向询问意见，若有疑问及时向我提问
+
+
 本文档为 agentic coding agents 提供项目上下文和代码规范。
 
 ## 项目概述
