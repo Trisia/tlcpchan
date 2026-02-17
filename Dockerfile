@@ -80,9 +80,9 @@ COPY trustedcerts/ ./rootcerts/
 ENV PATH="/etc/tlcpchan:${PATH}"
 
 # 创建软链接到 /usr/bin/ 以便兼容习惯用法
-RUN ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan &amp;&amp; \
-    ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli &amp;&amp; \
-    ln -sf /etc/tlcpchan/tlcpchan-ui /usr/bin/tlcpchan-ui &amp;&amp; \
+RUN ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan && \
+    ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli && \
+    ln -sf /etc/tlcpchan/tlcpchan-ui /usr/bin/tlcpchan-ui && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
 
 # 暴露端口
