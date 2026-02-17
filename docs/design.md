@@ -69,7 +69,84 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
                     HTTP RESTful API
 ```
 
-### 2.2 体系结构分层设计
+### 2.2 运行时目录结构
+
+TLCP Channel 包含三个独立的可执行文件，推荐部署在同一目录下便于管理。
+
+#### 完整目录结构
+
+```
+/opt/tlcpchan/ (推荐部署目录)
+│
+├── tlcpchan                      # [核心] tlcpchan 可执行文件
+├── tlcpchan-cli                  # [CLI] 命令行工具可执行文件
+├── tlcpchan-ui                   # [UI] Web 界面可执行文件
+│
+├── config.yaml                   # tlcpchan 主配置文件
+│
+├── keystores/                    # Keystore 证书文件
+│   ├── tlcpchan-root-ca.crt
+│   ├── tlcpchan-root-ca.key
+│   ├── default-tlcp-sign.crt
+│   ├── default-tlcp-sign.key
+│   ├── default-tlcp-enc.crt
+│   ├── default-tlcp-enc.key
+│   ├── default-tls.crt
+│   └── default-tls.key
+│
+├── rootcerts/                    # 根证书目录
+│   └── tlcpchan-root-ca.crt
+│
+├── logs/                         # 日志目录
+│   └── tlcpchan.log
+│
+├── ui/                           # [UI] 前端静态文件目录
+│   ├── index.html
+│   ├── assets/
+│   └── version.txt
+│
+└── .tlcpchan-initialized         # 初始化标志文件
+```
+
+#### 模块说明
+
+| 模块 | 可执行文件 | 默认端口 | 说明 |
+|------|-----------|---------|------|
+| **tlcpchan** | tlcpchan | 30080 | 核心代理服务、API 服务 |
+| **tlcpchan-cli** | tlcpchan-cli | - | 命令行管理工具 |
+| **tlcpchan-ui** | tlcpchan-ui | 30000 | Web 管理界面 |
+
+#### 默认生成文件说明
+
+首次启动 tlcpchan 时会自动生成以下默认文件：
+
+| 文件名 | 路径 | 类型 | 有效期 | 说明 |
+|--------|------|------|--------|------|
+| tlcpchan-root-ca.crt | keystores/ | 根 CA 证书 | 10 年 | 自签名根 CA，用于签发其他证书 |
+| tlcpchan-root-ca.key | keystores/ | 根 CA 私钥 | 10 年 | 根 CA 私钥，需保密 |
+| tlcpchan-root-ca.crt | rootcerts/ | 根 CA 证书 | 10 年 | 根 CA 证书副本，用于信任链验证 |
+| default-tlcp-sign.crt | keystores/ | TLCP 签名证书 | 5 年 | 由根 CA 签发，用于身份认证 |
+| default-tlcp-sign.key | keystores/ | TLCP 签名私钥 | 5 年 | 签名证书对应的私钥 |
+| default-tlcp-enc.crt | keystores/ | TLCP 加密证书 | 5 年 | 由根 CA 签发，用于密钥交换 |
+| default-tlcp-enc.key | keystores/ | TLCP 加密私钥 | 5 年 | 加密证书对应的私钥 |
+| default-tls.crt | keystores/ | TLS 证书 | 5 年 | 由根 CA 签发，用于 TLS 协议 |
+| default-tls.key | keystores/ | TLS 私钥 | 5 年 | TLS 证书对应的私钥 |
+| config.yaml | ./ | 配置文件 | - | 主配置文件，包含 keystores 和 auto-proxy 实例 |
+| .tlcpchan-initialized | ./ | 标志文件 | - | 初始化完成标志 |
+
+#### tlcpchan-ui 运行参数
+
+```bash
+tlcpchan-ui [选项]
+
+选项:
+  -listen string    监听地址 (默认 ":30000")
+  -api string       后端 API 地址 (默认 "http://localhost:30080")
+  -static string    前端静态文件目录 (默认 "./ui")
+  -version          显示版本信息
+```
+
+### 2.3 体系结构分层设计
 
 TLCP Channel 采用清晰的分层架构，各层职责明确：
 
@@ -114,7 +191,7 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2.3 安全模块架构详解
+### 2.4 安全模块架构详解
 
 安全模块是 TLCP Channel 的核心模块之一，负责管理所有安全相关的参数：
 
@@ -147,7 +224,7 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2.4 Keystore 与根证书说明
+### 2.5 Keystore 与根证书说明
 
 #### Keystore（密钥存储）
 
@@ -232,7 +309,7 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 | **数量** | 每个实体一个 | 可包含多个 CA |
 | **存储位置** | keystores/ 目录 | rootcerts/ 目录 |
 
-### 2.2 项目目录结构
+### 2.6 源代码目录结构
 
 ```
 tlcpchan/
@@ -248,16 +325,6 @@ tlcpchan/
 ├── controller/            # API 控制器
 ├── logger/                # 日志模块
 └── stats/                 # 统计模块
-```
-
-工作目录结构：
-```
-/etc/tlcpchan/ (Linux) 或 程序所在目录 (Windows)
-├── config.yaml          # 主配置文件
-├── keystores/           # Keystore 证书文件
-├── rootcerts/           # 根证书目录
-├── logs/                # 日志目录
-└── .tlcpchan-initialized # 初始化标志文件
 ```
 
 ## 3. 核心模块设计
@@ -803,7 +870,7 @@ tlcpchan-ui/
 │   ├── src/                       # 前端源代码
 │   ├── public/                    # 公共资源
 │   └── package.json
-├── dist/                          # 前端构建产物（嵌入Go二进制）
+├── ui/                            # 前端构建产物（运行时使用）
 └── bin/                           # 编译输出目录
 ```
 

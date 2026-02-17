@@ -11,7 +11,7 @@ import (
 var (
 	listen    = flag.String("listen", ":30000", "监听地址")
 	apiAddr   = flag.String("api", "http://localhost:30080", "后端API地址")
-	staticDir = flag.String("static", "./dist", "静态文件目录")
+	staticDir = flag.String("static", "./ui", "静态文件目录")
 	showVer   = flag.Bool("version", false, "显示版本信息")
 	version   = "1.0.0"
 )
