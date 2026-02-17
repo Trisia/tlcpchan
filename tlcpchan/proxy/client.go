@@ -63,6 +63,10 @@ func NewClientProxy(cfg *config.InstanceConfig,
 	}, nil
 }
 
+func (p *ClientProxy) Adapter() *TLCPAdapter {
+	return p.adapter
+}
+
 func (p *ClientProxy) Start() error {
 	p.mu.Lock()
 	if p.running {

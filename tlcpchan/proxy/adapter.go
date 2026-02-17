@@ -732,3 +732,162 @@ func detectProtocol(data []byte) ProtocolType {
 
 	return ProtocolTLS
 }
+
+type HealthCheckResult struct {
+	Protocol string `json:"protocol"`
+	Success  bool   `json:"success"`
+	Latency  int64  `json:"latencyMs"`
+	Error    string `json:"error,omitempty"`
+}
+
+func (a *TLCPAdapter) CheckHealth(protocol ProtocolType, timeout time.Duration) *HealthCheckResult {
+	start := time.Now()
+	result := &HealthCheckResult{
+		Protocol: protocol.String(),
+		Success:  false,
+	}
+
+	targetAddr := a.cfg.Target
+	if targetAddr == "" {
+		result.Error = "目标地址未配置"
+		return result
+	}
+
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+
+	var conn net.Conn
+	var err error
+
+	switch protocol {
+	case ProtocolTLCP:
+		conn, err = a.checkTLCPHealth(dialer, targetAddr)
+	case ProtocolTLS:
+		conn, err = a.checkTLSHealth(dialer, targetAddr)
+	default:
+		result.Error = "不支持的协议类型"
+		return result
+	}
+
+	latency := time.Since(start).Milliseconds()
+	result.Latency = latency
+
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+
+	if conn != nil {
+		conn.Close()
+	}
+
+	result.Success = true
+	return result
+}
+
+func (a *TLCPAdapter) checkTLCPHealth(dialer *net.Dialer, targetAddr string) (net.Conn, error) {
+	cfg := a.buildHealthCheckTLCPConfig()
+	return tlcp.DialWithDialer(dialer, "tcp", targetAddr, cfg)
+}
+
+func (a *TLCPAdapter) checkTLSHealth(dialer *net.Dialer, targetAddr string) (net.Conn, error) {
+	cfg := a.buildHealthCheckTLSConfig()
+	return tls.DialWithDialer(dialer, "tcp", targetAddr, cfg)
+}
+
+func (a *TLCPAdapter) buildHealthCheckTLCPConfig() *tlcp.Config {
+	cfg := &tlcp.Config{
+		InsecureSkipVerify: a.cfg.TLCP.InsecureSkipVerify,
+	}
+
+	if a.cfg.SNI != "" {
+		cfg.ServerName = a.cfg.SNI
+	}
+
+	tlcpAuth := a.cfg.TLCP.Auth
+	if tlcpAuth == "" {
+		tlcpAuth = string(config.AuthNone)
+	}
+
+	if tlcpAuth == string(config.AuthMutual) {
+		var ks security.KeyStore
+		var err error
+
+		if a.tlcpKeyStore != nil {
+			ks = a.tlcpKeyStore
+		} else if a.cfg.TLCP.Keystore != nil {
+			ks, err = a.loadKeyStoreFromConfig(a.cfg.TLCP.Keystore, a.cfg.Name+"-tlcp")
+		}
+
+		if ks == nil && a.tlsKeyStore != nil {
+			ks = a.tlsKeyStore
+		}
+
+		if ks != nil && err == nil {
+			cfg.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
+				return ks.TLCPCertificate()
+			}
+		}
+	}
+
+	if len(a.cfg.ServerCA) > 0 {
+		if a.rootCertPool != nil {
+			cfg.RootCAs = a.rootCertPool.GetSMCertPool()
+		} else {
+			pool := a.rootCertManager.GetPool()
+			cfg.RootCAs = pool.GetSMCertPool()
+		}
+	}
+
+	a.applyTLCPSettingsToConfig(cfg, &a.cfg.TLCP)
+	return cfg
+}
+
+func (a *TLCPAdapter) buildHealthCheckTLSConfig() *tls.Config {
+	cfg := &tls.Config{
+		InsecureSkipVerify: a.cfg.TLS.InsecureSkipVerify,
+	}
+
+	if a.cfg.SNI != "" {
+		cfg.ServerName = a.cfg.SNI
+	}
+
+	tlsAuth := a.cfg.TLS.Auth
+	if tlsAuth == "" {
+		tlsAuth = string(config.AuthNone)
+	}
+
+	if tlsAuth == string(config.AuthMutual) {
+		var ks security.KeyStore
+		var err error
+
+		if a.tlsKeyStore != nil {
+			ks = a.tlsKeyStore
+		} else if a.cfg.TLS.Keystore != nil {
+			ks, err = a.loadKeyStoreFromConfig(a.cfg.TLS.Keystore, a.cfg.Name+"-tls")
+		}
+
+		if ks == nil && a.tlcpKeyStore != nil {
+			ks = a.tlcpKeyStore
+		}
+
+		if ks != nil && err == nil {
+			cfg.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return ks.TLSCertificate()
+			}
+		}
+	}
+
+	if len(a.cfg.ServerCA) > 0 {
+		if a.rootCertPool != nil {
+			cfg.RootCAs = a.rootCertPool.GetCertPool()
+		} else {
+			pool := a.rootCertManager.GetPool()
+			cfg.RootCAs = pool.GetCertPool()
+		}
+	}
+
+	a.applyTLSSettingsToConfig(cfg, &a.cfg.TLS)
+	return cfg
+}

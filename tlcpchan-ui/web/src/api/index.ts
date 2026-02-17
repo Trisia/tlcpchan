@@ -1,4 +1,17 @@
-import type { Instance, Certificate, SystemInfo, HealthInfo, VersionInfo, UIVersionInfo } from '@/types'
+import type {
+  Instance,
+  InstanceConfig,
+  InstanceStats,
+  KeyStoreInfo,
+  GenerateKeyStoreRequest,
+  RootCertInfo,
+  GenerateRootCARequest,
+  SystemInfo,
+  HealthStatus,
+  VersionInfo,
+  Config,
+  InstanceHealthResponse,
+} from '@/types'
 
 const API_BASE = '/api'
 
@@ -22,132 +35,104 @@ async function fetchVersion(): Promise<string> {
       return (await response.text()).trim()
     }
   } catch {
-    // ignore
   }
   return 'dev'
 }
 
 export const instanceApi = {
-  list: () => request<{ instances: Instance[]; total: number }>('/instances'),
+  list: () => request<Instance[]>('/instances'),
   get: (name: string) => request<Instance>(`/instances/${name}`),
-  create: (data: Partial<Instance>) =>
+  create: (data: Partial<InstanceConfig>) =>
     request<{ name: string; status: string }>('/instances', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  update: (name: string, data: Partial<Instance>) =>
+  update: (name: string, data: Partial<InstanceConfig>) =>
     request<{ name: string; status: string }>(`/instances/${name}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
   delete: (name: string) => request<void>(`/instances/${name}`, { method: 'DELETE' }),
-  start: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/start`, { method: 'POST' }),
-  stop: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/stop`, { method: 'POST' }),
-  reload: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/reload`, { method: 'POST' }),
-  reloadCerts: (name: string) => request<{ name: string; status: string }>(`/instances/${name}/reload-certs`, { method: 'POST' }),
+  start: (name: string) => request<{ status: string }>(`/instances/${name}/start`, { method: 'POST' }),
+  stop: (name: string) => request<{ status: string }>(`/instances/${name}/stop`, { method: 'POST' }),
+  reload: (name: string) => request<{ status: string }>(`/instances/${name}/reload`, { method: 'POST' }),
+  restart: (name: string) => request<{ status: string }>(`/instances/${name}/restart`, { method: 'POST' }),
   stats: (name: string, period?: string) =>
-    request<{ totalConnections: number; activeConnections: number; bytesReceived: number; bytesSent: number; avgLatencyMs: number }>(
-      `/instances/${name}/stats${period ? `?period=${period}` : ''}`
-    ),
+    request<InstanceStats>(`/instances/${name}/stats${period ? `?period=${period}` : ''}`),
   logs: (name: string, lines?: number, level?: string) =>
-    request<{ logs: Array<{ time: string; level: string; message: string }> }>(
+    request<Array<{ timestamp: string; level: string; message: string }>>(
       `/instances/${name}/logs?${new URLSearchParams({ lines: String(lines || 100), ...(level && { level }) })}`
     ),
+  health: (name: string, timeout?: number) => {
+    const params = new URLSearchParams()
+    if (timeout !== undefined) {
+      params.set('timeout', String(timeout))
+    }
+    const query = params.toString()
+    return request<InstanceHealthResponse>(
+      `/instances/${name}/health${query ? `?${query}` : ''}`,
+      { method: 'GET' }
+    )
+  },
 }
-
-
 
 export const keyStoreApi = {
-  list: () => request<{ keystores: Array<{
-    name: string
-    type: 'tlcp' | 'tls'
-    keyParams: { algorithm: string; length: number; type: string }
-    hasSignCert: boolean
-    hasSignKey: boolean
-    hasEncCert?: boolean
-    hasEncKey?: boolean
-    createdAt: string
-    updatedAt: string
-  }> }>('/keystores'),
-  get: (name: string) => request<{
-    name: string
-    type: 'tlcp' | 'tls'
-    keyParams: { algorithm: string; length: number; type: string }
-    hasSignCert: boolean
-    hasSignKey: boolean
-    hasEncCert?: boolean
-    hasEncKey?: boolean
-    createdAt: string
-    updatedAt: string
-  }>(`/keystores/${name}`),
+  list: () => request<KeyStoreInfo[]>('/security/keystores'),
+  get: (name: string) => request<KeyStoreInfo>(`/security/keystores/${name}`),
   create: async (data: {
     name: string
-    type: 'tlcp' | 'tls'
-    keyParams?: { algorithm: string; length: number }
-    signCert: File
-    signKey: File
-    encCert?: File
-    encKey?: File
+    loaderType: string
+    protected?: boolean
+    files?: Record<string, File>
   }) => {
-    const formData = new FormData()
-    formData.append('name', data.name)
-    formData.append('type', data.type)
-    if (data.keyParams) {
-      formData.append('keyParams.algorithm', data.keyParams.algorithm)
-      formData.append('keyParams.length', String(data.keyParams.length))
+    if (data.files && Object.keys(data.files).length > 0) {
+      const formData = new FormData()
+      formData.append('name', data.name)
+      formData.append('loaderType', data.loaderType)
+      if (data.protected !== undefined) {
+        formData.append('protected', String(data.protected))
+      }
+      for (const [fieldName, file] of Object.entries(data.files)) {
+        formData.append(fieldName, file)
+      }
+      const response = await fetch(`${API_BASE}/security/keystores`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || response.statusText)
+      }
+      return response.json()
+    } else {
+      return request<KeyStoreInfo>('/security/keystores', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: data.name,
+          loaderType: data.loaderType,
+          protected: data.protected,
+          params: {},
+        }),
+      })
     }
-    formData.append('signCert', data.signCert)
-    formData.append('signKey', data.signKey)
-    if (data.encCert) formData.append('encCert', data.encCert)
-    if (data.encKey) formData.append('encKey', data.encKey)
-
-    const response = await fetch(`${API_BASE}/keystores`, {
-      method: 'POST',
-      body: formData,
-    })
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text || response.statusText)
-    }
-    return response.json()
   },
-  updateCertificates: async (name: string, data: {
-    signCert?: File
-    encCert?: File
-  }) => {
-    const formData = new FormData()
-    if (data.signCert) formData.append('signCert', data.signCert)
-    if (data.encCert) formData.append('encCert', data.encCert)
-
-    const response = await fetch(`${API_BASE}/keystores/${name}/certificates`, {
+  generate: (data: GenerateKeyStoreRequest) =>
+    request<KeyStoreInfo>('/security/keystores/generate', {
       method: 'POST',
-      body: formData,
-    })
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text || response.statusText)
-    }
-    return response.json()
-  },
-  delete: (name: string) => request<void>(`/keystores/${name}`, { method: 'DELETE' }),
-  reload: (name: string) => request<{ message: string }>(`/keystores/${name}/reload`, { method: 'POST' }),
+      body: JSON.stringify(data),
+    }),
+  delete: (name: string) => request<void>(`/security/keystores/${name}`, { method: 'DELETE' }),
+  reload: (name: string) => request<void>(`/security/keystores/${name}/reload`, { method: 'POST' }),
 }
 
-export const trustedApi = {
-  list: () => request<Array<{
-    name: string
-    type: string
-    serialNumber?: string
-    subject?: string
-    issuer?: string
-    expiresAt?: string
-    isCA?: boolean
-  }>>('/trusted'),
-  upload: async (file: File) => {
+export const rootCertApi = {
+  list: () => request<RootCertInfo[]>('/security/rootcerts'),
+  get: (filename: string) => request<RootCertInfo>(`/security/rootcerts/${filename}`),
+  add: async (filename: string, certFile: File) => {
     const formData = new FormData()
-    formData.append('file', file)
-
-    const response = await fetch(`${API_BASE}/trusted`, {
+    formData.append('filename', filename)
+    formData.append('cert', certFile)
+    const response = await fetch(`${API_BASE}/security/rootcerts`, {
       method: 'POST',
       body: formData,
     })
@@ -157,32 +142,31 @@ export const trustedApi = {
     }
     return response.json()
   },
-  delete: (name: string) => request<void>(`/trusted?name=${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  reload: () => request<{ message: string }>('/trusted/reload', { method: 'POST' }),
+  generate: (data: GenerateRootCARequest) =>
+    request<RootCertInfo>('/security/rootcerts/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  delete: (filename: string) => request<void>(`/security/rootcerts/${filename}`, { method: 'DELETE' }),
+  reload: () => request<void>('/security/rootcerts/reload', { method: 'POST' }),
 }
 
 export const systemApi = {
   info: () => request<SystemInfo>('/system/info'),
-  health: () => request<HealthInfo>('/system/health'),
+  health: () => request<HealthStatus>('/system/health'),
   version: () => request<VersionInfo>('/system/version'),
 }
 
 export const configApi = {
-  get: () => request<Record<string, unknown>>('/config'),
-  reload: () => request<{ reloaded: boolean; changes: Record<string, unknown> }>('/config/reload', { method: 'POST' }),
+  get: () => request<Config>('/config'),
+  update: (data: Partial<Config>) =>
+    request<Config>('/config', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  reload: () => request<Config>('/config/reload', { method: 'POST' }),
 }
 
 export const uiApi = {
-  version: async () => {
-    const response = await fetch(`${API_BASE}/ui/version`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text || response.statusText)
-    }
-    const result = await response.json()
-    return result.data as UIVersionInfo
-  },
   fetchStaticVersion: fetchVersion,
 }

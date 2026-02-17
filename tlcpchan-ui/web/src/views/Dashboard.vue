@@ -106,11 +106,10 @@
           </template>
           <el-descriptions :column="1" border size="small">
             <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
-            <el-descriptions-item label="Go版本">{{ info?.go_version }}</el-descriptions-item>
             <el-descriptions-item label="系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
-            <el-descriptions-item label="PID">{{ info?.pid }}</el-descriptions-item>
-            <el-descriptions-item label="Goroutines">{{ info?.goroutines }}</el-descriptions-item>
-            <el-descriptions-item label="内存">{{ info?.memory.alloc_mb }} MB / {{ info?.memory.sys_mb }} MB</el-descriptions-item>
+            <el-descriptions-item label="CPU核心数">{{ info?.numCpu }}</el-descriptions-item>
+            <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
+            <el-descriptions-item label="内存">{{ info?.memAllocMb }} MB / {{ info?.memSysMb }} MB</el-descriptions-item>
           </el-descriptions>
         </el-card>
 
@@ -159,12 +158,8 @@ onMounted(async () => {
   await Promise.all([instanceStore.fetchInstances(), systemStore.fetchInfo(), systemStore.fetchHealth()])
 })
 
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  if (days > 0) return `${days}天 ${hours}小时`
-  if (hours > 0) return `${hours}小时`
-  return `${Math.floor(seconds / 60)}分钟`
+function formatUptime(uptimeStr: string): string {
+  return uptimeStr || '-'
 }
 
 function statusType(status: Instance['status']): '' | 'success' | 'warning' | 'danger' | 'info' {

@@ -24,6 +24,7 @@ type Instance interface {
 	Status() Status
 	Stats() *stats.Stats
 	Config() *config.InstanceConfig
+	CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult
 }
 
 // baseInstance 实例基类，包含所有实例类型的公共属性
@@ -364,4 +365,20 @@ func (i *httpClientInstance) Restart(cfg *config.InstanceConfig) error {
 func (i *httpClientInstance) Stats() *stats.Stats {
 	i.updateStats(i.proxy.Stats())
 	return i.baseInstance.Stats()
+}
+
+func (i *serverInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
+	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+}
+
+func (i *clientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
+	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+}
+
+func (i *httpServerInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
+	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+}
+
+func (i *httpClientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
+	return i.proxy.Adapter().CheckHealth(protocol, timeout)
 }

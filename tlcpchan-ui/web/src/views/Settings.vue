@@ -8,7 +8,6 @@
           </template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
-            <el-descriptions-item label="Go版本">{{ info?.goVersion }}</el-descriptions-item>
             <el-descriptions-item label="操作系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
             <el-descriptions-item label="启动时间">{{ formatTime(info?.startTime) }}</el-descriptions-item>
             <el-descriptions-item label="运行时长">{{ formatUptime(info?.uptime || 0) }}</el-descriptions-item>

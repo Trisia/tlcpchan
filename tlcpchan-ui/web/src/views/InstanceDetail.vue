@@ -65,14 +65,36 @@
           </el-descriptions>
         </el-card>
 
-        <el-card style="margin-top: 20px">
-          <template #header>
-            <span>操作</span>
-          </template>
-          <el-button type="primary" @click="start" :disabled="instance?.status === 'running'">启动</el-button>
-          <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'">停止</el-button>
-          <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'">重载</el-button>
-        </el-card>
+         <el-card style="margin-top: 20px">
+           <template #header>
+             <span>健康检查</span>
+           </template>
+           <el-button type="success" @click="checkHealth" :loading="healthLoading">健康检查</el-button>
+           <div v-if="healthResults" style="margin-top: 16px">
+             <div v-for="result in healthResults.results" :key="result.protocol" style="margin-bottom: 12px">
+               <div class="health-result-header">
+                 <el-tag :type="result.success ? 'success' : 'danger'" size="small">
+                   {{ result.protocol.toUpperCase() }}
+                 </el-tag>
+                  <span v-if="result.success" style="margin-left: 8px; color: #67c23a">
+                    延迟: {{ result.latencyMs }}ms
+                  </span>
+                 <span v-else style="margin-left: 8px; color: #f56c6c">
+                   失败: {{ result.error }}
+                 </span>
+               </div>
+             </div>
+           </div>
+         </el-card>
+
+         <el-card style="margin-top: 20px">
+           <template #header>
+             <span>操作</span>
+           </template>
+           <el-button type="primary" @click="start" :disabled="instance?.status === 'running'">启动</el-button>
+           <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'">停止</el-button>
+           <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'">重载</el-button>
+         </el-card>
       </el-col>
     </el-row>
   </div>
@@ -83,7 +105,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { instanceApi } from '@/api'
-import type { Instance } from '@/types'
+import type { Instance, InstanceHealthResponse } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,6 +115,8 @@ const stats = ref<{ connections_total: number; connections_active: number; bytes
 const logs = ref<Array<{ time: string; level: string; message: string }>>([])
 const logLevel = ref('')
 const logsLoading = ref(false)
+const healthLoading = ref(false)
+const healthResults = ref<InstanceHealthResponse | null>(null)
 
 const name = computed(() => route.params.name as string)
 
@@ -117,6 +141,19 @@ async function fetchLogs() {
     logs.value = data.logs
   } finally {
     logsLoading.value = false
+  }
+}
+
+async function checkHealth() {
+  healthLoading.value = true
+  healthResults.value = null
+  try {
+    healthResults.value = await instanceApi.health(name.value)
+    ElMessage.success('健康检查完成')
+  } catch (err) {
+    ElMessage.error(`健康检查失败: ${(err as Error).message}`)
+  } finally {
+    healthLoading.value = false
   }
 }
 
@@ -204,5 +241,12 @@ async function reload() {
 .log-level.error {
   background: #f56c6c;
   color: #fff;
+}
+.health-result-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 </style>

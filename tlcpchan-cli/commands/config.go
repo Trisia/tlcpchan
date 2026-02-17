@@ -22,7 +22,8 @@ func configShow(args []string) error {
 }
 
 func configReload(args []string) error {
-	if err := cli.ReloadConfig(); err != nil {
+	_, err := cli.ReloadConfig()
+	if err != nil {
 		return err
 	}
 	fmt.Println("配置已重新加载")

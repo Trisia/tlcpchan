@@ -48,6 +48,10 @@ func NewServerProxy(cfg *config.InstanceConfig,
 	}, nil
 }
 
+func (p *ServerProxy) Adapter() *TLCPAdapter {
+	return p.adapter
+}
+
 func (p *ServerProxy) Start() error {
 	p.mu.Lock()
 	if p.running {

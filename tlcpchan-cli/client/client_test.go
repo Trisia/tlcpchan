@@ -11,12 +11,11 @@ func TestClient_GetVersion(t *testing.T) {
 	tests := []struct {
 		name        string
 		version     string
-		goVersion   string
 		wantVersion string
 	}{
-		{"默认版本", "1.0.0", "go1.21.0", "1.0.0"},
-		{"开发版本", "dev", "go1.22.0", "dev"},
-		{"语义版本", "2.1.3", "go1.23.0", "2.1.3"},
+		{"默认版本", "1.0.0", "1.0.0"},
+		{"开发版本", "dev", "dev"},
+		{"语义版本", "2.1.3", "2.1.3"},
 	}
 
 	for _, tt := range tests {
@@ -27,8 +26,7 @@ func TestClient_GetVersion(t *testing.T) {
 				}
 
 				resp := map[string]string{
-					"version":    tt.version,
-					"go_version": tt.goVersion,
+					"version": tt.version,
 				}
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(resp)
@@ -43,10 +41,6 @@ func TestClient_GetVersion(t *testing.T) {
 
 			if info.Version != tt.wantVersion {
 				t.Errorf("版本应为 %s, 实际为 %s", tt.wantVersion, info.Version)
-			}
-
-			if info.GoVersion != tt.goVersion {
-				t.Errorf("Go版本应为 %s, 实际为 %s", tt.goVersion, info.GoVersion)
 			}
 		})
 	}

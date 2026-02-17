@@ -2,10 +2,13 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/proxy"
 )
 
 type InstanceController struct {
@@ -648,6 +651,98 @@ func (c *InstanceController) Logs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+/**
+ * @api {get} /api/instances/:name/health 实例健康检查
+ * @apiName InstanceHealthCheck
+ * @apiGroup Instance
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 检查代理实例的健康状态，通过建立连接测试配置的目标地址
+ *
+ * @apiParam {String} name 实例名称
+ * @apiParam {Number} [timeout] 超时时间（秒），默认 10 秒
+ * @apiParam {String} [protocol] 协议类型，可选值: tlcp, tls。auto 模式下使用此参数指定测试协议
+ *
+ * @apiSuccess {String} instance 实例名称
+ * @apiSuccess {Object[]} results 健康检查结果数组
+ * @apiSuccess {String} results.protocol 协议类型
+ * @apiSuccess {Boolean} results.success 是否成功
+ * @apiSuccess {Number} results.latencyMs 延迟（毫秒）
+ * @apiSuccess {String} [results.error] 错误信息
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "instance": "proxy-1",
+ *       "results": [
+ *         {
+ *           "protocol": "tlcp",
+ *           "success": true,
+ *           "latencyMs": 123
+ *         },
+ *         {
+ *           "protocol": "tls",
+ *           "success": false,
+ *           "latencyMs": 0,
+ *           "error": "连接超时"
+ *         }
+ *       ]
+ *     }
+ */
+func (c *InstanceController) InstanceHealth(w http.ResponseWriter, r *http.Request) {
+	name := PathParam(r, "name")
+	if name == "" {
+		BadRequest(w, "实例名称不能为空")
+		return
+	}
+
+	inst, ok := c.manager.Get(name)
+	if !ok {
+		NotFound(w, "实例不存在")
+		return
+	}
+
+	timeout := 10 * time.Second
+	if timeoutStr := r.URL.Query().Get("timeout"); timeoutStr != "" {
+		if t, err := strconv.Atoi(timeoutStr); err == nil && t > 0 {
+			timeout = time.Duration(t) * time.Second
+		}
+	}
+
+	protocolParam := r.URL.Query().Get("protocol")
+	instanceProtocol := inst.Protocol()
+
+	var results []*proxy.HealthCheckResult
+
+	if instanceProtocol == string(config.ProtocolAuto) {
+		if protocolParam != "" {
+			p := proxy.ParseProtocolType(protocolParam)
+			if p == proxy.ProtocolTLCP || p == proxy.ProtocolTLS {
+				result := inst.CheckHealth(p, timeout)
+				results = append(results, result)
+			} else {
+				BadRequest(w, "无效的协议类型，可选值: tlcp, tls")
+				return
+			}
+		} else {
+			tlcpResult := inst.CheckHealth(proxy.ProtocolTLCP, timeout)
+			tlsResult := inst.CheckHealth(proxy.ProtocolTLS, timeout)
+			results = append(results, tlcpResult, tlsResult)
+		}
+	} else if instanceProtocol == string(config.ProtocolTLCP) {
+		result := inst.CheckHealth(proxy.ProtocolTLCP, timeout)
+		results = append(results, result)
+	} else if instanceProtocol == string(config.ProtocolTLS) {
+		result := inst.CheckHealth(proxy.ProtocolTLS, timeout)
+		results = append(results, result)
+	}
+
+	Success(w, map[string]interface{}{
+		"instance": name,
+		"results":  results,
+	})
+}
+
 func (c *InstanceController) RegisterRoutes(router *Router) {
 	router.GET("/api/instances", c.List)
 	router.POST("/api/instances", c.Create)
@@ -660,4 +755,5 @@ func (c *InstanceController) RegisterRoutes(router *Router) {
 	router.POST("/api/instances/:name/restart", c.Restart)
 	router.GET("/api/instances/:name/stats", c.Stats)
 	router.GET("/api/instances/:name/logs", c.Logs)
+	router.GET("/api/instances/:name/health", c.InstanceHealth)
 }

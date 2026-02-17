@@ -186,15 +186,15 @@ func instanceReload(args []string) error {
 	return nil
 }
 
-func instanceReloadCerts(args []string) error {
+func instanceRestart(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("请指定实例名称")
 	}
 
-	if err := cli.ReloadInstanceCertificates(args[0]); err != nil {
+	if err := cli.RestartInstance(args[0]); err != nil {
 		return err
 	}
-	fmt.Printf("实例 %s 证书已重载\n", args[0])
+	fmt.Printf("实例 %s 已重启\n", args[0])
 	return nil
 }
 
@@ -239,9 +239,13 @@ func instanceLogs(args []string) error {
 }
 
 func instanceHealth(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("请指定实例名称")
+	}
+
 	fs := flagSet("health")
-	fullHandshake := fs.Bool("full", false, "执行完整握手测试")
-	fs.BoolVar(fullHandshake, "f", false, "执行完整握手测试(缩写)")
+	timeout := fs.Int("timeout", 0, "超时时间（秒）")
+	fs.IntVar(timeout, "t", 0, "超时时间（秒）(缩写)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -252,43 +256,32 @@ func instanceHealth(args []string) error {
 	}
 
 	name := remaining[0]
-	result, err := cli.CheckInstanceHealth(name, *fullHandshake)
+
+	var timeoutPtr *int
+	if *timeout > 0 {
+		timeoutPtr = timeout
+	}
+
+	health, err := cli.InstanceHealth(name, timeoutPtr)
 	if err != nil {
 		return err
 	}
 
 	if isJSONOutput() {
-		return printJSON(result)
+		return printJSON(health)
 	}
 
-	if result.Success {
-		fmt.Printf("实例 %s 健康检测通过\n", name)
-	} else {
-		fmt.Printf("实例 %s 健康检测失败: %s\n", name, result.Error)
-	}
-	fmt.Printf("延迟: %.2f ms\n", result.LatencyMs)
-
-	if result.TLCPInfo != nil {
-		fmt.Println("\nTLCP检测结果:")
-		fmt.Printf("  状态: %s\n", map[bool]string{true: "成功", false: "失败"}[result.TLCPInfo.Success])
-		fmt.Printf("  延迟: %.2f ms\n", result.TLCPInfo.LatencyMs)
-		if result.TLCPInfo.CertValid {
-			fmt.Printf("  证书有效: 是 (剩余 %d 天)\n", result.TLCPInfo.CertDaysRemaining)
-		} else if result.TLCPInfo.Error != "" {
-			fmt.Printf("  错误: %s\n", result.TLCPInfo.Error)
+	fmt.Printf("实例: %s\n\n", health.Instance)
+	for _, result := range health.Results {
+		fmt.Printf("协议: %s\n", result.Protocol)
+		if result.Success {
+			fmt.Printf("  状态: 成功\n")
+			fmt.Printf("  延迟: %dms\n", result.Latency)
+		} else {
+			fmt.Printf("  状态: 失败\n")
+			fmt.Printf("  错误: %s\n", result.Error)
 		}
+		fmt.Println()
 	}
-
-	if result.TLSInfo != nil {
-		fmt.Println("\nTLS检测结果:")
-		fmt.Printf("  状态: %s\n", map[bool]string{true: "成功", false: "失败"}[result.TLSInfo.Success])
-		fmt.Printf("  延迟: %.2f ms\n", result.TLSInfo.LatencyMs)
-		if result.TLSInfo.CertValid {
-			fmt.Printf("  证书有效: 是 (剩余 %d 天)\n", result.TLSInfo.CertDaysRemaining)
-		} else if result.TLSInfo.Error != "" {
-			fmt.Printf("  错误: %s\n", result.TLSInfo.Error)
-		}
-	}
-
 	return nil
 }

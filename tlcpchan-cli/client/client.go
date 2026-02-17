@@ -5,25 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"time"
 )
 
-// Client HTTP客户端，用于与TLCP Channel API服务通信
 type Client struct {
-	// baseURL API服务基础URL
-	baseURL string
-	// httpClient HTTP客户端实例
+	baseURL    string
 	httpClient *http.Client
 }
 
-// NewClient 创建新的API客户端
-// 参数:
-//   - baseURL: API服务基础URL，格式: "http://host:port"
-//
-// 返回:
-//   - *Client: API客户端实例
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
@@ -33,63 +25,23 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-// Get 发送GET请求
-// 参数:
-//   - path: API路径，相对于baseURL
-//
-// 返回:
-//   - []byte: 响应体数据
-//   - error: 请求失败时返回错误
 func (c *Client) Get(path string) ([]byte, error) {
 	return c.doRequest(http.MethodGet, path, nil)
 }
 
-// Post 发送POST请求
-// 参数:
-//   - path: API路径，相对于baseURL
-//   - data: 请求体数据，会自动序列化为JSON
-//
-// 返回:
-//   - []byte: 响应体数据
-//   - error: 请求失败时返回错误
 func (c *Client) Post(path string, data interface{}) ([]byte, error) {
 	return c.doRequest(http.MethodPost, path, data)
 }
 
-// Put 发送PUT请求
-// 参数:
-//   - path: API路径，相对于baseURL
-//   - data: 请求体数据，会自动序列化为JSON
-//
-// 返回:
-//   - []byte: 响应体数据
-//   - error: 请求失败时返回错误
 func (c *Client) Put(path string, data interface{}) ([]byte, error) {
 	return c.doRequest(http.MethodPut, path, data)
 }
 
-// Delete 发送DELETE请求
-// 参数:
-//   - path: API路径，相对于baseURL
-//
-// 返回:
-//   - error: 请求失败时返回错误
 func (c *Client) Delete(path string) error {
 	_, err := c.doRequest(http.MethodDelete, path, nil)
 	return err
 }
 
-// doRequest 执行HTTP请求
-// 参数:
-//   - method: HTTP方法，如 "GET", "POST", "PUT", "DELETE"
-//   - path: API路径，相对于baseURL
-//   - data: 请求体数据，为nil时发送空请求体
-//
-// 返回:
-//   - []byte: 响应体数据
-//   - error: 请求失败时返回错误
-//
-// 注意: 自动设置Content-Type为application/json，状态码>=400时返回错误
 func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error) {
 	var body io.Reader
 	if data != nil {
@@ -140,13 +92,53 @@ type Instance struct {
 }
 
 type InstanceConfig struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Listen   string `json:"listen"`
-	Target   string `json:"target"`
-	Protocol string `json:"protocol"`
-	Auth     string `json:"auth"`
-	Enabled  bool   `json:"enabled"`
+	Name       string      `json:"name"`
+	Type       string      `json:"type"`
+	Listen     string      `json:"listen"`
+	Target     string      `json:"target"`
+	Protocol   string      `json:"protocol"`
+	Auth       string      `json:"auth,omitempty"`
+	Enabled    bool        `json:"enabled"`
+	ClientCA   []string    `json:"clientCa,omitempty"`
+	ServerCA   []string    `json:"serverCa,omitempty"`
+	TLCP       *TLCPConfig `json:"tlcp,omitempty"`
+	TLS        *TLSConfig  `json:"tls,omitempty"`
+	HTTP       *HTTPConfig `json:"http,omitempty"`
+	SNI        string      `json:"sni,omitempty"`
+	BufferSize int         `json:"bufferSize,omitempty"`
+}
+
+type TLCPConfig struct {
+	Auth               string   `json:"auth,omitempty"`
+	MinVersion         string   `json:"minVersion,omitempty"`
+	MaxVersion         string   `json:"maxVersion,omitempty"`
+	CipherSuites       []string `json:"cipherSuites,omitempty"`
+	CurvePreferences   []string `json:"curvePreferences,omitempty"`
+	SessionTickets     bool     `json:"sessionTickets,omitempty"`
+	SessionCache       bool     `json:"sessionCache,omitempty"`
+	InsecureSkipVerify bool     `json:"insecureSkipVerify,omitempty"`
+}
+
+type TLSConfig struct {
+	Auth               string   `json:"auth,omitempty"`
+	MinVersion         string   `json:"minVersion,omitempty"`
+	MaxVersion         string   `json:"maxVersion,omitempty"`
+	CipherSuites       []string `json:"cipherSuites,omitempty"`
+	CurvePreferences   []string `json:"curvePreferences,omitempty"`
+	SessionTickets     bool     `json:"sessionTickets,omitempty"`
+	SessionCache       bool     `json:"sessionCache,omitempty"`
+	InsecureSkipVerify bool     `json:"insecureSkipVerify,omitempty"`
+}
+
+type HTTPConfig struct {
+	RequestHeaders  HeadersConfig `json:"requestHeaders,omitempty"`
+	ResponseHeaders HeadersConfig `json:"responseHeaders,omitempty"`
+}
+
+type HeadersConfig struct {
+	Add    map[string]string `json:"add,omitempty"`
+	Remove []string          `json:"remove,omitempty"`
+	Set    map[string]string `json:"set,omitempty"`
 }
 
 func (c *Client) ListInstances() ([]Instance, error) {
@@ -202,8 +194,8 @@ func (c *Client) ReloadInstance(name string) error {
 	return err
 }
 
-func (c *Client) ReloadInstanceCertificates(name string) error {
-	_, err := c.Post("/api/instances/"+url.PathEscape(name)+"/reload-certs", nil)
+func (c *Client) RestartInstance(name string) error {
+	_, err := c.Post("/api/instances/"+url.PathEscape(name)+"/restart", nil)
 	return err
 }
 
@@ -231,35 +223,255 @@ func (c *Client) InstanceLogs(name string) ([]map[string]interface{}, error) {
 	return logs, nil
 }
 
-type TrustedCertificate struct {
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	SerialNumber string `json:"serialNumber,omitempty"`
-	Subject      string `json:"subject,omitempty"`
-	Issuer       string `json:"issuer,omitempty"`
-	ExpiresAt    string `json:"expiresAt,omitempty"`
-	IsCA         bool   `json:"isCA,omitempty"`
+type KeyStoreInfo struct {
+	Name       string            `json:"name"`
+	Type       string            `json:"type"`
+	LoaderType string            `json:"loaderType"`
+	Params     map[string]string `json:"params"`
+	Protected  bool              `json:"protected"`
+	CreatedAt  string            `json:"createdAt"`
+	UpdatedAt  string            `json:"updatedAt"`
 }
 
-func (c *Client) ListTrustedCertificates() ([]TrustedCertificate, error) {
-	data, err := c.Get("/api/trusted")
+type GenerateKeyStoreRequest struct {
+	Name           string                     `json:"name"`
+	Type           string                     `json:"type"`
+	Protected      bool                       `json:"protected"`
+	CertConfig     GenerateKeyStoreCertConfig `json:"certConfig"`
+	SignerKeyStore string                     `json:"signerKeyStore,omitempty"`
+}
+
+type GenerateKeyStoreCertConfig struct {
+	CommonName string `json:"commonName"`
+	Org        string `json:"org"`
+	OrgUnit    string `json:"orgUnit"`
+	Years      int    `json:"years"`
+}
+
+func (c *Client) ListKeyStores() ([]KeyStoreInfo, error) {
+	data, err := c.Get("/api/security/keystores")
 	if err != nil {
 		return nil, err
 	}
-	var certs []TrustedCertificate
+	var keyStores []KeyStoreInfo
+	if err := json.Unmarshal(data, &keyStores); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return keyStores, nil
+}
+
+func (c *Client) GetKeyStore(name string) (*KeyStoreInfo, error) {
+	data, err := c.Get("/api/security/keystores/" + url.PathEscape(name))
+	if err != nil {
+		return nil, err
+	}
+	var ks KeyStoreInfo
+	if err := json.Unmarshal(data, &ks); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &ks, nil
+}
+
+func (c *Client) CreateKeyStore(name string, loaderType string, params map[string]string, protected bool) (*KeyStoreInfo, error) {
+	req := struct {
+		Name       string            `json:"name"`
+		LoaderType string            `json:"loaderType"`
+		Params     map[string]string `json:"params"`
+		Protected  bool              `json:"protected"`
+	}{
+		Name:       name,
+		LoaderType: loaderType,
+		Params:     params,
+		Protected:  protected,
+	}
+
+	data, err := c.Post("/api/security/keystores", req)
+	if err != nil {
+		return nil, err
+	}
+
+	var ks KeyStoreInfo
+	if err := json.Unmarshal(data, &ks); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &ks, nil
+}
+
+func (c *Client) CreateKeyStoreWithFiles(name string, loaderType string, files map[string][]byte, protected bool) (*KeyStoreInfo, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	_ = writer.WriteField("name", name)
+	_ = writer.WriteField("loaderType", loaderType)
+	_ = writer.WriteField("protected", fmt.Sprintf("%t", protected))
+
+	for fieldName, fileData := range files {
+		part, err := writer.CreateFormFile(fieldName, fieldName)
+		if err != nil {
+			return nil, fmt.Errorf("创建表单字段失败: %w", err)
+		}
+		_, _ = part.Write(fileData)
+	}
+
+	_ = writer.Close()
+
+	url, err := url.JoinPath(c.baseURL, "/api/security/keystores")
+	if err != nil {
+		return nil, fmt.Errorf("构建URL失败: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, &body)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("请求失败: %s - %s", resp.Status, string(respBody))
+	}
+
+	var ks KeyStoreInfo
+	if err := json.Unmarshal(respBody, &ks); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &ks, nil
+}
+
+func (c *Client) GenerateKeyStore(req GenerateKeyStoreRequest) (*KeyStoreInfo, error) {
+	data, err := c.Post("/api/security/keystores/generate", req)
+	if err != nil {
+		return nil, err
+	}
+	var ks KeyStoreInfo
+	if err := json.Unmarshal(data, &ks); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &ks, nil
+}
+
+func (c *Client) DeleteKeyStore(name string) error {
+	return c.Delete("/api/security/keystores/" + url.PathEscape(name))
+}
+
+func (c *Client) ReloadKeyStore(name string) error {
+	_, err := c.Post("/api/security/keystores/"+url.PathEscape(name)+"/reload", nil)
+	return err
+}
+
+type RootCertInfo struct {
+	Filename string `json:"filename"`
+	Subject  string `json:"subject"`
+	Issuer   string `json:"issuer"`
+	NotAfter string `json:"notAfter"`
+}
+
+type GenerateRootCARequest struct {
+	CommonName string `json:"commonName"`
+	Org        string `json:"org"`
+	OrgUnit    string `json:"orgUnit"`
+	Years      int    `json:"years"`
+}
+
+func (c *Client) ListRootCerts() ([]RootCertInfo, error) {
+	data, err := c.Get("/api/security/rootcerts")
+	if err != nil {
+		return nil, err
+	}
+	var certs []RootCertInfo
 	if err := json.Unmarshal(data, &certs); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 	return certs, nil
 }
 
-func (c *Client) DeleteTrustedCertificate(name string) error {
-	u := fmt.Sprintf("/api/trusted?name=%s", url.QueryEscape(name))
-	return c.Delete(u)
+func (c *Client) GetRootCert(filename string) (*RootCertInfo, error) {
+	data, err := c.Get("/api/security/rootcerts/" + url.PathEscape(filename))
+	if err != nil {
+		return nil, err
+	}
+	var cert RootCertInfo
+	if err := json.Unmarshal(data, &cert); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &cert, nil
 }
 
-func (c *Client) ReloadTrustedCertificates() error {
-	_, err := c.Post("/api/trusted/reload", nil)
+func (c *Client) AddRootCert(filename string, certData []byte) (*RootCertInfo, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	_ = writer.WriteField("filename", filename)
+
+	part, err := writer.CreateFormFile("cert", filename)
+	if err != nil {
+		return nil, fmt.Errorf("创建表单字段失败: %w", err)
+	}
+	_, _ = part.Write(certData)
+
+	_ = writer.Close()
+
+	url, err := url.JoinPath(c.baseURL, "/api/security/rootcerts")
+	if err != nil {
+		return nil, fmt.Errorf("构建URL失败: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, &body)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("请求失败: %s - %s", resp.Status, string(respBody))
+	}
+
+	var cert RootCertInfo
+	if err := json.Unmarshal(respBody, &cert); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &cert, nil
+}
+
+func (c *Client) GenerateRootCA(req GenerateRootCARequest) (*RootCertInfo, error) {
+	data, err := c.Post("/api/security/rootcerts/generate", req)
+	if err != nil {
+		return nil, err
+	}
+	var cert RootCertInfo
+	if err := json.Unmarshal(data, &cert); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &cert, nil
+}
+
+func (c *Client) DeleteRootCert(filename string) error {
+	return c.Delete("/api/security/rootcerts/" + url.PathEscape(filename))
+}
+
+func (c *Client) ReloadRootCerts() error {
+	_, err := c.Post("/api/security/rootcerts/reload", nil)
 	return err
 }
 
@@ -275,13 +487,31 @@ func (c *Client) GetConfig() (map[string]interface{}, error) {
 	return cfg, nil
 }
 
-func (c *Client) ReloadConfig() error {
-	_, err := c.Post("/api/config/reload", nil)
-	return err
+func (c *Client) UpdateConfig(cfg map[string]interface{}) (map[string]interface{}, error) {
+	data, err := c.Post("/api/config", cfg)
+	if err != nil {
+		return nil, err
+	}
+	var newCfg map[string]interface{}
+	if err := json.Unmarshal(data, &newCfg); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return newCfg, nil
+}
+
+func (c *Client) ReloadConfig() (map[string]interface{}, error) {
+	data, err := c.Post("/api/config/reload", nil)
+	if err != nil {
+		return nil, err
+	}
+	var cfg map[string]interface{}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return cfg, nil
 }
 
 type SystemInfo struct {
-	GoVersion    string `json:"go_version"`
 	OS           string `json:"os"`
 	Arch         string `json:"arch"`
 	NumCPU       int    `json:"num_cpu"`
@@ -323,8 +553,7 @@ func (c *Client) HealthCheck() (*HealthStatus, error) {
 }
 
 type VersionInfo struct {
-	Version   string `json:"version"`
-	GoVersion string `json:"go_version"`
+	Version string `json:"version"`
 }
 
 func (c *Client) GetVersion() (*VersionInfo, error) {
@@ -339,35 +568,30 @@ func (c *Client) GetVersion() (*VersionInfo, error) {
 	return &info, nil
 }
 
-// InstanceHealthCheckResult 实例健康检测结果
-type InstanceHealthCheckResult struct {
-	Success   bool                `json:"success"`
-	LatencyMs float64             `json:"latency_ms"`
-	Error     string              `json:"error,omitempty"`
-	TLCPInfo  *ProtocolHealthInfo `json:"tlcp_info,omitempty"`
-	TLSInfo   *ProtocolHealthInfo `json:"tls_info,omitempty"`
+type HealthCheckResult struct {
+	Protocol string `json:"protocol"`
+	Success  bool   `json:"success"`
+	Latency  int64  `json:"latency_ms"`
+	Error    string `json:"error,omitempty"`
 }
 
-// ProtocolHealthInfo 协议健康信息
-type ProtocolHealthInfo struct {
-	Success           bool    `json:"success"`
-	LatencyMs         float64 `json:"latency_ms"`
-	CertValid         bool    `json:"cert_valid"`
-	CertExpiry        string  `json:"cert_expiry,omitempty"`
-	CertDaysRemaining int     `json:"cert_days_remaining,omitempty"`
-	Error             string  `json:"error,omitempty"`
+type InstanceHealthResponse struct {
+	Instance string                `json:"instance"`
+	Results  []HealthCheckResult   `json:"results"`
 }
 
-// CheckInstanceHealth 执行实例健康检测
-func (c *Client) CheckInstanceHealth(name string, fullHandshake bool) (*InstanceHealthCheckResult, error) {
-	path := fmt.Sprintf("/api/instances/%s/health", name)
-	data, err := c.Post(path, map[string]bool{"full_handshake": fullHandshake})
+func (c *Client) InstanceHealth(name string, timeout *int) (*InstanceHealthResponse, error) {
+	path := "/api/instances/" + url.PathEscape(name) + "/health"
+	if timeout != nil {
+		path += fmt.Sprintf("?timeout=%d", *timeout)
+	}
+	data, err := c.Get(path)
 	if err != nil {
 		return nil, err
 	}
-	var result InstanceHealthCheckResult
-	if err := json.Unmarshal(data, &result); err != nil {
+	var resp InstanceHealthResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
-	return &result, nil
+	return &resp, nil
 }

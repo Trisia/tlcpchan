@@ -62,13 +62,11 @@ func NewServer(opts ServerOptions) *Server {
 	configCtrl := NewConfigController(opts.ConfigPath)
 	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController(opts.Version)
-	healthCtrl := NewHealthController(mgr)
 
 	instanceCtrl.RegisterRoutes(router)
 	configCtrl.RegisterRoutes(router)
 	securityCtrl.RegisterRoutes(router)
 	systemCtrl.RegisterRoutes(router)
-	healthCtrl.RegisterRoutes(router)
 
 	return &Server{
 		router:      router,

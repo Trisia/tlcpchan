@@ -22,8 +22,7 @@ type versionResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		Version   string `json:"version"`
-		GoVersion string `json:"go_version"`
+		Version string `json:"version"`
 	} `json:"data"`
 }
 
@@ -68,7 +67,6 @@ func (s *Server) versionHandler(w http.ResponseWriter, r *http.Request) {
 		Message: "success",
 	}
 	resp.Data.Version = s.version
-	resp.Data.GoVersion = runtime.Version()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
