@@ -98,3 +98,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # 默认启动命令（使用相对路径或 PATH 中的命令）
 ENTRYPOINT ["tlcpchan"]
+# 默认参数：启动 UI 服务
+CMD ["-ui"]
