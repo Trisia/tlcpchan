@@ -1,0 +1,42 @@
+
+# Git 相关
+.git
+.gitignore
+.github
+
+# 文档
+docs/
+README.md
+AGENTS.md
+apidoc.json
+
+# 构建产物和临时文件
+tlcpchan/bin/
+tlcpchan/release/
+tlcpchan-cli/bin/
+tlcpchan-cli/release/
+tlcpchan-ui/bin/
+tlcpchan-ui/dist/
+tlcpchan-ui/ui/
+tlcpchan-ui/web/node_modules/
+tlcpchan-ui/web/dist/
+
+# 测试和覆盖率
+*.test
+*.out
+coverage.txt
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# Makefile 生成的文件
+*.tar.gz
+*.zip
