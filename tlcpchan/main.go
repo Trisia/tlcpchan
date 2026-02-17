@@ -12,6 +12,7 @@ import (
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/controller"
+	"github.com/Trisia/tlcpchan/initialization"
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
@@ -48,7 +49,6 @@ func ensureWorkDir(dir string) string {
 	dirs := []string{
 		dir,
 		filepath.Join(dir, "logs"),
-		filepath.Join(dir, "config"),
 		filepath.Join(dir, "keystores"),
 		filepath.Join(dir, "rootcerts"),
 	}
@@ -71,7 +71,7 @@ func main() {
 
 	configPath := *configFile
 	if configPath == "" {
-		configPath = filepath.Join(wd, "config", "config.yaml")
+		configPath = filepath.Join(wd, "config.yaml")
 	}
 
 	cfg, err := config.Load(configPath)
@@ -83,6 +83,16 @@ func main() {
 		cfg.WorkDir = wd
 	}
 	config.Init(cfg)
+
+	// 检查并执行初始化
+	initMgr := initialization.NewManager(cfg, configPath, wd)
+	if !initMgr.CheckInitialized() {
+		logger.Info("检测到首次启动，开始初始化...")
+		if err := initMgr.Initialize(); err != nil {
+			logger.Fatal("初始化失败: %v", err)
+		}
+		logger.Info("初始化完成")
+	}
 
 	if cfg.Server.Log != nil {
 		logCfg := logger.LogConfig{

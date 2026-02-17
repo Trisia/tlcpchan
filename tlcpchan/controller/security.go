@@ -3,9 +3,12 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/security"
+	"github.com/Trisia/tlcpchan/security/certgen"
 	"github.com/Trisia/tlcpchan/security/keystore"
 )
 
@@ -40,12 +43,14 @@ func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *s
 func (c *SecurityController) RegisterRoutes(r *Router) {
 	r.GET("/api/security/keystores", c.ListKeyStores)
 	r.POST("/api/security/keystores", c.CreateKeyStore)
+	r.POST("/api/security/keystores/generate", c.GenerateKeyStore)
 	r.GET("/api/security/keystores/:name", c.GetKeyStore)
 	r.DELETE("/api/security/keystores/:name", c.DeleteKeyStore)
 	r.POST("/api/security/keystores/:name/reload", c.ReloadKeyStore)
 
 	r.GET("/api/security/rootcerts", c.ListRootCerts)
 	r.POST("/api/security/rootcerts", c.AddRootCert)
+	r.POST("/api/security/rootcerts/generate", c.GenerateRootCA)
 	r.GET("/api/security/rootcerts/:filename", c.GetRootCert)
 	r.DELETE("/api/security/rootcerts/:filename", c.DeleteRootCert)
 	r.POST("/api/security/rootcerts/reload", c.ReloadRootCerts)
@@ -183,33 +188,153 @@ func (c *SecurityController) ListKeyStores(w http.ResponseWriter, r *http.Reques
  *     保存配置失败: 具体错误信息
  */
 func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Name       string              `json:"name"`
-		LoaderType keystore.LoaderType `json:"loaderType"`
-		Params     map[string]string   `json:"params"`
-		Protected  bool                `json:"protected"`
+	var name string
+	var loaderType keystore.LoaderType
+	var params map[string]string
+	var protected bool
+
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType == "application/json" {
+		var req struct {
+			Name       string              `json:"name"`
+			LoaderType keystore.LoaderType `json:"loaderType"`
+			Params     map[string]string   `json:"params"`
+			Protected  bool                `json:"protected"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			BadRequest(w, "无效的请求: "+err.Error())
+			return
+		}
+
+		name = req.Name
+		loaderType = req.LoaderType
+		params = req.Params
+		protected = req.Protected
+	} else {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			BadRequest(w, "解析表单失败: "+err.Error())
+			return
+		}
+
+		name = r.FormValue("name")
+		loaderType = keystore.LoaderType(r.FormValue("loaderType"))
+		protected = r.FormValue("protected") == "true"
+
+		if loaderType == keystore.LoaderTypeFile {
+			keystoreDir := filepath.Join(c.cfg.WorkDir, "keystores")
+			params = make(map[string]string)
+
+			if signCertFile, _, err := r.FormFile("sign-cert"); err == nil {
+				defer signCertFile.Close()
+				signCertData := make([]byte, 0)
+				buf := make([]byte, 1024)
+				for {
+					n, err := signCertFile.Read(buf)
+					if n > 0 {
+						signCertData = append(signCertData, buf[:n]...)
+					}
+					if err != nil {
+						break
+					}
+				}
+				signCertPath := filepath.Join(keystoreDir, name+"-sign.crt")
+				if err := os.WriteFile(signCertPath, signCertData, 0644); err != nil {
+					InternalError(w, "保存签名证书失败: "+err.Error())
+					return
+				}
+				params["sign-cert"] = "./keystores/" + name + "-sign.crt"
+			}
+
+			if signKeyFile, _, err := r.FormFile("sign-key"); err == nil {
+				defer signKeyFile.Close()
+				signKeyData := make([]byte, 0)
+				buf := make([]byte, 1024)
+				for {
+					n, err := signKeyFile.Read(buf)
+					if n > 0 {
+						signKeyData = append(signKeyData, buf[:n]...)
+					}
+					if err != nil {
+						break
+					}
+				}
+				signKeyPath := filepath.Join(keystoreDir, name+"-sign.key")
+				if err := os.WriteFile(signKeyPath, signKeyData, 0600); err != nil {
+					InternalError(w, "保存签名密钥失败: "+err.Error())
+					return
+				}
+				params["sign-key"] = "./keystores/" + name + "-sign.key"
+			}
+
+			if encCertFile, _, err := r.FormFile("enc-cert"); err == nil {
+				defer encCertFile.Close()
+				encCertData := make([]byte, 0)
+				buf := make([]byte, 1024)
+				for {
+					n, err := encCertFile.Read(buf)
+					if n > 0 {
+						encCertData = append(encCertData, buf[:n]...)
+					}
+					if err != nil {
+						break
+					}
+				}
+				encCertPath := filepath.Join(keystoreDir, name+"-enc.crt")
+				if err := os.WriteFile(encCertPath, encCertData, 0644); err != nil {
+					InternalError(w, "保存加密证书失败: "+err.Error())
+					return
+				}
+				params["enc-cert"] = "./keystores/" + name + "-enc.crt"
+			}
+
+			if encKeyFile, _, err := r.FormFile("enc-key"); err == nil {
+				defer encKeyFile.Close()
+				encKeyData := make([]byte, 0)
+				buf := make([]byte, 1024)
+				for {
+					n, err := encKeyFile.Read(buf)
+					if n > 0 {
+						encKeyData = append(encKeyData, buf[:n]...)
+					}
+					if err != nil {
+						break
+					}
+				}
+				encKeyPath := filepath.Join(keystoreDir, name+"-enc.key")
+				if err := os.WriteFile(encKeyPath, encKeyData, 0600); err != nil {
+					InternalError(w, "保存加密密钥失败: "+err.Error())
+					return
+				}
+				params["enc-key"] = "./keystores/" + name + "-enc.key"
+			}
+		} else {
+			paramsStr := r.FormValue("params")
+			if paramsStr != "" {
+				if err := json.Unmarshal([]byte(paramsStr), &params); err != nil {
+					BadRequest(w, "无效的 params: "+err.Error())
+					return
+				}
+			}
+		}
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		BadRequest(w, "无效的请求: "+err.Error())
-		return
-	}
-
-	if req.Name == "" {
+	if name == "" {
 		BadRequest(w, "名称不能为空")
 		return
 	}
 
-	info, err := c.keyStoreMgr.Create(req.Name, req.LoaderType, req.Params, req.Protected)
+	info, err := c.keyStoreMgr.Create(name, loaderType, params, protected)
 	if err != nil {
 		InternalError(w, "创建失败: "+err.Error())
 		return
 	}
 
 	c.cfg.KeyStores = append(c.cfg.KeyStores, config.KeyStoreConfig{
-		Name:   req.Name,
-		Type:   req.LoaderType,
-		Params: req.Params,
+		Name:   name,
+		Type:   loaderType,
+		Params: params,
 	})
 
 	if err := config.Save(c.configPath, c.cfg); err != nil {
@@ -384,10 +509,8 @@ func (c *SecurityController) ListRootCerts(w http.ResponseWriter, r *http.Reques
  *
  * @apiDescription 上传并添加新的根证书到系统中
  *
- * @apiUse MultipartForm
- *
- * @apiParam {String} filename 文件名，表单字段，用于指定保存的证书文件名
- * @apiParam {File} cert 证书文件，表单字段，PEM 或 DER 格式的证书文件，最大 10MB
+ * @apiBody {String} filename 文件名，表单字段，用于指定保存的证书文件名
+ * @apiBody {File} cert 证书文件，表单字段，PEM 或 DER 格式的证书文件，最大 10MB
  *
  * @apiSuccess {String} filename 证书文件名
  * @apiSuccess {String} subject 证书主题（Subject）
@@ -527,7 +650,7 @@ func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Reque
  * @apiGroup Security-RootCert
  * @apiVersion 1.0.0
  *
- * @apiDescription 重新从证书目录加载所有根证书
+ * @apiDescription 重新加载所有根证书，从信任证书目录重新读取
  *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
@@ -543,4 +666,423 @@ func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	Success(w, nil)
+}
+
+// GenerateKeyStoreRequest 生成 keystore 请求
+type GenerateKeyStoreRequest struct {
+	Name           string                     `json:"name"`
+	Type           keystore.KeyStoreType      `json:"type"`
+	Protected      bool                       `json:"protected"`
+	CertConfig     GenerateKeyStoreCertConfig `json:"certConfig"`
+	SignerKeyStore string                     `json:"signerKeyStore,omitempty"`
+}
+
+// GenerateKeyStoreCertConfig 证书生成配置
+type GenerateKeyStoreCertConfig struct {
+	CommonName string `json:"commonName"`
+	Org        string `json:"org"`
+	OrgUnit    string `json:"orgUnit"`
+	Years      int    `json:"years"`
+}
+
+/**
+ * @api {post} /api/security/keystores/generate 生成 keystore（含证书）
+ * @apiName GenerateKeyStore
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 生成新的密钥库（keystore），包含自动生成的证书和密钥，支持 TLCP 和 TLS 两种类型
+ *
+ * @apiBody {String} name keystore 名称，唯一标识符
+ * @apiBody {String} type keystore 类型，可选值："tlcp"（国密）、"tls"（标准）
+ * @apiBody {Boolean} [protected=false] 是否受保护，true 表示需要密码访问
+ * @apiBody {Object} certConfig 证书生成配置
+ * @apiBody {String} certConfig.commonName 证书通用名称（CN）
+ * @apiBody {String} certConfig.org 组织名称（O）
+ * @apiBody {String} certConfig.orgUnit 组织单位（OU）
+ * @apiBody {Number} certConfig.years 证书有效期（年）
+ * @apiBody {String} [signerKeyStore] 用于签发的 keystore 名称（暂未实现）
+ *
+ * @apiSuccess {String} name keystore 名称
+ * @apiSuccess {String} type keystore 类型
+ * @apiSuccess {String} loaderType 加载器类型，固定为 "file"
+ * @apiSuccess {Object} params 加载器参数
+ * @apiSuccess {Boolean} protected 是否受保护
+ * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
+ * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response (TLCP):
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "tlcp-server",
+ *       "type": "tlcp",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "sign-cert": "./keystores/tlcp-server-sign.crt",
+ *         "sign-key": "./keystores/tlcp-server-sign.key",
+ *         "enc-cert": "./keystores/tlcp-server-enc.crt",
+ *         "enc-key": "./keystores/tlcp-server-enc.key"
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiSuccessExample {json} Success-Response (TLS):
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "tls-server",
+ *       "type": "tls",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "sign-cert": "./keystores/tls-server.crt",
+ *         "sign-key": "./keystores/tls-server.key"
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiParamExample {json} Request-Example (TLCP):
+ *     {
+ *       "name": "tlcp-server",
+ *       "type": "tlcp",
+ *       "protected": false,
+ *       "certConfig": {
+ *         "commonName": "example.com",
+ *         "org": "Example Org",
+ *         "orgUnit": "IT",
+ *         "years": 1
+ *       }
+ *     }
+ *
+ * @apiParamExample {json} Request-Example (TLS):
+ *     {
+ *       "name": "tls-server",
+ *       "type": "tls",
+ *       "protected": false,
+ *       "certConfig": {
+ *         "commonName": "example.com",
+ *         "org": "Example Org",
+ *         "orgUnit": "IT",
+ *         "years": 1
+ *       }
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     无效的请求: json: cannot unmarshal string into Go value
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     名称不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     类型不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     不支持的 keystore 类型: xxx
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     生成根证书失败: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     保存配置失败: 具体错误信息
+ */
+func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Request) {
+	var req GenerateKeyStoreRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		BadRequest(w, "无效的请求: "+err.Error())
+		return
+	}
+
+	if req.Name == "" {
+		BadRequest(w, "名称不能为空")
+		return
+	}
+	if req.Type == "" {
+		BadRequest(w, "类型不能为空")
+		return
+	}
+
+	keystoreDir := filepath.Join(c.cfg.WorkDir, "keystores")
+
+	var params map[string]string
+
+	if req.Type == keystore.KeyStoreTypeTLCP {
+		signCertPath := filepath.Join(keystoreDir, req.Name+"-sign.crt")
+		signKeyPath := filepath.Join(keystoreDir, req.Name+"-sign.key")
+		encCertPath := filepath.Join(keystoreDir, req.Name+"-enc.crt")
+		encKeyPath := filepath.Join(keystoreDir, req.Name+"-enc.key")
+
+		var err error
+		var signerCertPath, signerKeyPath string
+
+		if req.SignerKeyStore != "" {
+			BadRequest(w, "使用签发者证书功能暂未实现")
+			return
+		} else {
+			caCert, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+				Type:       certgen.CertTypeRootCA,
+				CommonName: req.Name + "-ca",
+				Org:        req.CertConfig.Org,
+				OrgUnit:    req.CertConfig.OrgUnit,
+				Years:      10,
+			})
+			if err != nil {
+				InternalError(w, "生成根证书失败: "+err.Error())
+				return
+			}
+			signerCertPath = filepath.Join(keystoreDir, req.Name+"-ca.crt")
+			signerKeyPath = filepath.Join(keystoreDir, req.Name+"-ca.key")
+			if err := certgen.SaveCertToFile(caCert.CertPEM, caCert.KeyPEM, signerCertPath, signerKeyPath); err != nil {
+				InternalError(w, "保存根证书失败: "+err.Error())
+				return
+			}
+		}
+
+		signCfg := certgen.CertGenConfig{
+			Type:       certgen.CertTypeTLCPSign,
+			CommonName: req.CertConfig.CommonName + "-sign",
+			Org:        req.CertConfig.Org,
+			OrgUnit:    req.CertConfig.OrgUnit,
+			Years:      req.CertConfig.Years,
+		}
+		encCfg := certgen.CertGenConfig{
+			Type:       certgen.CertTypeTLCPEnc,
+			CommonName: req.CertConfig.CommonName + "-enc",
+			Org:        req.CertConfig.Org,
+			OrgUnit:    req.CertConfig.OrgUnit,
+			Years:      req.CertConfig.Years,
+		}
+
+		signerX509Cert, signerPrivKey, err := certgen.LoadCertFromFile(
+			signerCertPath,
+			signerKeyPath,
+		)
+		if err != nil {
+			InternalError(w, "加载签发者证书失败: "+err.Error())
+			return
+		}
+
+		signCert, encCert, err := certgen.GenerateTLCPPair(
+			signerX509Cert, signerPrivKey, signCfg, encCfg,
+		)
+		if err != nil {
+			InternalError(w, "生成TLCP证书失败: "+err.Error())
+			return
+		}
+
+		if err := certgen.SaveCertToFile(signCert.CertPEM, signCert.KeyPEM, signCertPath, signKeyPath); err != nil {
+			InternalError(w, "保存签名证书失败: "+err.Error())
+			return
+		}
+		if err := certgen.SaveCertToFile(encCert.CertPEM, encCert.KeyPEM, encCertPath, encKeyPath); err != nil {
+			InternalError(w, "保存加密证书失败: "+err.Error())
+			return
+		}
+
+		params = map[string]string{
+			"sign-cert": "./keystores/" + req.Name + "-sign.crt",
+			"sign-key":  "./keystores/" + req.Name + "-sign.key",
+			"enc-cert":  "./keystores/" + req.Name + "-enc.crt",
+			"enc-key":   "./keystores/" + req.Name + "-enc.key",
+		}
+	} else if req.Type == keystore.KeyStoreTypeTLS {
+		certPath := filepath.Join(keystoreDir, req.Name+".crt")
+		keyPath := filepath.Join(keystoreDir, req.Name+".key")
+
+		tlsCfg := certgen.CertGenConfig{
+			Type:       certgen.CertTypeTLS,
+			CommonName: req.CertConfig.CommonName,
+			Org:        req.CertConfig.Org,
+			OrgUnit:    req.CertConfig.OrgUnit,
+			Years:      req.CertConfig.Years,
+		}
+
+		signerCert, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+			Type:       certgen.CertTypeRootCA,
+			CommonName: req.Name + "-ca",
+			Org:        req.CertConfig.Org,
+			OrgUnit:    req.CertConfig.OrgUnit,
+			Years:      10,
+		})
+		if err != nil {
+			InternalError(w, "生成根证书失败: "+err.Error())
+			return
+		}
+
+		signerCertPath := filepath.Join(keystoreDir, req.Name+"-ca.crt")
+		signerKeyPath := filepath.Join(keystoreDir, req.Name+"-ca.key")
+		if err := certgen.SaveCertToFile(signerCert.CertPEM, signerCert.KeyPEM, signerCertPath, signerKeyPath); err != nil {
+			InternalError(w, "保存根证书失败: "+err.Error())
+			return
+		}
+
+		signerX509Cert, signerPrivKey, err := certgen.LoadCertFromFile(signerCertPath, signerKeyPath)
+		if err != nil {
+			InternalError(w, "加载签发者证书失败: "+err.Error())
+			return
+		}
+
+		tlsCert, err := certgen.GenerateTLSCert(signerX509Cert, signerPrivKey, tlsCfg)
+		if err != nil {
+			InternalError(w, "生成TLS证书失败: "+err.Error())
+			return
+		}
+
+		if err := certgen.SaveCertToFile(tlsCert.CertPEM, tlsCert.KeyPEM, certPath, keyPath); err != nil {
+			InternalError(w, "保存证书失败: "+err.Error())
+			return
+		}
+
+		params = map[string]string{
+			"sign-cert": "./keystores/" + req.Name + ".crt",
+			"sign-key":  "./keystores/" + req.Name + ".key",
+		}
+	} else {
+		BadRequest(w, "不支持的 keystore 类型: "+string(req.Type))
+		return
+	}
+
+	info, err := c.keyStoreMgr.Create(req.Name, keystore.LoaderTypeFile, params, req.Protected)
+	if err != nil {
+		InternalError(w, "创建 keystore 失败: "+err.Error())
+		return
+	}
+
+	c.cfg.KeyStores = append(c.cfg.KeyStores, config.KeyStoreConfig{
+		Name:   req.Name,
+		Type:   keystore.LoaderTypeFile,
+		Params: params,
+	})
+
+	if err := config.Save(c.configPath, c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+
+	Success(w, info)
+}
+
+// GenerateRootCARequest 生成根 CA 请求
+type GenerateRootCARequest struct {
+	CommonName string `json:"commonName"`
+	Org        string `json:"org"`
+	OrgUnit    string `json:"orgUnit"`
+	Years      int    `json:"years"`
+}
+
+/**
+ * @api {post} /api/security/rootcerts/generate 生成根 CA 证书
+ * @apiName GenerateRootCA
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 生成新的自签名根 CA 证书，并添加到信任证书列表中，同时创建对应的 keystore
+ *
+ * @apiBody {String} [commonName="tlcpchan-root-ca"] 证书通用名称（CN）
+ * @apiBody {String} [org="tlcpchan"] 组织名称（O）
+ * @apiBody {String} [orgUnit] 组织单位（OU）
+ * @apiBody {Number} [years=10] 证书有效期（年）
+ *
+ * @apiSuccess {String} filename 证书文件名
+ * @apiSuccess {String} subject 证书主题（Subject）
+ * @apiSuccess {String} issuer 证书颁发者（Issuer）
+ * @apiSuccess {String} notAfter 证书过期时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "filename": "my-root-ca.crt",
+ *       "subject": "CN=my-root-ca, O=My Org",
+ *       "issuer": "CN=my-root-ca, O=My Org",
+ *       "notAfter": "2034-01-01T00:00:00Z"
+ *     }
+ *
+ * @apiParamExample {json} Request-Example:
+ *     {
+ *       "commonName": "my-root-ca",
+ *       "org": "My Org",
+ *       "orgUnit": "IT",
+ *       "years": 10
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     无效的请求: json: cannot unmarshal string into Go value
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     生成根证书失败: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     添加根证书失败: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     保存配置失败: 具体错误信息
+ */
+func (c *SecurityController) GenerateRootCA(w http.ResponseWriter, r *http.Request) {
+	var req GenerateRootCARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		BadRequest(w, "无效的请求: "+err.Error())
+		return
+	}
+
+	if req.CommonName == "" {
+		req.CommonName = "tlcpchan-root-ca"
+	}
+	if req.Org == "" {
+		req.Org = "tlcpchan"
+	}
+	if req.Years <= 0 {
+		req.Years = 10
+	}
+
+	rootCA, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+		Type:       certgen.CertTypeRootCA,
+		CommonName: req.CommonName,
+		Org:        req.Org,
+		OrgUnit:    req.OrgUnit,
+		Years:      req.Years,
+	})
+	if err != nil {
+		InternalError(w, "生成根证书失败: "+err.Error())
+		return
+	}
+
+	filename := req.CommonName + ".crt"
+	cert, err := c.rootCertMgr.Add(filename, rootCA.CertPEM)
+	if err != nil {
+		InternalError(w, "添加根证书失败: "+err.Error())
+		return
+	}
+
+	keystoreDir := filepath.Join(c.cfg.WorkDir, "keystores")
+	certPath := filepath.Join(keystoreDir, req.CommonName+".crt")
+	keyPath := filepath.Join(keystoreDir, req.CommonName+".key")
+	if err := certgen.SaveCertToFile(rootCA.CertPEM, rootCA.KeyPEM, certPath, keyPath); err != nil {
+		InternalError(w, "保存证书和密钥失败: "+err.Error())
+		return
+	}
+
+	params := map[string]string{
+		"sign-cert": "./keystores/" + req.CommonName + ".crt",
+		"sign-key":  "./keystores/" + req.CommonName + ".key",
+	}
+	if _, err := c.keyStoreMgr.Create(req.CommonName, keystore.LoaderTypeFile, params, true); err != nil {
+		InternalError(w, "创建 keystore 失败: "+err.Error())
+		return
+	}
+
+	c.cfg.KeyStores = append(c.cfg.KeyStores, config.KeyStoreConfig{
+		Name:   req.CommonName,
+		Type:   keystore.LoaderTypeFile,
+		Params: params,
+	})
+
+	if err := config.Save(c.configPath, c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+
+	Success(w, cert)
 }
