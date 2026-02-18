@@ -54,8 +54,8 @@ cleanup() {
 # 构建前端资源
 build_frontend() {
     log_info "构建前端资源..."
-    if [ -d "$PROJECT_ROOT/tlcpchan-ui/web" ]; then
-        cd "$PROJECT_ROOT/tlcpchan-ui/web"
+    if [ -d "$PROJECT_ROOT/tlcpchan-ui" ]; then
+        cd "$PROJECT_ROOT/tlcpchan-ui"
         if [ ! -d "node_modules" ]; then
             log_info "安装前端依赖..."
             npm ci

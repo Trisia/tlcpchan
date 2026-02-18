@@ -26,7 +26,7 @@ log_info() {
 check_nfpm() {
     if ! command -v nfpm &> /dev/null; then
         log_info "nfpm 未安装，正在安装..."
-        go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+        go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.43.0
     fi
 }
 
@@ -42,7 +42,9 @@ create_nfpm_config() {
         package_arch="loongarch64"
     fi
     
-    sed -e "s|{{PACKAGE_ARCH}}|$package_arch|g" \
+    # 先替换 linux-{{ARCH}} 为 linux-$arch，再替换其他变量
+    sed -e "s|linux-{{ARCH}}|linux-$arch|g" \
+        -e "s|{{PACKAGE_ARCH}}|$package_arch|g" \
         -e "s|{{VERSION}}|$VERSION|g" \
         -e "s|{{BUILD_DIR}}|$BUILD_DIR|g" \
         -e "s|{{POSTINST_RPM_PATH}}|$BUILD_DIR/postinst-rpm.sh|g" \

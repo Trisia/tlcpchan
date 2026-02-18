@@ -19,19 +19,9 @@ contents:
     dst: "/etc/tlcpchan/tlcpchan-cli"
     file_info:
       mode: 0755
-  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan-ui"
-    dst: "/etc/tlcpchan/tlcpchan-ui"
-    file_info:
-      mode: 0755
-  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/ui"
-    dst: "/etc/tlcpchan/ui"
-    type: tree
   - src: "{{BUILD_DIR}}/linux-{{ARCH}}/rootcerts"
     dst: "/etc/tlcpchan/rootcerts"
     type: tree
-  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/config.yaml.example"
-    dst: "/etc/tlcpchan/config.yaml.example"
-    type: config
   - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan.service"
     dst: "/usr/lib/systemd/system/tlcpchan.service"
     file_info:
