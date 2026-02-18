@@ -91,6 +91,15 @@ func instanceCreate(args []string) error {
 	if err := cli.CreateInstance(&cfg); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例创建成功",
+			"name":    cfg.Name,
+		})
+	}
+
 	fmt.Printf("实例 %s 创建成功\n", cfg.Name)
 	return nil
 }
@@ -134,6 +143,15 @@ func instanceUpdate(args []string) error {
 	if err := cli.UpdateInstance(name, &cfg); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例更新成功",
+			"name":    name,
+		})
+	}
+
 	fmt.Printf("实例 %s 更新成功\n", name)
 	return nil
 }
@@ -146,6 +164,15 @@ func instanceDelete(args []string) error {
 	if err := cli.DeleteInstance(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例已删除",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("实例 %s 已删除\n", args[0])
 	return nil
 }
@@ -158,6 +185,15 @@ func instanceStart(args []string) error {
 	if err := cli.StartInstance(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例已启动",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("实例 %s 已启动\n", args[0])
 	return nil
 }
@@ -170,6 +206,15 @@ func instanceStop(args []string) error {
 	if err := cli.StopInstance(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例已停止",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("实例 %s 已停止\n", args[0])
 	return nil
 }
@@ -182,6 +227,15 @@ func instanceReload(args []string) error {
 	if err := cli.ReloadInstance(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例已重载",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("实例 %s 已重载\n", args[0])
 	return nil
 }
@@ -194,6 +248,15 @@ func instanceRestart(args []string) error {
 	if err := cli.RestartInstance(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "实例已重启",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("实例 %s 已重启\n", args[0])
 	return nil
 }

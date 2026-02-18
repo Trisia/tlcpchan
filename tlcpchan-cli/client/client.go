@@ -242,10 +242,19 @@ type GenerateKeyStoreRequest struct {
 }
 
 type GenerateKeyStoreCertConfig struct {
-	CommonName string `json:"commonName"`
-	Org        string `json:"org"`
-	OrgUnit    string `json:"orgUnit"`
-	Years      int    `json:"years"`
+	CommonName      string   `json:"commonName"`
+	Country         string   `json:"country,omitempty"`
+	StateOrProvince string   `json:"stateOrProvince,omitempty"`
+	Locality        string   `json:"locality,omitempty"`
+	Org             string   `json:"org,omitempty"`
+	OrgUnit         string   `json:"orgUnit,omitempty"`
+	EmailAddress    string   `json:"emailAddress,omitempty"`
+	Years           int      `json:"years,omitempty"`
+	Days            int      `json:"days,omitempty"`
+	KeyAlgorithm    string   `json:"keyAlgorithm,omitempty"`
+	KeyBits         int      `json:"keyBits,omitempty"`
+	DNSNames        []string `json:"dnsNames,omitempty"`
+	IPAddresses     []string `json:"ipAddresses,omitempty"`
 }
 
 func (c *Client) ListKeyStores() ([]KeyStoreInfo, error) {
@@ -377,10 +386,15 @@ type RootCertInfo struct {
 }
 
 type GenerateRootCARequest struct {
-	CommonName string `json:"commonName"`
-	Org        string `json:"org"`
-	OrgUnit    string `json:"orgUnit"`
-	Years      int    `json:"years"`
+	CommonName      string `json:"commonName"`
+	Country         string `json:"country,omitempty"`
+	StateOrProvince string `json:"stateOrProvince,omitempty"`
+	Locality        string `json:"locality,omitempty"`
+	Org             string `json:"org,omitempty"`
+	OrgUnit         string `json:"orgUnit,omitempty"`
+	EmailAddress    string `json:"emailAddress,omitempty"`
+	Years           int    `json:"years,omitempty"`
+	Days            int    `json:"days,omitempty"`
 }
 
 func (c *Client) ListRootCerts() ([]RootCertInfo, error) {
@@ -576,8 +590,8 @@ type HealthCheckResult struct {
 }
 
 type InstanceHealthResponse struct {
-	Instance string                `json:"instance"`
-	Results  []HealthCheckResult   `json:"results"`
+	Instance string              `json:"instance"`
+	Results  []HealthCheckResult `json:"results"`
 }
 
 func (c *Client) InstanceHealth(name string, timeout *int) (*InstanceHealthResponse, error) {

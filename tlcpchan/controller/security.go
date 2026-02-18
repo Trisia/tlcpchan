@@ -679,10 +679,19 @@ type GenerateKeyStoreRequest struct {
 
 // GenerateKeyStoreCertConfig 证书生成配置
 type GenerateKeyStoreCertConfig struct {
-	CommonName string `json:"commonName"`
-	Org        string `json:"org"`
-	OrgUnit    string `json:"orgUnit"`
-	Years      int    `json:"years"`
+	CommonName      string   `json:"commonName"`
+	Country         string   `json:"country,omitempty"`
+	StateOrProvince string   `json:"stateOrProvince,omitempty"`
+	Locality        string   `json:"locality,omitempty"`
+	Org             string   `json:"org,omitempty"`
+	OrgUnit         string   `json:"orgUnit,omitempty"`
+	EmailAddress    string   `json:"emailAddress,omitempty"`
+	Years           int      `json:"years,omitempty"`
+	Days            int      `json:"days,omitempty"`
+	KeyAlgorithm    string   `json:"keyAlgorithm,omitempty"`
+	KeyBits         int      `json:"keyBits,omitempty"`
+	DNSNames        []string `json:"dnsNames,omitempty"`
+	IPAddresses     []string `json:"ipAddresses,omitempty"`
 }
 
 /**
@@ -822,11 +831,16 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 			return
 		} else {
 			caCert, err := certgen.GenerateRootCA(certgen.CertGenConfig{
-				Type:       certgen.CertTypeRootCA,
-				CommonName: req.Name + "-ca",
-				Org:        req.CertConfig.Org,
-				OrgUnit:    req.CertConfig.OrgUnit,
-				Years:      10,
+				Type:            certgen.CertTypeRootCA,
+				CommonName:      req.Name + "-ca",
+				Country:         req.CertConfig.Country,
+				StateOrProvince: req.CertConfig.StateOrProvince,
+				Locality:        req.CertConfig.Locality,
+				Org:             req.CertConfig.Org,
+				OrgUnit:         req.CertConfig.OrgUnit,
+				EmailAddress:    req.CertConfig.EmailAddress,
+				Years:           10,
+				Days:            0,
 			})
 			if err != nil {
 				InternalError(w, "生成根证书失败: "+err.Error())
@@ -841,18 +855,32 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 		}
 
 		signCfg := certgen.CertGenConfig{
-			Type:       certgen.CertTypeTLCPSign,
-			CommonName: req.CertConfig.CommonName + "-sign",
-			Org:        req.CertConfig.Org,
-			OrgUnit:    req.CertConfig.OrgUnit,
-			Years:      req.CertConfig.Years,
+			Type:            certgen.CertTypeTLCPSign,
+			CommonName:      req.CertConfig.CommonName + "-sign",
+			Country:         req.CertConfig.Country,
+			StateOrProvince: req.CertConfig.StateOrProvince,
+			Locality:        req.CertConfig.Locality,
+			Org:             req.CertConfig.Org,
+			OrgUnit:         req.CertConfig.OrgUnit,
+			EmailAddress:    req.CertConfig.EmailAddress,
+			Years:           req.CertConfig.Years,
+			Days:            req.CertConfig.Days,
+			DNSNames:        req.CertConfig.DNSNames,
+			IPAddresses:     req.CertConfig.IPAddresses,
 		}
 		encCfg := certgen.CertGenConfig{
-			Type:       certgen.CertTypeTLCPEnc,
-			CommonName: req.CertConfig.CommonName + "-enc",
-			Org:        req.CertConfig.Org,
-			OrgUnit:    req.CertConfig.OrgUnit,
-			Years:      req.CertConfig.Years,
+			Type:            certgen.CertTypeTLCPEnc,
+			CommonName:      req.CertConfig.CommonName + "-enc",
+			Country:         req.CertConfig.Country,
+			StateOrProvince: req.CertConfig.StateOrProvince,
+			Locality:        req.CertConfig.Locality,
+			Org:             req.CertConfig.Org,
+			OrgUnit:         req.CertConfig.OrgUnit,
+			EmailAddress:    req.CertConfig.EmailAddress,
+			Years:           req.CertConfig.Years,
+			Days:            req.CertConfig.Days,
+			DNSNames:        req.CertConfig.DNSNames,
+			IPAddresses:     req.CertConfig.IPAddresses,
 		}
 
 		signerX509Cert, signerPrivKey, err := certgen.LoadCertFromFile(
@@ -891,20 +919,44 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 		certPath := filepath.Join(keystoreDir, req.Name+".crt")
 		keyPath := filepath.Join(keystoreDir, req.Name+".key")
 
+		var keyAlg certgen.KeyAlgorithm
+		switch req.CertConfig.KeyAlgorithm {
+		case "rsa":
+			keyAlg = certgen.KeyAlgorithmRSA
+		case "ecdsa":
+			keyAlg = certgen.KeyAlgorithmECDSA
+		default:
+			keyAlg = certgen.KeyAlgorithmECDSA
+		}
+
 		tlsCfg := certgen.CertGenConfig{
-			Type:       certgen.CertTypeTLS,
-			CommonName: req.CertConfig.CommonName,
-			Org:        req.CertConfig.Org,
-			OrgUnit:    req.CertConfig.OrgUnit,
-			Years:      req.CertConfig.Years,
+			Type:            certgen.CertTypeTLS,
+			CommonName:      req.CertConfig.CommonName,
+			Country:         req.CertConfig.Country,
+			StateOrProvince: req.CertConfig.StateOrProvince,
+			Locality:        req.CertConfig.Locality,
+			Org:             req.CertConfig.Org,
+			OrgUnit:         req.CertConfig.OrgUnit,
+			EmailAddress:    req.CertConfig.EmailAddress,
+			Years:           req.CertConfig.Years,
+			Days:            req.CertConfig.Days,
+			KeyAlgorithm:    keyAlg,
+			KeyBits:         req.CertConfig.KeyBits,
+			DNSNames:        req.CertConfig.DNSNames,
+			IPAddresses:     req.CertConfig.IPAddresses,
 		}
 
 		signerCert, err := certgen.GenerateRootCA(certgen.CertGenConfig{
-			Type:       certgen.CertTypeRootCA,
-			CommonName: req.Name + "-ca",
-			Org:        req.CertConfig.Org,
-			OrgUnit:    req.CertConfig.OrgUnit,
-			Years:      10,
+			Type:            certgen.CertTypeRootCA,
+			CommonName:      req.Name + "-ca",
+			Country:         req.CertConfig.Country,
+			StateOrProvince: req.CertConfig.StateOrProvince,
+			Locality:        req.CertConfig.Locality,
+			Org:             req.CertConfig.Org,
+			OrgUnit:         req.CertConfig.OrgUnit,
+			EmailAddress:    req.CertConfig.EmailAddress,
+			Years:           10,
+			Days:            0,
 		})
 		if err != nil {
 			InternalError(w, "生成根证书失败: "+err.Error())
@@ -966,10 +1018,15 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 
 // GenerateRootCARequest 生成根 CA 请求
 type GenerateRootCARequest struct {
-	CommonName string `json:"commonName"`
-	Org        string `json:"org"`
-	OrgUnit    string `json:"orgUnit"`
-	Years      int    `json:"years"`
+	CommonName      string `json:"commonName"`
+	Country         string `json:"country,omitempty"`
+	StateOrProvince string `json:"stateOrProvince,omitempty"`
+	Locality        string `json:"locality,omitempty"`
+	Org             string `json:"org,omitempty"`
+	OrgUnit         string `json:"orgUnit,omitempty"`
+	EmailAddress    string `json:"emailAddress,omitempty"`
+	Years           int    `json:"years,omitempty"`
+	Days            int    `json:"days,omitempty"`
 }
 
 /**
@@ -1038,11 +1095,16 @@ func (c *SecurityController) GenerateRootCA(w http.ResponseWriter, r *http.Reque
 	}
 
 	rootCA, err := certgen.GenerateRootCA(certgen.CertGenConfig{
-		Type:       certgen.CertTypeRootCA,
-		CommonName: req.CommonName,
-		Org:        req.Org,
-		OrgUnit:    req.OrgUnit,
-		Years:      req.Years,
+		Type:            certgen.CertTypeRootCA,
+		CommonName:      req.CommonName,
+		Country:         req.Country,
+		StateOrProvince: req.StateOrProvince,
+		Locality:        req.Locality,
+		Org:             req.Org,
+		OrgUnit:         req.OrgUnit,
+		EmailAddress:    req.EmailAddress,
+		Years:           req.Years,
+		Days:            req.Days,
 	})
 	if err != nil {
 		InternalError(w, "生成根证书失败: "+err.Error())

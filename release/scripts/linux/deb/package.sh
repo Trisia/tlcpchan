@@ -12,7 +12,7 @@ RELEASE_DIR="$(dirname "$SCRIPTS_DIR")"
 PROJECT_ROOT="$(dirname "$RELEASE_DIR")"
 
 # 从 tlcpchan/main.go 中解析版本号
-VERSION=$(grep -E '^var\s+version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
+VERSION=$(grep -E 'version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
 BUILD_DIR="$PROJECT_ROOT/build"
 DIST_DIR="$PROJECT_ROOT/dist"
 

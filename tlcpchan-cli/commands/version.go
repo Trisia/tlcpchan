@@ -23,7 +23,6 @@ func versionCmd(args []string) error {
 		fmt.Fprintf(w, "服务端版本:\t无法连接 (%v)\n", err)
 	} else {
 		fmt.Fprintf(w, "服务端版本:\t%s\n", serverVer.Version)
-		fmt.Fprintf(w, "服务端Go版本:\t%s\n", serverVer.GoVersion)
 	}
 
 	w.Flush()

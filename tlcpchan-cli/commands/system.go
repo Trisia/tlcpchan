@@ -17,7 +17,6 @@ func systemInfo(args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "Go版本:\t%s\n", info.GoVersion)
 	fmt.Fprintf(w, "操作系统:\t%s\n", info.OS)
 	fmt.Fprintf(w, "架构:\t%s\n", info.Arch)
 	fmt.Fprintf(w, "CPU核心数:\t%d\n", info.NumCPU)

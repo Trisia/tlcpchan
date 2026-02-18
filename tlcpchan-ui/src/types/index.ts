@@ -81,9 +81,18 @@ export interface GenerateKeyStoreRequest {
   protected: boolean
   certConfig: {
     commonName: string
-    org: string
-    orgUnit: string
-    years: number
+    country?: string
+    stateOrProvince?: string
+    locality?: string
+    org?: string
+    orgUnit?: string
+    emailAddress?: string
+    years?: number
+    days?: number
+    keyAlgorithm?: string
+    keyBits?: number
+    dnsNames?: string[]
+    ipAddresses?: string[]
   }
   signerKeyStore?: string
 }
@@ -97,9 +106,14 @@ export interface RootCertInfo {
 
 export interface GenerateRootCARequest {
   commonName: string
-  org: string
-  orgUnit: string
-  years: number
+  country?: string
+  stateOrProvince?: string
+  locality?: string
+  org?: string
+  orgUnit?: string
+  emailAddress?: string
+  years?: number
+  days?: number
 }
 
 export interface SystemInfo {

@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/Trisia/tlcpchan-cli/client"
@@ -120,6 +121,14 @@ func keyStoreCreate(args []string) error {
 		return err
 	}
 
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "keystore 创建成功",
+			"name":    ks.Name,
+		})
+	}
+
 	fmt.Printf("keystore %s 创建成功\n", ks.Name)
 	return nil
 }
@@ -129,9 +138,18 @@ func keyStoreGenerate(args []string) error {
 	name := fs.String("name", "", "keystore 名称")
 	ksType := fs.String("type", "tlcp", "类型 (tlcp/tls)")
 	commonName := fs.String("cn", "", "证书通用名称 (CN)")
+	country := fs.String("c", "", "国家 (C, 2字母代码)")
+	stateOrProvince := fs.String("st", "", "省/州 (ST)")
+	locality := fs.String("l", "", "地区/城市 (L)")
 	org := fs.String("org", "tlcpchan", "组织名称 (O)")
 	orgUnit := fs.String("org-unit", "", "组织单位 (OU)")
-	years := fs.Int("years", 1, "证书有效期 (年)")
+	email := fs.String("email", "", "邮箱地址")
+	years := fs.Int("years", 0, "证书有效期 (年)")
+	days := fs.Int("days", 0, "证书有效期 (天, 优先级高于years)")
+	keyAlg := fs.String("key-alg", "ecdsa", "密钥算法 (ecdsa/rsa, 仅TLS有效)")
+	keyBits := fs.Int("key-bits", 2048, "密钥位数 (仅RSA有效)")
+	dnsNames := fs.String("dns", "", "DNS名称, 多个用逗号分隔")
+	ipAddrs := fs.String("ip", "", "IP地址, 多个用逗号分隔")
 	protected := fs.Bool("protected", false, "是否受保护")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -144,15 +162,34 @@ func keyStoreGenerate(args []string) error {
 		return fmt.Errorf("请指定 --cn")
 	}
 
+	var dnsList []string
+	if *dnsNames != "" {
+		dnsList = splitAndTrim(*dnsNames, ",")
+	}
+
+	var ipList []string
+	if *ipAddrs != "" {
+		ipList = splitAndTrim(*ipAddrs, ",")
+	}
+
 	req := client.GenerateKeyStoreRequest{
 		Name:      *name,
 		Type:      *ksType,
 		Protected: *protected,
 		CertConfig: client.GenerateKeyStoreCertConfig{
-			CommonName: *commonName,
-			Org:        *org,
-			OrgUnit:    *orgUnit,
-			Years:      *years,
+			CommonName:      *commonName,
+			Country:         *country,
+			StateOrProvince: *stateOrProvince,
+			Locality:        *locality,
+			Org:             *org,
+			OrgUnit:         *orgUnit,
+			EmailAddress:    *email,
+			Years:           *years,
+			Days:            *days,
+			KeyAlgorithm:    *keyAlg,
+			KeyBits:         *keyBits,
+			DNSNames:        dnsList,
+			IPAddresses:     ipList,
 		},
 	}
 
@@ -161,8 +198,27 @@ func keyStoreGenerate(args []string) error {
 		return err
 	}
 
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "keystore 生成成功",
+			"name":    ks.Name,
+		})
+	}
+
 	fmt.Printf("keystore %s 生成成功\n", ks.Name)
 	return nil
+}
+
+func splitAndTrim(s, sep string) []string {
+	var result []string
+	parts := strings.Split(s, sep)
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func keyStoreDelete(args []string) error {
@@ -173,6 +229,15 @@ func keyStoreDelete(args []string) error {
 	if err := cli.DeleteKeyStore(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "keystore 已删除",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("keystore %s 已删除\n", args[0])
 	return nil
 }
@@ -185,6 +250,15 @@ func keyStoreReload(args []string) error {
 	if err := cli.ReloadKeyStore(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "keystore 已重载",
+			"name":    args[0],
+		})
+	}
+
 	fmt.Printf("keystore %s 已重载\n", args[0])
 	return nil
 }

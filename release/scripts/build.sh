@@ -10,7 +10,7 @@ RELEASE_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(dirname "$RELEASE_DIR")"
 
 # 从 tlcpchan/main.go 中解析版本号
-VERSION=$(grep -E '^var\s+version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
+VERSION=$(grep -E 'version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
 BUILD_DIR="$PROJECT_ROOT/build"
 DIST_DIR="$PROJECT_ROOT/dist"
 
@@ -83,10 +83,14 @@ build_platform() {
     fi
     
     # 编译 tlcpchan
-    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan$ext" "$PROJECT_ROOT/tlcpchan/."
+    cd "$PROJECT_ROOT/tlcpchan"
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan$ext" .
     
     # 编译 tlcpchan-cli
-    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-cli$ext" "$PROJECT_ROOT/tlcpchan-cli/."
+    cd "$PROJECT_ROOT/tlcpchan-cli"
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-cli$ext" .
+    
+    cd "$PROJECT_ROOT"
     
     # 复制前端资源
     if [ -d "$PROJECT_ROOT/tlcpchan-ui/ui" ]; then
@@ -107,12 +111,16 @@ build_platform() {
         fi
         
         # 复制安装脚本
-        cp "$SCRIPT_DIR/templates/linux/install.sh" "$output_dir/install.sh"
-        chmod +x "$output_dir/install.sh"
+        if [ -f "$SCRIPT_DIR/linux/install.sh" ]; then
+            cp "$SCRIPT_DIR/linux/install.sh" "$output_dir/install.sh"
+            chmod +x "$output_dir/install.sh"
+        fi
         
         # 复制卸载脚本
-        cp "$SCRIPT_DIR/templates/linux/uninstall.sh" "$output_dir/uninstall.sh"
-        chmod +x "$output_dir/uninstall.sh"
+        if [ -f "$SCRIPT_DIR/linux/uninstall.sh" ]; then
+            cp "$SCRIPT_DIR/linux/uninstall.sh" "$output_dir/uninstall.sh"
+            chmod +x "$output_dir/uninstall.sh"
+        fi
     fi
     
     log_info "完成 $os/$arch 编译"
@@ -152,7 +160,8 @@ main() {
     log_info "========================================"
     
     cleanup
-    build_frontend
+    # 暂时跳过前端构建以快速测试
+    # build_frontend
     
     for platform in "${PLATFORMS[@]}"; do
         IFS=":" read -r os arch <<< "$platform"

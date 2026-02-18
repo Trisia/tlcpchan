@@ -102,6 +102,7 @@ func (m *Manager) Initialize() error {
 		Org:        "tlcpchan",
 		OrgUnit:    "tlcpchan",
 		Years:      10,
+		Days:       0,
 	})
 	if err != nil {
 		return err
@@ -139,6 +140,7 @@ func (m *Manager) Initialize() error {
 		Org:        "tlcpchan",
 		OrgUnit:    "tlcpchan",
 		Years:      5,
+		Days:       0,
 	}
 	tlcpEncCfg := certgen.CertGenConfig{
 		Type:       certgen.CertTypeTLCPEnc,
@@ -146,6 +148,7 @@ func (m *Manager) Initialize() error {
 		Org:        "tlcpchan",
 		OrgUnit:    "tlcpchan",
 		Years:      5,
+		Days:       0,
 	}
 	tlcpSignCert, tlcpEncCert, err := certgen.GenerateTLCPPair(signerCert, signerKey, tlcpSignCfg, tlcpEncCfg)
 	if err != nil {
@@ -169,11 +172,14 @@ func (m *Manager) Initialize() error {
 	// 4. 生成 TLS 证书
 	logger.Info("生成 TLS 证书...")
 	tlsCfg := certgen.CertGenConfig{
-		Type:       certgen.CertTypeTLS,
-		CommonName: "tlcpchan-default-tls",
-		Org:        "tlcpchan",
-		OrgUnit:    "tlcpchan",
-		Years:      5,
+		Type:         certgen.CertTypeTLS,
+		CommonName:   "tlcpchan-default-tls",
+		Org:          "tlcpchan",
+		OrgUnit:      "tlcpchan",
+		Years:        5,
+		Days:         0,
+		KeyAlgorithm: certgen.KeyAlgorithmECDSA,
+		KeyBits:      0,
 	}
 	tlsCert, err := certgen.GenerateTLSCert(signerCert, signerKey, tlsCfg)
 	if err != nil {
@@ -228,9 +234,25 @@ func (m *Manager) Initialize() error {
 			Enabled:  true,
 			TLCP: config.TLCPConfig{
 				Auth: "one-way",
+				Keystore: &config.KeyStoreConfig{
+					Type: keystore.LoaderTypeFile,
+					Params: map[string]string{
+						"sign-cert": "./keystores/default-tlcp-sign.crt",
+						"sign-key":  "./keystores/default-tlcp-sign.key",
+						"enc-cert":  "./keystores/default-tlcp-enc.crt",
+						"enc-key":   "./keystores/default-tlcp-enc.key",
+					},
+				},
 			},
 			TLS: config.TLSConfig{
 				Auth: "one-way",
+				Keystore: &config.KeyStoreConfig{
+					Type: keystore.LoaderTypeFile,
+					Params: map[string]string{
+						"sign-cert": "./keystores/default-tls.crt",
+						"sign-key":  "./keystores/default-tls.key",
+					},
+				},
 			},
 		},
 	}

@@ -4,10 +4,16 @@
       <template #header>
         <div class="card-header">
           <span>信任证书管理</span>
-          <el-button type="primary" @click="showUploadDialog = true">
-            <el-icon><Plus /></el-icon>
-            上传证书
-          </el-button>
+          <div>
+            <el-button type="success" @click="showGenerateDialog = true">
+              <el-icon><MagicStick /></el-icon>
+              生成根证书
+            </el-button>
+            <el-button type="primary" @click="showUploadDialog = true">
+              <el-icon><Plus /></el-icon>
+              上传证书
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -60,21 +66,101 @@
         <el-button type="primary" :loading="uploadLoading" @click="uploadCert">上传</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showGenerateDialog" title="生成根 CA 证书" width="700px">
+      <el-form :model="generateForm" label-width="140px">
+        <el-divider content-position="left">证书主体 (DN)</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="国家 (C)">
+              <el-input v-model="generateForm.country" placeholder="CN" maxlength="2" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="省/州 (ST)">
+              <el-input v-model="generateForm.stateOrProvince" placeholder="Beijing" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="地区 (L)">
+              <el-input v-model="generateForm.locality" placeholder="Haidian" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="组织 (O)">
+              <el-input v-model="generateForm.org" placeholder="Example Org" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="组织单位 (OU)">
+              <el-input v-model="generateForm.orgUnit" placeholder="IT" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="通用名称 (CN)" required>
+              <el-input v-model="generateForm.commonName" placeholder="my-root-ca" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="邮箱地址">
+              <el-input v-model="generateForm.emailAddress" placeholder="admin@example.com" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">有效期</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="有效期(年)">
+              <el-input-number v-model="generateForm.years" :min="1" :max="100" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="或 有效期(天)">
+              <el-input-number v-model="generateForm.days" :min="1" :max="36500" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="showGenerateDialog = false">取消</el-button>
+        <el-button type="primary" :loading="generateLoading" @click="generateRootCA">生成</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { trustedApi } from '@/api'
+import { Plus, MagicStick } from '@element-plus/icons-vue'
+import { trustedApi, rootCertApi } from '@/api'
 
 const loading = ref(false)
 const trustedCerts = ref<any[]>([])
 
 const showUploadDialog = ref(false)
+const showGenerateDialog = ref(false)
 const uploadLoading = ref(false)
+const generateLoading = ref(false)
+
 const certFiles = ref<UploadUserFile[]>([])
+
+const generateForm = ref({
+  commonName: 'tlcpchan-root-ca',
+  country: '',
+  stateOrProvince: '',
+  locality: '',
+  org: 'tlcpchan',
+  orgUnit: '',
+  emailAddress: '',
+  years: 10,
+  days: 0,
+})
 
 onMounted(() => fetchTrustedCerts())
 
@@ -113,6 +199,26 @@ async function uploadCert() {
   }
 }
 
+async function generateRootCA() {
+  if (!generateForm.value.commonName) {
+    ElMessage.error('请填写通用名称 (CN)')
+    return
+  }
+
+  generateLoading.value = true
+  try {
+    await rootCertApi.generate(generateForm.value)
+    ElMessage.success('根证书生成成功')
+    showGenerateDialog.value = false
+    resetGenerateForm()
+    fetchTrustedCerts()
+  } catch (err: any) {
+    ElMessage.error(err.message || '生成失败')
+  } finally {
+    generateLoading.value = false
+  }
+}
+
 function remove(name: string) {
   ElMessageBox.confirm('确定要删除此信任证书吗？', '确认删除', { type: 'warning' })
     .then(async () => {
@@ -129,6 +235,20 @@ function remove(name: string) {
 
 function resetUploadForm() {
   certFiles.value = []
+}
+
+function resetGenerateForm() {
+  generateForm.value = {
+    commonName: 'tlcpchan-root-ca',
+    country: '',
+    stateOrProvince: '',
+    locality: '',
+    org: 'tlcpchan',
+    orgUnit: '',
+    emailAddress: '',
+    years: 10,
+    days: 0,
+  }
 }
 </script>
 

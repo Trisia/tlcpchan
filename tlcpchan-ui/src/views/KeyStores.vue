@@ -4,10 +4,16 @@
       <template #header>
         <div class="card-header">
           <span>密钥管理</span>
-          <el-button type="primary" @click="showCreateDialog = true">
-            <el-icon><Plus /></el-icon>
-            创建密钥
-          </el-button>
+          <div>
+            <el-button type="success" @click="showGenerateDialog = true">
+              <el-icon><MagicStick /></el-icon>
+              生成密钥
+            </el-button>
+            <el-button type="primary" @click="showCreateDialog = true">
+              <el-icon><Plus /></el-icon>
+              创建密钥
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -112,6 +118,135 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="showGenerateDialog" title="生成密钥" width="700px">
+      <el-form :model="generateForm" label-width="140px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="密钥名称" required>
+              <el-input v-model="generateForm.name" placeholder="my-server-key" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="类型" required>
+              <el-radio-group v-model="generateForm.type">
+                <el-radio :value="CertType.TLCP">国密 (TLCP)</el-radio>
+                <el-radio :value="CertType.TLS">国际 (TLS)</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">证书主体 (DN)</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="国家 (C)">
+              <el-input v-model="generateForm.certConfig.country" placeholder="CN" maxlength="2" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="省/州 (ST)">
+              <el-input v-model="generateForm.certConfig.stateOrProvince" placeholder="Beijing" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="地区 (L)">
+              <el-input v-model="generateForm.certConfig.locality" placeholder="Haidian" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="组织 (O)">
+              <el-input v-model="generateForm.certConfig.org" placeholder="Example Org" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="组织单位 (OU)">
+              <el-input v-model="generateForm.certConfig.orgUnit" placeholder="IT" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="通用名称 (CN)" required>
+              <el-input v-model="generateForm.certConfig.commonName" placeholder="example.com" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="邮箱地址">
+              <el-input v-model="generateForm.certConfig.emailAddress" placeholder="admin@example.com" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">有效期</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="有效期(年)">
+              <el-input-number v-model="generateForm.certConfig.years" :min="1" :max="100" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="或 有效期(天)">
+              <el-input-number v-model="generateForm.certConfig.days" :min="1" :max="36500" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <template v-if="generateForm.type === CertType.TLS">
+          <el-divider content-position="left">密钥选项 (仅 TLS)</el-divider>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="密钥算法">
+                <el-select v-model="generateForm.certConfig.keyAlgorithm">
+                  <el-option label="ECDSA" value="ecdsa" />
+                  <el-option label="RSA" value="rsa" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="密钥位数 (仅 RSA)">
+                <el-select v-model="generateForm.certConfig.keyBits">
+                  <el-option :label="2048" :value="2048" />
+                  <el-option :label="4096" :value="4096" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </template>
+
+        <el-divider content-position="left">主题备用名称 (SAN)</el-divider>
+        <el-form-item label="DNS 名称">
+          <el-select
+            v-model="generateForm.certConfig.dnsNames"
+            multiple
+            filterable
+            allow-create
+            placeholder="添加 DNS 名称，如 example.com"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="IP 地址">
+          <el-select
+            v-model="generateForm.certConfig.ipAddresses"
+            multiple
+            filterable
+            allow-create
+            placeholder="添加 IP 地址，如 192.168.1.1"
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="受保护">
+          <el-switch v-model="generateForm.protected" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showGenerateDialog = false">取消</el-button>
+        <el-button type="primary" :loading="generateLoading" @click="generateKeyStore">生成</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showUpdateCertDialog" title="更新证书" width="500px">
       <el-form label-width="120px">
         <el-form-item label="签名证书">
@@ -146,7 +281,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, MagicStick } from '@element-plus/icons-vue'
 import { keyStoreApi } from '@/api'
 import { CertType } from '@/types'
 
@@ -154,13 +289,36 @@ const loading = ref(false)
 const keystores = ref<any[]>([])
 
 const showCreateDialog = ref(false)
+const showGenerateDialog = ref(false)
 const showUpdateCertDialog = ref(false)
 const createLoading = ref(false)
+const generateLoading = ref(false)
 const updateLoading = ref(false)
 
 const createForm = ref({
   name: '',
   type: CertType.TLCP as 'tlcp' | 'tls',
+})
+
+const generateForm = ref({
+  name: '',
+  type: CertType.TLCP as 'tlcp' | 'tls',
+  protected: false,
+  certConfig: {
+    commonName: '',
+    country: '',
+    stateOrProvince: '',
+    locality: '',
+    org: '',
+    orgUnit: '',
+    emailAddress: '',
+    years: 1,
+    days: 0,
+    keyAlgorithm: 'ecdsa' as string,
+    keyBits: 2048 as number,
+    dnsNames: [] as string[],
+    ipAddresses: [] as string[],
+  },
 })
 
 const signCertFiles = ref<UploadUserFile[]>([])
@@ -238,6 +396,30 @@ async function createKeyStore() {
   }
 }
 
+async function generateKeyStore() {
+  if (!generateForm.value.name) {
+    ElMessage.error('请填写密钥名称')
+    return
+  }
+  if (!generateForm.value.certConfig.commonName) {
+    ElMessage.error('请填写通用名称 (CN)')
+    return
+  }
+
+  generateLoading.value = true
+  try {
+    await keyStoreApi.generate(generateForm.value)
+    ElMessage.success('密钥生成成功')
+    showGenerateDialog.value = false
+    resetGenerateForm()
+    fetchKeyStores()
+  } catch (err: any) {
+    ElMessage.error(err.message || '生成失败')
+  } finally {
+    generateLoading.value = false
+  }
+}
+
 async function updateCertificates() {
   if (!selectedKeyStore.value) return
   if (updateSignCertFiles.value.length === 0 && updateEncCertFiles.value.length === 0) {
@@ -289,6 +471,29 @@ function resetCreateForm() {
   signKeyFiles.value = []
   encCertFiles.value = []
   encKeyFiles.value = []
+}
+
+function resetGenerateForm() {
+  generateForm.value = {
+    name: '',
+    type: CertType.TLCP,
+    protected: false,
+    certConfig: {
+      commonName: '',
+      country: '',
+      stateOrProvince: '',
+      locality: '',
+      org: '',
+      orgUnit: '',
+      emailAddress: '',
+      years: 1,
+      days: 0,
+      keyAlgorithm: 'ecdsa',
+      keyBits: 2048,
+      dnsNames: [],
+      ipAddresses: [],
+    },
+  }
 }
 </script>
 

@@ -78,6 +78,14 @@ func rootCertAdd(args []string) error {
 		return err
 	}
 
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success":  true,
+			"message":  "根证书添加成功",
+			"filename": cert.Filename,
+		})
+	}
+
 	fmt.Printf("根证书 %s 添加成功\n", cert.Filename)
 	return nil
 }
@@ -85,23 +93,41 @@ func rootCertAdd(args []string) error {
 func rootCertGenerate(args []string) error {
 	fs := flagSet("generate")
 	commonName := fs.String("cn", "tlcpchan-root-ca", "证书通用名称 (CN)")
+	country := fs.String("c", "", "国家 (C, 2字母代码)")
+	stateOrProvince := fs.String("st", "", "省/州 (ST)")
+	locality := fs.String("l", "", "地区/城市 (L)")
 	org := fs.String("org", "tlcpchan", "组织名称 (O)")
 	orgUnit := fs.String("org-unit", "", "组织单位 (OU)")
-	years := fs.Int("years", 10, "证书有效期 (年)")
+	email := fs.String("email", "", "邮箱地址")
+	years := fs.Int("years", 0, "证书有效期 (年)")
+	days := fs.Int("days", 0, "证书有效期 (天, 优先级高于years)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
 	req := client.GenerateRootCARequest{
-		CommonName: *commonName,
-		Org:        *org,
-		OrgUnit:    *orgUnit,
-		Years:      *years,
+		CommonName:      *commonName,
+		Country:         *country,
+		StateOrProvince: *stateOrProvince,
+		Locality:        *locality,
+		Org:             *org,
+		OrgUnit:         *orgUnit,
+		EmailAddress:    *email,
+		Years:           *years,
+		Days:            *days,
 	}
 
 	cert, err := cli.GenerateRootCA(req)
 	if err != nil {
 		return err
+	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success":  true,
+			"message":  "根 CA 证书生成成功",
+			"filename": cert.Filename,
+		})
 	}
 
 	fmt.Printf("根 CA 证书 %s 生成成功\n", cert.Filename)
@@ -116,6 +142,15 @@ func rootCertDelete(args []string) error {
 	if err := cli.DeleteRootCert(args[0]); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success":  true,
+			"message":  "根证书已删除",
+			"filename": args[0],
+		})
+	}
+
 	fmt.Printf("根证书 %s 已删除\n", args[0])
 	return nil
 }
@@ -124,6 +159,14 @@ func rootCertReload(args []string) error {
 	if err := cli.ReloadRootCerts(); err != nil {
 		return err
 	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "根证书已重新加载",
+		})
+	}
+
 	fmt.Println("根证书已重新加载")
 	return nil
 }

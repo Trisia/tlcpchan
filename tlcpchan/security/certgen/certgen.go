@@ -5,11 +5,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -50,14 +52,30 @@ type CertGenConfig struct {
 	Type CertType
 	// CommonName Common Name (CN)
 	CommonName string
+	// Country Country (C)
+	Country string
+	// StateOrProvince State or Province (ST)
+	StateOrProvince string
+	// Locality Locality (L)
+	Locality string
 	// Org Organization (O)
 	Org string
 	// OrgUnit Organizational Unit (OU)
 	OrgUnit string
+	// EmailAddress Email Address
+	EmailAddress string
 	// Years 有效期（年）
 	Years int
+	// Days 有效期（天），如果设置则优先使用
+	Days int
 	// KeyAlgorithm 密钥算法
 	KeyAlgorithm KeyAlgorithm
+	// KeyBits 密钥位数（仅 RSA 有效，默认 2048）
+	KeyBits int
+	// DNSNames DNS 主题备用名称
+	DNSNames []string
+	// IPAddresses IP 主题备用名称
+	IPAddresses []string
 }
 
 // GeneratedCert 生成的证书结果
@@ -97,7 +115,7 @@ func GenerateRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
 	if cfg.Org == "" {
 		cfg.Org = "tlcpchan"
 	}
-	if cfg.Years <= 0 {
+	if cfg.Years <= 0 && cfg.Days <= 0 {
 		cfg.Years = 10
 	}
 
@@ -106,16 +124,38 @@ func GenerateRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
 		return nil, fmt.Errorf("生成SM2密钥失败: %w", err)
 	}
 
-	now := time.Now()
+	notBefore := time.Now()
+	var notAfter time.Time
+	if cfg.Days > 0 {
+		notAfter = notBefore.AddDate(0, 0, cfg.Days)
+	} else {
+		notAfter = notBefore.AddDate(cfg.Years, 0, 0)
+	}
+
+	subject := pkix.Name{
+		CommonName: cfg.CommonName,
+	}
+	if cfg.Country != "" {
+		subject.Country = []string{cfg.Country}
+	}
+	if cfg.StateOrProvince != "" {
+		subject.Province = []string{cfg.StateOrProvince}
+	}
+	if cfg.Locality != "" {
+		subject.Locality = []string{cfg.Locality}
+	}
+	if cfg.Org != "" {
+		subject.Organization = []string{cfg.Org}
+	}
+	if cfg.OrgUnit != "" {
+		subject.OrganizationalUnit = []string{cfg.OrgUnit}
+	}
+
 	template := &smx509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName:         cfg.CommonName,
-			Organization:       []string{cfg.Org},
-			OrganizationalUnit: []string{cfg.OrgUnit},
-		},
-		NotBefore:             now,
-		NotAfter:              now.AddDate(cfg.Years, 0, 0),
+		SerialNumber:          big.NewInt(1),
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
 		KeyUsage:              smx509.KeyUsageCertSign | smx509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
@@ -242,16 +282,42 @@ func generateTLCPCert(signerCert *x509.Certificate, signerKey crypto.PrivateKey,
 		return nil, fmt.Errorf("解析签发者证书失败: %w", err)
 	}
 
-	now := time.Now()
+	notBefore := time.Now()
+	var notAfter time.Time
+	if cfg.Days > 0 {
+		notAfter = notBefore.AddDate(0, 0, cfg.Days)
+	} else if cfg.Years > 0 {
+		notAfter = notBefore.AddDate(cfg.Years, 0, 0)
+	} else {
+		notAfter = notBefore.AddDate(5, 0, 0)
+	}
+
+	subject := pkix.Name{
+		CommonName: cfg.CommonName,
+	}
+	if cfg.Country != "" {
+		subject.Country = []string{cfg.Country}
+	}
+	if cfg.StateOrProvince != "" {
+		subject.Province = []string{cfg.StateOrProvince}
+	}
+	if cfg.Locality != "" {
+		subject.Locality = []string{cfg.Locality}
+	}
+	if cfg.Org != "" {
+		subject.Organization = []string{cfg.Org}
+	}
+	if cfg.OrgUnit != "" {
+		subject.OrganizationalUnit = []string{cfg.OrgUnit}
+	}
+
 	template := &smx509.Certificate{
-		SerialNumber: big.NewInt(time.Now().Unix()),
-		Subject: pkix.Name{
-			CommonName:         cfg.CommonName,
-			Organization:       []string{cfg.Org},
-			OrganizationalUnit: []string{cfg.OrgUnit},
-		},
-		NotBefore:             now,
-		NotAfter:              now.AddDate(cfg.Years, 0, 0),
+		SerialNumber:          big.NewInt(time.Now().Unix()),
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		DNSNames:              cfg.DNSNames,
+		IPAddresses:           parseIPAddresses(cfg.IPAddresses),
 		KeyUsage:              keyUsage,
 		BasicConstraintsValid: true,
 		IsCA:                  false,
@@ -295,7 +361,7 @@ func generateTLCPCert(signerCert *x509.Certificate, signerKey crypto.PrivateKey,
 //	cfg - 证书配置
 //	    - 如果 CommonName 为空，默认使用 "tls-cert"
 //	    - 如果 Org 为空，默认使用 "tlcpchan"
-//	    - 如果 Years <= 0，默认使用 5 年
+//	    - 如果 Years <= 0 且 Days <= 0，默认使用 5 年
 //
 // 返回值：
 //
@@ -303,7 +369,7 @@ func generateTLCPCert(signerCert *x509.Certificate, signerKey crypto.PrivateKey,
 //	error - 错误信息，包括密钥生成失败、证书创建失败、私钥序列化失败等
 //
 // 注意事项：
-//   - 使用 ECDSA P-256 算法生成密钥对
+//   - 支持 ECDSA 和 RSA 算法
 //   - 证书具有 KeyUsageDigitalSignature | KeyUsageKeyEncipherment 权限
 //   - 支持 ExtKeyUsageServerAuth 和 ExtKeyUsageClientAuth 扩展密钥用途
 //   - IsCA 设置为 false，表示这不是一个 CA 证书
@@ -314,32 +380,86 @@ func GenerateTLSCert(signerCert *x509.Certificate, signerKey crypto.PrivateKey, 
 	if cfg.Org == "" {
 		cfg.Org = "tlcpchan"
 	}
-	if cfg.Years <= 0 {
+	if cfg.Years <= 0 && cfg.Days <= 0 {
 		cfg.Years = 5
 	}
 
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("生成ECDSA密钥失败: %w", err)
+	var priv crypto.PrivateKey
+	var err error
+
+	switch cfg.KeyAlgorithm {
+	case KeyAlgorithmRSA:
+		keyBits := cfg.KeyBits
+		if keyBits <= 0 {
+			keyBits = 2048
+		}
+		priv, err = rsa.GenerateKey(rand.Reader, keyBits)
+		if err != nil {
+			return nil, fmt.Errorf("生成RSA密钥失败: %w", err)
+		}
+	case KeyAlgorithmECDSA:
+		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("生成ECDSA密钥失败: %w", err)
+		}
+	default:
+		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("生成ECDSA密钥失败: %w", err)
+		}
 	}
 
-	now := time.Now()
+	notBefore := time.Now()
+	var notAfter time.Time
+	if cfg.Days > 0 {
+		notAfter = notBefore.AddDate(0, 0, cfg.Days)
+	} else {
+		notAfter = notBefore.AddDate(cfg.Years, 0, 0)
+	}
+
+	subject := pkix.Name{
+		CommonName: cfg.CommonName,
+	}
+	if cfg.Country != "" {
+		subject.Country = []string{cfg.Country}
+	}
+	if cfg.StateOrProvince != "" {
+		subject.Province = []string{cfg.StateOrProvince}
+	}
+	if cfg.Locality != "" {
+		subject.Locality = []string{cfg.Locality}
+	}
+	if cfg.Org != "" {
+		subject.Organization = []string{cfg.Org}
+	}
+	if cfg.OrgUnit != "" {
+		subject.OrganizationalUnit = []string{cfg.OrgUnit}
+	}
+
 	template := &x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().Unix()),
-		Subject: pkix.Name{
-			CommonName:         cfg.CommonName,
-			Organization:       []string{cfg.Org},
-			OrganizationalUnit: []string{cfg.OrgUnit},
-		},
-		NotBefore:             now,
-		NotAfter:              now.AddDate(cfg.Years, 0, 0),
+		SerialNumber:          big.NewInt(time.Now().Unix()),
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		DNSNames:              cfg.DNSNames,
+		IPAddresses:           parseIPAddresses(cfg.IPAddresses),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 	}
 
-	certBytes, err := x509.CreateCertificate(rand.Reader, template, signerCert, &priv.PublicKey, signerKey)
+	var pubKey crypto.PublicKey
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		pubKey = &k.PublicKey
+	case *ecdsa.PrivateKey:
+		pubKey = &k.PublicKey
+	default:
+		return nil, fmt.Errorf("不支持的密钥类型")
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, signerCert, pubKey, signerKey)
 	if err != nil {
 		return nil, fmt.Errorf("创建证书失败: %w", err)
 	}
@@ -465,4 +585,15 @@ func LoadCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.Priva
 	}
 
 	return cert, priv, nil
+}
+
+// parseIPAddresses 解析字符串列表为 net.IP 列表
+func parseIPAddresses(ipStrs []string) []net.IP {
+	var ips []net.IP
+	for _, s := range ipStrs {
+		if ip := net.ParseIP(s); ip != nil {
+			ips = append(ips, ip)
+		}
+	}
+	return ips
 }
