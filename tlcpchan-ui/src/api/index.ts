@@ -13,7 +13,7 @@ import type {
   InstanceHealthResponse,
 } from '@/types'
 
-const API_BASE = '/api'
+const API_BASE = '../api'
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${url}`, {
@@ -30,7 +30,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function fetchVersion(): Promise<string> {
   try {
-    const response = await fetch('/version.txt')
+    const response = await fetch('./version.txt')
     if (response.ok) {
       return (await response.text()).trim()
     }

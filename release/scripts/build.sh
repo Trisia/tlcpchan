@@ -1,0 +1,301 @@
+#!/bin/bash
+
+# TLCP Channel 跨平台编译脚本
+# 支持多平台、多架构编译
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RELEASE_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$RELEASE_DIR")"
+
+# 从 tlcpchan/main.go 中解析版本号
+VERSION=$(grep -E '^var\s+version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
+BUILD_DIR="$PROJECT_ROOT/build"
+DIST_DIR="$PROJECT_ROOT/dist"
+
+# 定义目标平台和架构
+PLATFORMS=(
+    "linux:amd64"
+    "linux:arm64"
+    "linux:loong64"
+    "darwin:amd64"
+    "darwin:arm64"
+    "windows:amd64"
+)
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 清理旧的构建文件
+cleanup() {
+    log_info "清理旧的构建文件..."
+    rm -rf "$BUILD_DIR"
+    rm -rf "$DIST_DIR"
+    mkdir -p "$BUILD_DIR"
+    mkdir -p "$DIST_DIR"
+}
+
+# 构建前端资源
+build_frontend() {
+    log_info "构建前端资源..."
+    if [ -d "$PROJECT_ROOT/tlcpchan-ui/web" ]; then
+        cd "$PROJECT_ROOT/tlcpchan-ui/web"
+        if [ ! -d "node_modules" ]; then
+            log_info "安装前端依赖..."
+            npm ci
+        fi
+        npm run build
+        cd "$PROJECT_ROOT"
+    else
+        log_warn "前端目录不存在，跳过前端构建"
+    fi
+}
+
+# 编译单个平台
+build_platform() {
+    local os=$1
+    local arch=$2
+    local output_dir="$BUILD_DIR/$os-$arch"
+    
+    log_info "编译 $os/$arch..."
+    
+    mkdir -p "$output_dir"
+    
+    local ext=""
+    if [ "$os" = "windows" ]; then
+        ext=".exe"
+    fi
+    
+    # 编译 tlcpchan
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan$ext" "$PROJECT_ROOT/tlcpchan/."
+    
+    # 编译 tlcpchan-cli
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-cli$ext" "$PROJECT_ROOT/tlcpchan-cli/."
+    
+    # 编译 tlcpchan-ui
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-ui$ext" "$PROJECT_ROOT/tlcpchan-ui/."
+    
+    # 复制前端资源
+    if [ -d "$PROJECT_ROOT/tlcpchan-ui/ui" ]; then
+        cp -r "$PROJECT_ROOT/tlcpchan-ui/ui" "$output_dir/"
+    fi
+    
+    # 复制信任证书
+    if [ -d "$PROJECT_ROOT/trustedcerts" ]; then
+        cp -r "$PROJECT_ROOT/trustedcerts" "$output_dir/rootcerts"
+    fi
+    
+    # 创建配置文件模板
+    cat > "$output_dir/config.yaml.example" << 'EOF'
+# TLCP Channel 配置文件
+api:
+  address: ":30080"
+ui:
+  address: ":30000"
+log:
+  level: "info"
+  path: "/etc/tlcpchan/logs"
+EOF
+    
+    # 对于 Linux 平台，添加 systemd 服务文件和安装/卸载脚本
+    if [ "$os" = "linux" ]; then
+        if [ -f "$RELEASE_DIR/systemd/tlcpchan.service" ]; then
+            cp "$RELEASE_DIR/systemd/tlcpchan.service" "$output_dir/"
+        fi
+        
+        # 创建安装脚本
+        cat > "$output_dir/install.sh" << 'INSTALL'
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "========================================"
+echo "  TLCP Channel 安装脚本"
+echo "========================================"
+
+# 创建 tlcpchan 用户
+if ! getent passwd tlcpchan > /dev/null; then
+    echo "[INFO] 创建 tlcpchan 用户..."
+    useradd -r -s /bin/false -d /etc/tlcpchan tlcpchan
+fi
+
+# 创建目录
+echo "[INFO] 创建目录..."
+mkdir -p /etc/tlcpchan
+mkdir -p /etc/tlcpchan/keystores
+mkdir -p /etc/tlcpchan/logs
+
+# 复制文件
+echo "[INFO] 复制文件..."
+cp "$SCRIPT_DIR/tlcpchan" /etc/tlcpchan/
+cp "$SCRIPT_DIR/tlcpchan-cli" /etc/tlcpchan/
+cp "$SCRIPT_DIR/tlcpchan-ui" /etc/tlcpchan/
+if [ -d "$SCRIPT_DIR/ui" ]; then
+    cp -r "$SCRIPT_DIR/ui" /etc/tlcpchan/
+fi
+if [ -d "$SCRIPT_DIR/rootcerts" ]; then
+    cp -r "$SCRIPT_DIR/rootcerts" /etc/tlcpchan/
+fi
+if [ -f "$SCRIPT_DIR/config.yaml.example" ]; then
+    cp "$SCRIPT_DIR/config.yaml.example" /etc/tlcpchan/
+fi
+if [ -f "$SCRIPT_DIR/tlcpchan.service" ]; then
+    cp "$SCRIPT_DIR/tlcpchan.service" /usr/lib/systemd/system/
+fi
+
+# 设置权限
+echo "[INFO] 设置权限..."
+chown -R tlcpchan:tlcpchan /etc/tlcpchan/keystores
+chown -R tlcpchan:tlcpchan /etc/tlcpchan/logs
+chmod +x /etc/tlcpchan/tlcpchan
+chmod +x /etc/tlcpchan/tlcpchan-cli
+chmod +x /etc/tlcpchan/tlcpchan-ui
+
+# 创建软链接
+echo "[INFO] 创建软链接..."
+ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan
+ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli
+ln -sf /etc/tlcpchan/tlcpchan-ui /usr/bin/tlcpchan-ui
+ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
+
+# 重新加载 systemd
+echo "[INFO] 重新加载 systemd..."
+systemctl daemon-reload 2>/dev/null || true
+
+echo "========================================"
+echo "  安装完成！"
+echo "========================================"
+echo "使用 'systemctl start tlcpchan' 启动服务"
+echo "使用 'systemctl enable tlcpchan' 设置开机自启"
+echo "使用 'tlcpchan -version' 查看版本"
+INSTALL
+        chmod +x "$output_dir/install.sh"
+        
+        # 创建卸载脚本
+        cat > "$output_dir/uninstall.sh" << 'UNINSTALL'
+#!/bin/bash
+set -e
+
+echo "========================================"
+echo "  TLCP Channel 卸载脚本"
+echo "========================================"
+
+# 停止服务
+echo "[INFO] 停止服务..."
+if systemctl is-active --quiet tlcpchan 2>/dev/null; then
+    systemctl stop tlcpchan
+fi
+
+# 禁用服务
+echo "[INFO] 禁用服务..."
+if systemctl is-enabled --quiet tlcpchan 2>/dev/null; then
+    systemctl disable tlcpchan
+fi
+
+# 重新加载 systemd
+echo "[INFO] 重新加载 systemd..."
+systemctl daemon-reload 2>/dev/null || true
+
+# 删除软链接
+echo "[INFO] 删除软链接..."
+rm -f /usr/bin/tlcpchan
+rm -f /usr/bin/tlcpchan-cli
+rm -f /usr/bin/tlcpchan-ui
+rm -f /usr/bin/tlcpc
+
+# 删除 systemd 服务文件
+echo "[INFO] 删除 systemd 服务文件..."
+rm -f /usr/lib/systemd/system/tlcpchan.service
+
+# 询问是否删除数据
+read -p "是否删除配置和数据目录 /etc/tlcpchan? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "[INFO] 删除 /etc/tlcpchan..."
+    rm -rf /etc/tlcpchan
+fi
+
+# 询问是否删除用户
+read -p "是否删除 tlcpchan 用户? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "[INFO] 删除 tlcpchan 用户..."
+    userdel tlcpchan 2>/dev/null || true
+fi
+
+echo "========================================"
+echo "  卸载完成！"
+echo "========================================"
+UNINSTALL
+        chmod +x "$output_dir/uninstall.sh"
+    fi
+    
+    log_info "完成 $os/$arch 编译"
+}
+
+# 创建压缩包
+create_archive() {
+    local os=$1
+    local arch=$2
+    local source_dir="$BUILD_DIR/$os-$arch"
+    local archive_name="tlcpchan_${VERSION}_${os}_${arch}"
+    
+    log_info "创建 $archive_name 压缩包..."
+    
+    cd "$BUILD_DIR"
+    
+    if [ "$os" = "windows" ]; then
+        # Windows 使用 zip
+        if command -v zip &> /dev/null; then
+            zip -r "$DIST_DIR/$archive_name.zip" "$os-$arch"
+        else
+            log_warn "zip 命令不可用，跳过 Windows zip 打包"
+        fi
+    else
+        # Unix 使用 tar.gz
+        tar -czf "$DIST_DIR/$archive_name.tar.gz" -C "$BUILD_DIR" "$os-$arch"
+    fi
+    
+    cd "$PROJECT_ROOT"
+}
+
+# 主函数
+main() {
+    log_info "========================================"
+    log_info "  TLCP Channel 编译脚本"
+    log_info "  版本: $VERSION"
+    log_info "========================================"
+    
+    cleanup
+    build_frontend
+    
+    for platform in "${PLATFORMS[@]}"; do
+        IFS=":" read -r os arch <<< "$platform"
+        build_platform "$os" "$arch"
+        create_archive "$os" "$arch"
+    done
+    
+    log_info "========================================"
+    log_info "  编译完成！"
+    log_info "  输出目录: $DIST_DIR"
+    log_info "========================================"
+}
+
+main "$@"

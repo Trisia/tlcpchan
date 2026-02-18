@@ -24,28 +24,16 @@ COPY tlcpchan-cli/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan-cli .
 
 # ============================================
-# 阶段 3: 构建前端静态资源（输出到 tlcpchan-ui/ui）
+# 阶段 3: 构建前端静态资源
 # ============================================
 FROM node:20-alpine3.18 AS builder-frontend
 
 WORKDIR /build
-COPY tlcpchan-ui/web/package.json tlcpchan-ui/web/package-lock.json ./
+COPY tlcpchan-ui/package.json tlcpchan-ui/package-lock.json ./
 RUN npm ci
 
-COPY tlcpchan-ui/web/ ./
-RUN npm run build
-
-# ============================================
-# 阶段 4: 构建 UI 服务
-# ============================================
-FROM golang:1.21-alpine3.18 AS builder-ui
-
-WORKDIR /build
-COPY tlcpchan-ui/go.mod tlcpchan-ui/go.sum ./
-RUN go mod download
-
 COPY tlcpchan-ui/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan-ui .
+RUN npm run build
 
 # ============================================
 # 最终运行镜像
@@ -68,10 +56,9 @@ RUN mkdir -p keystores rootcerts logs ui
 # 复制可执行文件到 /etc/tlcpchan/（工作目录）
 COPY --from=builder-tlcpchan /build/bin/tlcpchan ./
 COPY --from=builder-cli /build/bin/tlcpchan-cli ./
-COPY --from=builder-ui /build/bin/tlcpchan-ui ./
 
-# 复制前端静态资源 - 从 builder-frontend 的 /ui（即 tlcpchan-ui/ui）
-COPY --from=builder-frontend /ui ./ui/
+# 复制前端静态资源
+COPY --from=builder-frontend /build/ui ./ui/
 
 # 复制 trustedcerts 目录中的所有证书到 rootcerts（支持多种格式）
 COPY trustedcerts/ ./rootcerts/
@@ -82,11 +69,10 @@ ENV PATH="/etc/tlcpchan:${PATH}"
 # 创建软链接到 /usr/bin/ 以便兼容习惯用法
 RUN ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli && \
-    ln -sf /etc/tlcpchan/tlcpchan-ui /usr/bin/tlcpchan-ui && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
 
-# 暴露端口
-EXPOSE 30080 30000 30443
+# 暴露端口（仅 30080 和 30443，不再需要 30000）
+EXPOSE 30080 30443
 
 # 数据卷挂载点（持久化数据）
 # 注意：rootcerts 不使用 volume，因为我们预置了证书
@@ -96,7 +82,5 @@ VOLUME ["/etc/tlcpchan/keystores", "/etc/tlcpchan/logs"]
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:30080/api/system/health || exit 1
 
-# 默认启动命令（使用相对路径或 PATH 中的命令）
+# 默认启动命令
 ENTRYPOINT ["tlcpchan"]
-# 默认参数：启动 UI 服务
-CMD ["-ui"]

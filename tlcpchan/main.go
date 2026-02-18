@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -24,7 +23,6 @@ var (
 	configFile  = flag.String("config", "", "配置文件路径")
 	workDirFlag = flag.String("workdir", "", "工作目录路径")
 	showVersion = flag.Bool("version", false, "显示版本信息")
-	startUI     = flag.Bool("ui", false, "启动 UI 服务")
 	version     = "1.0.0"
 )
 
@@ -60,43 +58,6 @@ func ensureWorkDir(dir string) string {
 	return dir
 }
 
-// findUIExecutable 查找 UI 可执行文件
-// 首先尝试在当前可执行文件同目录查找，然后尝试系统 PATH
-func findUIExecutable() (string, error) {
-	uiName := getUIExecutableName()
-
-	exe, err := os.Executable()
-	if err == nil {
-		exeDir := filepath.Dir(exe)
-		uiPath := filepath.Join(exeDir, uiName)
-		if _, err := os.Stat(uiPath); err == nil {
-			return uiPath, nil
-		}
-	}
-
-	return exec.LookPath(uiName)
-}
-
-// startUIServer 启动 UI 服务子进程
-// 参数:
-//   - uiPath: UI 可执行文件路径
-//   - workDir: 工作目录
-// 返回值:
-//   - *exec.Cmd: 子进程对象
-//   - error: 错误信息
-func startUIServer(uiPath, workDir string) (*exec.Cmd, error) {
-	cmd := exec.Command(uiPath, "-api", "http://localhost:30080")
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("启动 UI 服务失败: %w", err)
-	}
-
-	return cmd, nil
-}
-
 func main() {
 	flag.Parse()
 
@@ -112,8 +73,6 @@ func main() {
 	if configPath == "" {
 		configPath = filepath.Join(wd, "config.yaml")
 	}
-
-	var uiCmd *exec.Cmd
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -192,6 +151,7 @@ func main() {
 		Version:         version,
 		KeyStoreManager: keyStoreMgr,
 		RootCertManager: rootCertMgr,
+		StaticDir:       filepath.Join(wd, "ui"),
 	}
 	apiServer := controller.NewServer(opts)
 
@@ -201,49 +161,12 @@ func main() {
 		}
 	}()
 
-	if *startUI {
-		uiPath, err := findUIExecutable()
-		if err != nil {
-			logger.Error("未找到 UI 程序，跳过 UI 启动: %v", err)
-			logger.Error("UI 程序应命名为 %q，可放在当前程序同目录或系统 PATH 中", getUIExecutableName())
-		} else {
-			uiCmd, err = startUIServer(uiPath, wd)
-			if err != nil {
-				logger.Error("启动 UI 服务失败: %v", err)
-			} else {
-				logger.Info("UI 服务已启动 (PID: %d)", uiCmd.Process.Pid)
-			}
-		}
-	}
-
 	logger.Info("tlcpchan %s 启动完成", version)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
 	logger.Info("收到信号 %v，开始关闭...", sig)
-
-	if uiCmd != nil && uiCmd.Process != nil {
-		logger.Info("正在关闭 UI 服务...")
-		if err := uiCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			logger.Warn("发送 SIGTERM 到 UI 服务失败: %v，尝试强制关闭", err)
-			uiCmd.Process.Kill()
-		} else {
-			done := make(chan error, 1)
-			go func() {
-				done <- uiCmd.Wait()
-			}()
-			select {
-			case <-done:
-				logger.Info("UI 服务已正常关闭")
-			case <-time.After(5 * time.Second):
-				logger.Warn("UI 服务关闭超时，强制关闭")
-				uiCmd.Process.Kill()
-				uiCmd.Wait()
-				logger.Info("UI 服务已强制关闭")
-			}
-		}
-	}
 
 	instMgr.StopAll()
 

@@ -54,6 +54,24 @@ temp/
 node_modules/
 dist/
 .turbo/
+tlcpchan-ui/ui/
+
+# 构建和打包产物
+build/
+dist/
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+*.msi
+checksums.txt
+
+# GoReleaser
+.goreleaser-dist/
+
+# 临时脚本（GoReleaser 生成）
+release/scripts/postinstall.sh
+release/scripts/preremove.sh
 
 # 环境变量
 .env

@@ -1,0 +1,14 @@
+[Unit]
+Description=TLCP Channel Proxy Service
+After=network.target
+
+[Service]
+Type=simple
+User=tlcpchan
+WorkingDirectory=/etc/tlcpchan
+ExecStart=/etc/tlcpchan/tlcpchan
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

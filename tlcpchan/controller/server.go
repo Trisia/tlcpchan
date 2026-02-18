@@ -3,6 +3,9 @@ package controller
 import (
 	"context"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Trisia/tlcpchan/config"
@@ -11,7 +14,7 @@ import (
 	"github.com/Trisia/tlcpchan/security"
 )
 
-// Server API服务器，提供RESTful API接口
+// Server API服务器，提供RESTful API接口和UI静态文件服务
 type Server struct {
 	httpServer  *http.Server
 	router      *Router
@@ -19,6 +22,8 @@ type Server struct {
 	log         *logger.Logger
 	keyStoreMgr *security.KeyStoreManager
 	rootCertMgr *security.RootCertManager
+	staticDir   string
+	fileServer  http.Handler
 }
 
 // ServerOptions API服务器配置选项
@@ -28,6 +33,7 @@ type ServerOptions struct {
 	Version         string
 	KeyStoreManager *security.KeyStoreManager
 	RootCertManager *security.RootCertManager
+	StaticDir       string
 }
 
 // NewServer 创建新的API服务器
@@ -68,20 +74,73 @@ func NewServer(opts ServerOptions) *Server {
 	securityCtrl.RegisterRoutes(router)
 	systemCtrl.RegisterRoutes(router)
 
+	staticDir := opts.StaticDir
+	if staticDir == "" {
+		staticDir = "./ui"
+	}
+	absStaticDir, err := filepath.Abs(staticDir)
+	if err != nil {
+		absStaticDir = staticDir
+	}
+
 	return &Server{
 		router:      router,
 		cfg:         opts.Config,
 		log:         log,
 		keyStoreMgr: keyStoreMgr,
 		rootCertMgr: rootCertMgr,
+		staticDir:   absStaticDir,
+		fileServer:  http.FileServer(http.Dir(absStaticDir)),
 	}
+}
+
+// ServeHTTP 实现 http.Handler 接口
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		http.Redirect(w, r, "./ui/", http.StatusFound)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/ui") {
+		s.handleUI(w, r)
+		return
+	}
+
+	s.router.ServeHTTP(w, r)
+}
+
+// handleUI 处理 UI 静态文件请求
+func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
+	uiPath := strings.TrimPrefix(r.URL.Path, "/ui")
+	if uiPath == "" {
+		uiPath = "/"
+	}
+
+	originalPath := r.URL.Path
+	r.URL.Path = uiPath
+
+	filePath := filepath.Join(s.staticDir, uiPath)
+	fi, err := os.Stat(filePath)
+	if err == nil && !fi.IsDir() {
+		s.fileServer.ServeHTTP(w, r)
+		return
+	}
+
+	indexPath := filepath.Join(s.staticDir, "index.html")
+	if _, err := os.Stat(indexPath); err == nil {
+		r.URL.Path = originalPath
+		http.ServeFile(w, r, indexPath)
+		return
+	}
+
+	http.NotFound(w, r)
 }
 
 // Start 启动API服务器
 func (s *Server) Start(addr string) error {
 	s.httpServer = &http.Server{
 		Addr:         addr,
-		Handler:      s.router,
+		Handler:      s,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -101,5 +160,5 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.router
+	return s
 }
