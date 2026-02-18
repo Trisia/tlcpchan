@@ -1,0 +1,49 @@
+name: "tlcpchan"
+arch: "{{ARCH}}"
+platform: "linux"
+version: "{{VERSION}}"
+section: "default"
+priority: "optional"
+maintainer: "TLCP Channel Team"
+description: |
+  TLCP/TLS 协议代理工具，支持双协议并行工作
+vendor: "TLCP Channel"
+homepage: "https://github.com/Trisia/tlcpchan"
+license: "Apache-2.0"
+contents:
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan"
+    dst: "/etc/tlcpchan/tlcpchan"
+    file_info:
+      mode: 0755
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan-cli"
+    dst: "/etc/tlcpchan/tlcpchan-cli"
+    file_info:
+      mode: 0755
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan-ui"
+    dst: "/etc/tlcpchan/tlcpchan-ui"
+    file_info:
+      mode: 0755
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/ui"
+    dst: "/etc/tlcpchan/ui"
+    type: tree
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/rootcerts"
+    dst: "/etc/tlcpchan/rootcerts"
+    type: tree
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/config.yaml.example"
+    dst: "/etc/tlcpchan/config.yaml.example"
+    type: config
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan.service"
+    dst: "/usr/lib/systemd/system/tlcpchan.service"
+    file_info:
+      mode: 0644
+  - dst: "/etc/tlcpchan/keystores"
+    type: dir
+    file_info:
+      mode: 0755
+  - dst: "/etc/tlcpchan/logs"
+    type: dir
+    file_info:
+      mode: 0755
+scripts:
+  postinstall: "{{POSTINST_PATH}}"
+  preremove: "{{PRERM_PATH}}"

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="TLCP Channel" Language="1033" Version="$(var.Version)" Manufacturer="tlcpchan" UpgradeCode="PUT-GUID-HERE">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate />
+
+    <Feature Id="ProductFeature" Title="TLCP Channel" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ConfigComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationDesktopShortcut" />
+    </Feature>
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <UIRef Id="WixUI_Minimal" />
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="TLCP Channel" />
+      </Directory>
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="CONFIGFOLDER" Name="TLCP Channel" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="TLCP Channel" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="tlcpchan.exe" Guid="*">
+        <File Id="tlcpchan.exe" Name="tlcpchan.exe" Source="$(var.SourceDir)\tlcpchan.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="tlcpchan-cli.exe" Guid="*">
+        <File Id="tlcpchan-cli.exe" Name="tlcpchan-cli.exe" Source="$(var.SourceDir)\tlcpchan-cli.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
+      <Component Id="UiFolder" Guid="*" Permanent="yes">
+        <CreateFolder />
+      </Component>
+      <Component Id="RootCertsFolder" Guid="*" Permanent="yes">
+        <CreateFolder />
+      </Component>
+      <Component Id="KeystoresFolder" Guid="*" Permanent="yes">
+        <CreateFolder />
+      </Component>
+      <Component Id="LogsFolder" Guid="*" Permanent="yes">
+        <CreateFolder />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut Id="ApplicationStartMenuShortcut" Name="TLCP Channel" Description="TLCP Channel Proxy Service" Target="[INSTALLFOLDER]tlcpchan.exe" WorkingDirectory="CONFIGFOLDER" />
+      <Shortcut Id="UninstallShortcut" Name="Uninstall TLCP Channel" Description="Uninstalls TLCP Channel" Target="[System64Folder]msiexec.exe" Arguments="/x [ProductCode]" />
+      <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="ApplicationDesktopShortcut" Directory="DesktopFolder" Guid="*">
+      <Shortcut Id="ApplicationDesktopShortcut" Name="TLCP Channel" Description="TLCP Channel Proxy Service" Target="[INSTALLFOLDER]tlcpchan.exe" WorkingDirectory="CONFIGFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Name="desktopshortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

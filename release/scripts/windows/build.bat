@@ -98,15 +98,6 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-REM 编译 tlcpchan-ui
-echo [INFO] 编译 tlcpchan-ui...
-cd "%PROJECT_ROOT%\tlcpchan-ui"
-go build -ldflags="-s -w -X main.version=%VERSION%" -o "%OUTPUT_DIR%\tlcpchan-ui.exe" .
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] tlcpchan-ui 编译失败!
-    exit /b 1
-)
-
 cd "%PROJECT_ROOT%"
 
 REM 复制前端资源
@@ -121,70 +112,12 @@ if exist "%PROJECT_ROOT%\trustedcerts" (
     xcopy /E /I /Y "%PROJECT_ROOT%\trustedcerts" "%OUTPUT_DIR%\rootcerts\"
 )
 
-REM 创建配置文件模板
-echo [INFO] 创建配置文件模板...
-(
-echo # TLCP Channel 配置文件
-echo api:
-echo   address: ":30080"
-echo ui:
-echo   address: ":30000"
-echo log:
-echo   level: "info"
-echo   path: "%%ALLUSERSPROFILE%%\TLCP Channel\logs"
-) > "%OUTPUT_DIR%\config.yaml.example"
-
 REM 创建安装脚本
 echo [INFO] 创建安装脚本...
-(
-echo @echo off
-echo SETLOCAL
-echo.
-echo set "INSTALL_DIR=%%ProgramFiles%%\TLCP Channel"
-echo set "CONFIG_DIR=%%ALLUSERSPROFILE%%\TLCP Channel"
-echo.
-echo echo Installing TLCP Channel...
-echo.
-echo REM 创建目录
-echo if not exist "%%INSTALL_DIR%%" mkdir "%%INSTALL_DIR%%"
-echo if not exist "%%CONFIG_DIR%%" mkdir "%%CONFIG_DIR%%"
-echo if not exist "%%CONFIG_DIR%%\keystores" mkdir "%%CONFIG_DIR%%\keystores"
-echo if not exist "%%CONFIG_DIR%%\logs" mkdir "%%CONFIG_DIR%%\logs"
-echo if not exist "%%CONFIG_DIR%%\rootcerts" mkdir "%%CONFIG_DIR%%\rootcerts"
-echo.
-echo REM 复制文件
-echo xcopy /E /I /Y "%%~dp0tlcpchan.exe" "%%INSTALL_DIR%%\"
-echo xcopy /E /I /Y "%%~dp0tlcpchan-cli.exe" "%%INSTALL_DIR%%\"
-echo xcopy /E /I /Y "%%~dp0tlcpchan-ui.exe" "%%INSTALL_DIR%%\"
-echo xcopy /E /I /Y "%%~dp0ui" "%%CONFIG_DIR%%\ui\"
-echo xcopy /E /I /Y "%%~dp0rootcerts" "%%CONFIG_DIR%%\rootcerts\"
-echo xcopy /E /I /Y "%%~dp0config.yaml.example" "%%CONFIG_DIR%%\"
-echo.
-echo REM 添加到 PATH
-echo setx PATH "%%PATH%%;%%INSTALL_DIR%%" /M
-echo.
-echo echo Installation complete!
-echo echo Please restart your terminal to update PATH.
-echo echo To start TLCP Channel, run: tlcpchan -ui
-echo pause
-) > "%OUTPUT_DIR%\install.bat"
+copy "%SCRIPT_DIR%\templates\windows\install.bat" "%OUTPUT_DIR%\install.bat"
 
 REM 创建卸载脚本
-(
-echo @echo off
-echo SETLOCAL
-echo.
-echo set "INSTALL_DIR=%%ProgramFiles%%\TLCP Channel"
-echo set "CONFIG_DIR=%%ALLUSERSPROFILE%%\TLCP Channel"
-echo.
-echo echo Uninstalling TLCP Channel...
-echo.
-echo REM 删除程序目录
-echo if exist "%%INSTALL_DIR%%" rmdir /S /Q "%%INSTALL_DIR%%"
-echo.
-echo echo Uninstallation complete!
-echo pause
-) > "%OUTPUT_DIR%\uninstall.bat"
+copy "%SCRIPT_DIR%\templates\windows\uninstall.bat" "%OUTPUT_DIR%\uninstall.bat"
 
 REM 创建 zip 包
 where zip >nul 2>nul

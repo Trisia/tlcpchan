@@ -88,9 +88,6 @@ build_platform() {
     # 编译 tlcpchan-cli
     CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-cli$ext" "$PROJECT_ROOT/tlcpchan-cli/."
     
-    # 编译 tlcpchan-ui
-    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-ui$ext" "$PROJECT_ROOT/tlcpchan-ui/."
-    
     # 复制前端资源
     if [ -d "$PROJECT_ROOT/tlcpchan-ui/ui" ]; then
         cp -r "$PROJECT_ROOT/tlcpchan-ui/ui" "$output_dir/"
@@ -101,17 +98,7 @@ build_platform() {
         cp -r "$PROJECT_ROOT/trustedcerts" "$output_dir/rootcerts"
     fi
     
-    # 创建配置文件模板
-    cat > "$output_dir/config.yaml.example" << 'EOF'
-# TLCP Channel 配置文件
-api:
-  address: ":30080"
-ui:
-  address: ":30000"
-log:
-  level: "info"
-  path: "/etc/tlcpchan/logs"
-EOF
+
     
     # 对于 Linux 平台，添加 systemd 服务文件和安装/卸载脚本
     if [ "$os" = "linux" ]; then
@@ -119,131 +106,12 @@ EOF
             cp "$RELEASE_DIR/systemd/tlcpchan.service" "$output_dir/"
         fi
         
-        # 创建安装脚本
-        cat > "$output_dir/install.sh" << 'INSTALL'
-#!/bin/bash
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "========================================"
-echo "  TLCP Channel 安装脚本"
-echo "========================================"
-
-# 创建 tlcpchan 用户
-if ! getent passwd tlcpchan > /dev/null; then
-    echo "[INFO] 创建 tlcpchan 用户..."
-    useradd -r -s /bin/false -d /etc/tlcpchan tlcpchan
-fi
-
-# 创建目录
-echo "[INFO] 创建目录..."
-mkdir -p /etc/tlcpchan
-mkdir -p /etc/tlcpchan/keystores
-mkdir -p /etc/tlcpchan/logs
-
-# 复制文件
-echo "[INFO] 复制文件..."
-cp "$SCRIPT_DIR/tlcpchan" /etc/tlcpchan/
-cp "$SCRIPT_DIR/tlcpchan-cli" /etc/tlcpchan/
-cp "$SCRIPT_DIR/tlcpchan-ui" /etc/tlcpchan/
-if [ -d "$SCRIPT_DIR/ui" ]; then
-    cp -r "$SCRIPT_DIR/ui" /etc/tlcpchan/
-fi
-if [ -d "$SCRIPT_DIR/rootcerts" ]; then
-    cp -r "$SCRIPT_DIR/rootcerts" /etc/tlcpchan/
-fi
-if [ -f "$SCRIPT_DIR/config.yaml.example" ]; then
-    cp "$SCRIPT_DIR/config.yaml.example" /etc/tlcpchan/
-fi
-if [ -f "$SCRIPT_DIR/tlcpchan.service" ]; then
-    cp "$SCRIPT_DIR/tlcpchan.service" /usr/lib/systemd/system/
-fi
-
-# 设置权限
-echo "[INFO] 设置权限..."
-chown -R tlcpchan:tlcpchan /etc/tlcpchan/keystores
-chown -R tlcpchan:tlcpchan /etc/tlcpchan/logs
-chmod +x /etc/tlcpchan/tlcpchan
-chmod +x /etc/tlcpchan/tlcpchan-cli
-chmod +x /etc/tlcpchan/tlcpchan-ui
-
-# 创建软链接
-echo "[INFO] 创建软链接..."
-ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan
-ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli
-ln -sf /etc/tlcpchan/tlcpchan-ui /usr/bin/tlcpchan-ui
-ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
-
-# 重新加载 systemd
-echo "[INFO] 重新加载 systemd..."
-systemctl daemon-reload 2>/dev/null || true
-
-echo "========================================"
-echo "  安装完成！"
-echo "========================================"
-echo "使用 'systemctl start tlcpchan' 启动服务"
-echo "使用 'systemctl enable tlcpchan' 设置开机自启"
-echo "使用 'tlcpchan -version' 查看版本"
-INSTALL
+        # 复制安装脚本
+        cp "$SCRIPT_DIR/templates/linux/install.sh" "$output_dir/install.sh"
         chmod +x "$output_dir/install.sh"
         
-        # 创建卸载脚本
-        cat > "$output_dir/uninstall.sh" << 'UNINSTALL'
-#!/bin/bash
-set -e
-
-echo "========================================"
-echo "  TLCP Channel 卸载脚本"
-echo "========================================"
-
-# 停止服务
-echo "[INFO] 停止服务..."
-if systemctl is-active --quiet tlcpchan 2>/dev/null; then
-    systemctl stop tlcpchan
-fi
-
-# 禁用服务
-echo "[INFO] 禁用服务..."
-if systemctl is-enabled --quiet tlcpchan 2>/dev/null; then
-    systemctl disable tlcpchan
-fi
-
-# 重新加载 systemd
-echo "[INFO] 重新加载 systemd..."
-systemctl daemon-reload 2>/dev/null || true
-
-# 删除软链接
-echo "[INFO] 删除软链接..."
-rm -f /usr/bin/tlcpchan
-rm -f /usr/bin/tlcpchan-cli
-rm -f /usr/bin/tlcpchan-ui
-rm -f /usr/bin/tlcpc
-
-# 删除 systemd 服务文件
-echo "[INFO] 删除 systemd 服务文件..."
-rm -f /usr/lib/systemd/system/tlcpchan.service
-
-# 询问是否删除数据
-read -p "是否删除配置和数据目录 /etc/tlcpchan? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "[INFO] 删除 /etc/tlcpchan..."
-    rm -rf /etc/tlcpchan
-fi
-
-# 询问是否删除用户
-read -p "是否删除 tlcpchan 用户? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "[INFO] 删除 tlcpchan 用户..."
-    userdel tlcpchan 2>/dev/null || true
-fi
-
-echo "========================================"
-echo "  卸载完成！"
-echo "========================================"
-UNINSTALL
+        # 复制卸载脚本
+        cp "$SCRIPT_DIR/templates/linux/uninstall.sh" "$output_dir/uninstall.sh"
         chmod +x "$output_dir/uninstall.sh"
     fi
     

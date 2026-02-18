@@ -73,6 +73,9 @@ checksums.txt
 release/scripts/postinstall.sh
 release/scripts/preremove.sh
 
+# WiX Toolset（自动下载）
+release/scripts/windows/wix-toolset/
+
 # 环境变量
 .env
 .env.local

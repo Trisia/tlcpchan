@@ -1,0 +1,111 @@
+#!/bin/bash
+
+# TLCP Channel RPM 打包脚本
+# 使用 nfpm 创建 rpm 包
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LINUX_DIR="$(dirname "$SCRIPT_DIR")"
+SCRIPTS_DIR="$(dirname "$LINUX_DIR")"
+RELEASE_DIR="$(dirname "$SCRIPTS_DIR")"
+PROJECT_ROOT="$(dirname "$RELEASE_DIR")"
+
+# 从 tlcpchan/main.go 中解析版本号
+VERSION=$(grep -E '^var\s+version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
+BUILD_DIR="$PROJECT_ROOT/build"
+DIST_DIR="$PROJECT_ROOT/dist"
+
+ARCHES=("amd64" "arm64" "loong64")
+
+log_info() {
+    echo -e "\033[0;32m[INFO]\033[0m $1"
+}
+
+# 检查 nfpm 是否可用
+check_nfpm() {
+    if ! command -v nfpm &> /dev/null; then
+        log_info "nfpm 未安装，正在安装..."
+        go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+    fi
+}
+
+# 创建 rpm 包配置
+create_nfpm_config() {
+    local arch=$1
+    local package_arch=$arch
+    if [ "$arch" = "amd64" ]; then
+        package_arch="x86_64"
+    elif [ "$arch" = "arm64" ]; then
+        package_arch="aarch64"
+    elif [ "$arch" = "loong64" ]; then
+        package_arch="loongarch64"
+    fi
+    
+    sed -e "s|{{PACKAGE_ARCH}}|$package_arch|g" \
+        -e "s|{{VERSION}}|$VERSION|g" \
+        -e "s|{{BUILD_DIR}}|$BUILD_DIR|g" \
+        -e "s|{{POSTINST_RPM_PATH}}|$BUILD_DIR/postinst-rpm.sh|g" \
+        -e "s|{{PRERM_RPM_PATH}}|$BUILD_DIR/prerm-rpm.sh|g" \
+        "$SCRIPT_DIR/nfpm.yaml.template" > "$BUILD_DIR/nfpm-rpm-$arch.yaml"
+}
+
+# 创建 postinst 脚本
+create_postinst() {
+    cp "$SCRIPT_DIR/postinst.sh" "$BUILD_DIR/postinst-rpm.sh"
+    chmod +x "$BUILD_DIR/postinst-rpm.sh"
+}
+
+# 创建 prerm 脚本
+create_prerm() {
+    cp "$SCRIPT_DIR/prerm.sh" "$BUILD_DIR/prerm-rpm.sh"
+    chmod +x "$BUILD_DIR/prerm-rpm.sh"
+}
+
+# 构建 rpm 包
+build_rpm() {
+    local arch=$1
+    log_info "构建 $arch rpm 包..."
+    
+    create_nfpm_config "$arch"
+    nfpm package -f "$BUILD_DIR/nfpm-rpm-$arch.yaml" -p rpm -t "$DIST_DIR"
+    
+    local package_arch=$arch
+    if [ "$arch" = "amd64" ]; then
+        package_arch="x86_64"
+    elif [ "$arch" = "arm64" ]; then
+        package_arch="aarch64"
+    elif [ "$arch" = "loong64" ]; then
+        package_arch="loongarch64"
+    fi
+    mv "$DIST_DIR/tlcpchan-${VERSION}-1.${package_arch}.rpm" "$DIST_DIR/tlcpchan_${VERSION}_linux_${arch}.rpm"
+}
+
+main() {
+    log_info "========================================"
+    log_info "  TLCP Channel RPM 打包"
+    log_info "  版本: $VERSION"
+    log_info "========================================"
+    
+    mkdir -p "$BUILD_DIR"
+    mkdir -p "$DIST_DIR"
+    
+    check_nfpm
+    create_postinst
+    create_prerm
+    
+    for arch in "${ARCHES[@]}"; do
+        if [ -d "$BUILD_DIR/linux-$arch" ]; then
+            build_rpm "$arch"
+        else
+            log_info "跳过 $arch，未找到编译产物"
+        fi
+    done
+    
+    log_info "========================================"
+    log_info "  rpm 打包完成！"
+    log_info "  输出目录: $DIST_DIR"
+    log_info "========================================"
+}
+
+main "$@"

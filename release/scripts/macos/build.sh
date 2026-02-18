@@ -5,7 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RELEASE_DIR="$(dirname "$SCRIPT_DIR")"
+SCRIPTS_DIR="$(dirname "$SCRIPT_DIR")"
+RELEASE_DIR="$(dirname "$SCRIPTS_DIR")"
 PROJECT_ROOT="$(dirname "$RELEASE_DIR")"
 
 # 从 tlcpchan/main.go 中解析版本号
@@ -31,37 +32,10 @@ create_app_bundle() {
     mkdir -p "$app_dir/Contents/Resources"
     
     # 创建 Info.plist
-    cat > "$app_dir/Contents/Info.plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>tlcpchan-wrapper</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.trisia.tlcpchan</string>
-    <key>CFBundleName</key>
-    <string>TLCP Channel</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$VERSION</string>
-    <key>CFBundleVersion</key>
-    <string>$VERSION</string>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.utilities</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>10.15</string>
-</dict>
-</plist>
-EOF
+    sed -e "s|{{VERSION}}|$VERSION|g" "$SCRIPT_DIR/Info.plist.template" > "$app_dir/Contents/Info.plist"
     
     # 创建启动脚本
-    cat > "$app_dir/Contents/MacOS/tlcpchan-wrapper" << 'EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-open -a Terminal.app ./tlcpchan-ui
-EOF
+    cp "$SCRIPT_DIR/tlcpchan-wrapper" "$app_dir/Contents/MacOS/tlcpchan-wrapper"
     chmod +x "$app_dir/Contents/MacOS/tlcpchan-wrapper"
     
     # 复制可执行文件
@@ -86,29 +60,7 @@ EOF
 # 创建 launchd plist
 create_launchd_plist() {
     local arch=$1
-    cat > "$BUILD_DIR/darwin-$arch/com.trisia.tlcpchan.plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.trisia.tlcpchan</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/tlcpchan</string>
-        <string>-ui</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/var/log/tlcpchan.log</string>
-    <key>StandardErrorPath</key>
-    <string>/var/log/tlcpchan.err.log</string>
-</dict>
-</plist>
-EOF
+    cp "$SCRIPT_DIR/com.trisia.tlcpchan.plist" "$BUILD_DIR/darwin-$arch/com.trisia.tlcpchan.plist"
 }
 
 main() {
