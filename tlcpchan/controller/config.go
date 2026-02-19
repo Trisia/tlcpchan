@@ -408,8 +408,61 @@ func (c *ConfigController) Reload(w http.ResponseWriter, r *http.Request) {
 	Success(w, config.Get())
 }
 
+/**
+ * @api {post} /api/config/validate 验证配置
+ * @apiName ValidateConfig
+ * @apiGroup Config
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 验证配置文件的有效性，由服务端加载文件并检测
+ *
+ * @apiBody {String} [path] 配置文件路径，可选，不提供则使用默认配置文件
+ *
+ * @apiSuccessExample {text} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     配置文件有效
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     配置验证失败: 具体错误信息
+ */
+func (c *ConfigController) Validate(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := parseJSON(r, &req); err != nil {
+		BadRequest(w, "无效的请求体: "+err.Error())
+		return
+	}
+
+	configPath := req.Path
+	if configPath == "" {
+		configPath = c.configPath
+	}
+
+	if configPath == "" {
+		BadRequest(w, "请指定配置文件路径")
+		return
+	}
+
+	cleanPath := filepath.Clean(configPath)
+	if !filepath.IsAbs(cleanPath) {
+		if c.cfg.WorkDir != "" {
+			cleanPath = filepath.Join(c.cfg.WorkDir, cleanPath)
+		}
+	}
+
+	if _, err := config.Load(cleanPath); err != nil {
+		BadRequest(w, err.Error())
+		return
+	}
+
+	SuccessText(w, "配置文件有效")
+}
+
 func (c *ConfigController) RegisterRoutes(router *Router) {
 	router.GET("/api/config", c.Get)
 	router.POST("/api/config", c.Update)
 	router.POST("/api/config/reload", c.Reload)
+	router.POST("/api/config/validate", c.Validate)
 }

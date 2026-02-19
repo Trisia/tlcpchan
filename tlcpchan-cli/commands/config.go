@@ -1,9 +1,7 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -18,21 +16,7 @@ func configShow(args []string) error {
 	}
 
 	fmt.Println("当前配置:")
-	cfgBytes, err := json.Marshal(cfg)
-	if err != nil {
-		encoder := jsonEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(cfg)
-	}
-
-	var cfgMap map[string]interface{}
-	if err := json.Unmarshal(cfgBytes, &cfgMap); err != nil {
-		encoder := jsonEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(cfg)
-	}
-
-	printMap(cfgMap, 0)
+	printMap(cfg, 0)
 	return nil
 }
 
@@ -88,14 +72,12 @@ func configValidate(args []string) error {
 		return fmt.Errorf("请使用 -f 指定配置文件")
 	}
 
-	data, err := os.ReadFile(*file)
-	if err != nil {
-		return fmt.Errorf("读取文件失败: %w", err)
+	req := map[string]string{
+		"path": *file,
 	}
 
-	var cfg map[string]interface{}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return fmt.Errorf("解析配置失败: %w", err)
+	if err := cli.ValidateConfig(req); err != nil {
+		return err
 	}
 
 	if isJSONOutput() {

@@ -108,26 +108,36 @@ type InstanceConfig struct {
 	BufferSize int         `json:"bufferSize,omitempty"`
 }
 
+type KeyStoreConfig struct {
+	Name   string            `json:"name,omitempty"`
+	Type   string            `json:"type"`
+	Params map[string]string `json:"params"`
+}
+
 type TLCPConfig struct {
-	Auth               string   `json:"auth,omitempty"`
-	MinVersion         string   `json:"minVersion,omitempty"`
-	MaxVersion         string   `json:"maxVersion,omitempty"`
-	CipherSuites       []string `json:"cipherSuites,omitempty"`
-	CurvePreferences   []string `json:"curvePreferences,omitempty"`
-	SessionTickets     bool     `json:"sessionTickets,omitempty"`
-	SessionCache       bool     `json:"sessionCache,omitempty"`
-	InsecureSkipVerify bool     `json:"insecureSkipVerify,omitempty"`
+	Auth               string          `json:"auth,omitempty"`
+	MinVersion         string          `json:"minVersion,omitempty"`
+	MaxVersion         string          `json:"maxVersion,omitempty"`
+	CipherSuites       []string        `json:"cipherSuites,omitempty"`
+	CurvePreferences   []string        `json:"curvePreferences,omitempty"`
+	SessionTickets     bool            `json:"sessionTickets,omitempty"`
+	SessionCache       bool            `json:"sessionCache,omitempty"`
+	InsecureSkipVerify bool            `json:"insecureSkipVerify,omitempty"`
+	KeyStore           string          `json:"keyStore,omitempty"`
+	Keystore           *KeyStoreConfig `json:"keystore,omitempty"`
 }
 
 type TLSConfig struct {
-	Auth               string   `json:"auth,omitempty"`
-	MinVersion         string   `json:"minVersion,omitempty"`
-	MaxVersion         string   `json:"maxVersion,omitempty"`
-	CipherSuites       []string `json:"cipherSuites,omitempty"`
-	CurvePreferences   []string `json:"curvePreferences,omitempty"`
-	SessionTickets     bool     `json:"sessionTickets,omitempty"`
-	SessionCache       bool     `json:"sessionCache,omitempty"`
-	InsecureSkipVerify bool     `json:"insecureSkipVerify,omitempty"`
+	Auth               string          `json:"auth,omitempty"`
+	MinVersion         string          `json:"minVersion,omitempty"`
+	MaxVersion         string          `json:"maxVersion,omitempty"`
+	CipherSuites       []string        `json:"cipherSuites,omitempty"`
+	CurvePreferences   []string        `json:"curvePreferences,omitempty"`
+	SessionTickets     bool            `json:"sessionTickets,omitempty"`
+	SessionCache       bool            `json:"sessionCache,omitempty"`
+	InsecureSkipVerify bool            `json:"insecureSkipVerify,omitempty"`
+	KeyStore           string          `json:"keyStore,omitempty"`
+	Keystore           *KeyStoreConfig `json:"keystore,omitempty"`
 }
 
 type HTTPConfig struct {
@@ -523,6 +533,11 @@ func (c *Client) ReloadConfig() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 	return cfg, nil
+}
+
+func (c *Client) ValidateConfig(cfg interface{}) error {
+	_, err := c.Post("/api/config/validate", cfg)
+	return err
 }
 
 type SystemInfo struct {

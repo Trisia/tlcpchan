@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -61,30 +60,104 @@ func instanceShow(args []string) error {
 
 func instanceCreate(args []string) error {
 	fs := flagSet("create")
-	file := fs.String("file", "", "配置文件路径(JSON)")
-	fs.StringVar(file, "f", "", "配置文件路径(JSON)(缩写)")
+	name := fs.String("name", "", "实例名称（必需）")
+	instType := fs.String("type", "server", "类型（server/client/http-server/http-client）")
+	listen := fs.String("listen", "", "监听地址（必需）")
+	target := fs.String("target", "", "目标地址（必需）")
+	protocol := fs.String("protocol", "auto", "协议（auto/tlcp/tls）")
+	auth := fs.String("auth", "one-way", "认证模式（none/one-way/mutual）")
+	keystore := fs.String("keystore", "", "keystore 名称")
+	enabled := fs.Bool("enabled", true, "是否启用")
+	sni := fs.String("sni", "", "SNI 名称")
+	bufferSize := fs.Int("buffer-size", 0, "缓冲区大小")
+
+	tlcpSignCert := fs.String("tlcp-sign-cert", "", "TLCP 签名证书路径")
+	tlcpSignKey := fs.String("tlcp-sign-key", "", "TLCP 签名密钥路径")
+	tlcpEncCert := fs.String("tlcp-enc-cert", "", "TLCP 加密证书路径")
+	tlcpEncKey := fs.String("tlcp-enc-key", "", "TLCP 加密密钥路径")
+
+	tlsCert := fs.String("tls-cert", "", "TLS 证书路径")
+	tlsKey := fs.String("tls-key", "", "TLS 密钥路径")
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	var cfg client.InstanceConfig
-	if *file != "" {
-		data, err := os.ReadFile(*file)
-		if err != nil {
-			return fmt.Errorf("读取文件失败: %w", err)
+	if *name == "" {
+		return fmt.Errorf("请指定 --name")
+	}
+	if *listen == "" {
+		return fmt.Errorf("请指定 --listen")
+	}
+	if *target == "" {
+		return fmt.Errorf("请指定 --target")
+	}
+
+	cfg := client.InstanceConfig{
+		Name:       *name,
+		Type:       *instType,
+		Listen:     *listen,
+		Target:     *target,
+		Protocol:   *protocol,
+		Auth:       *auth,
+		Enabled:    *enabled,
+		SNI:        *sni,
+		BufferSize: *bufferSize,
+	}
+
+	if *keystore != "" {
+		if *protocol == "tlcp" || *protocol == "auto" {
+			cfg.TLCP = &client.TLCPConfig{
+				Auth:     *auth,
+				KeyStore: *keystore,
+			}
 		}
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return fmt.Errorf("解析配置失败: %w", err)
+		if *protocol == "tls" || *protocol == "auto" {
+			cfg.TLS = &client.TLSConfig{
+				Auth:     *auth,
+				KeyStore: *keystore,
+			}
 		}
 	} else {
-		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			decoder := json.NewDecoder(os.Stdin)
-			if err := decoder.Decode(&cfg); err != nil {
-				return fmt.Errorf("解析标准输入失败: %w", err)
+		if (*tlcpSignCert != "" && *tlcpSignKey != "") || (*tlcpEncCert != "" && *tlcpEncKey != "") {
+			if *protocol == "tlcp" || *protocol == "auto" {
+				params := make(map[string]string)
+				if *tlcpSignCert != "" {
+					params["sign-cert"] = *tlcpSignCert
+				}
+				if *tlcpSignKey != "" {
+					params["sign-key"] = *tlcpSignKey
+				}
+				if *tlcpEncCert != "" {
+					params["enc-cert"] = *tlcpEncCert
+				}
+				if *tlcpEncKey != "" {
+					params["enc-key"] = *tlcpEncKey
+				}
+				cfg.TLCP = &client.TLCPConfig{
+					Auth: *auth,
+					Keystore: &client.KeyStoreConfig{
+						Type:   "file",
+						Params: params,
+					},
+				}
 			}
-		} else {
-			return fmt.Errorf("请使用 -f 指定配置文件或通过标准输入提供JSON配置")
+		}
+
+		if *tlsCert != "" && *tlsKey != "" {
+			if *protocol == "tls" || *protocol == "auto" {
+				params := map[string]string{
+					"cert": *tlsCert,
+					"key":  *tlsKey,
+				}
+				cfg.TLS = &client.TLSConfig{
+					Auth: *auth,
+					Keystore: &client.KeyStoreConfig{
+						Type:   "file",
+						Params: params,
+					},
+				}
+			}
 		}
 	}
 
@@ -106,8 +179,24 @@ func instanceCreate(args []string) error {
 
 func instanceUpdate(args []string) error {
 	fs := flagSet("update")
-	file := fs.String("file", "", "配置文件路径(JSON)")
-	fs.StringVar(file, "f", "", "配置文件路径(JSON)(缩写)")
+	instType := fs.String("type", "", "类型（server/client/http-server/http-client）")
+	listen := fs.String("listen", "", "监听地址")
+	target := fs.String("target", "", "目标地址")
+	protocol := fs.String("protocol", "", "协议（auto/tlcp/tls）")
+	auth := fs.String("auth", "", "认证模式（none/one-way/mutual）")
+	keystore := fs.String("keystore", "", "keystore 名称")
+	enabled := fs.Bool("enabled", false, "是否启用")
+	sni := fs.String("sni", "", "SNI 名称")
+	bufferSize := fs.Int("buffer-size", 0, "缓冲区大小")
+
+	tlcpSignCert := fs.String("tlcp-sign-cert", "", "TLCP 签名证书路径")
+	tlcpSignKey := fs.String("tlcp-sign-key", "", "TLCP 签名密钥路径")
+	tlcpEncCert := fs.String("tlcp-enc-cert", "", "TLCP 加密证书路径")
+	tlcpEncKey := fs.String("tlcp-enc-key", "", "TLCP 加密密钥路径")
+
+	tlsCert := fs.String("tls-cert", "", "TLS 证书路径")
+	tlsKey := fs.String("tls-key", "", "TLS 密钥路径")
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -118,28 +207,121 @@ func instanceUpdate(args []string) error {
 	}
 	name := remaining[0]
 
-	var cfg client.InstanceConfig
-	if *file != "" {
-		data, err := os.ReadFile(*file)
-		if err != nil {
-			return fmt.Errorf("读取文件失败: %w", err)
+	inst, err := cli.GetInstance(name)
+	if err != nil {
+		return err
+	}
+
+	cfg := inst.Config
+
+	if *instType != "" {
+		cfg.Type = *instType
+	}
+	if *listen != "" {
+		cfg.Listen = *listen
+	}
+	if *target != "" {
+		cfg.Target = *target
+	}
+	if *protocol != "" {
+		cfg.Protocol = *protocol
+	}
+	if *auth != "" {
+		cfg.Auth = *auth
+	}
+	if *sni != "" {
+		cfg.SNI = *sni
+	}
+	if *bufferSize > 0 {
+		cfg.BufferSize = *bufferSize
+	}
+	if *enabled {
+		cfg.Enabled = true
+	}
+
+	if *keystore != "" {
+		if cfg.Protocol == "tlcp" || cfg.Protocol == "auto" {
+			if cfg.TLCP == nil {
+				cfg.TLCP = &client.TLCPConfig{}
+			}
+			cfg.TLCP.KeyStore = *keystore
+			cfg.TLCP.Keystore = nil
+			if *auth != "" {
+				cfg.TLCP.Auth = *auth
+			}
 		}
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return fmt.Errorf("解析配置失败: %w", err)
+		if cfg.Protocol == "tls" || cfg.Protocol == "auto" {
+			if cfg.TLS == nil {
+				cfg.TLS = &client.TLSConfig{}
+			}
+			cfg.TLS.KeyStore = *keystore
+			cfg.TLS.Keystore = nil
+			if *auth != "" {
+				cfg.TLS.Auth = *auth
+			}
 		}
 	} else {
-		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			decoder := json.NewDecoder(os.Stdin)
-			if err := decoder.Decode(&cfg); err != nil {
-				return fmt.Errorf("解析标准输入失败: %w", err)
+		if (*tlcpSignCert != "" && *tlcpSignKey != "") || (*tlcpEncCert != "" && *tlcpEncKey != "") {
+			if cfg.Protocol == "tlcp" || cfg.Protocol == "auto" {
+				if cfg.TLCP == nil {
+					cfg.TLCP = &client.TLCPConfig{}
+				}
+				cfg.TLCP.KeyStore = ""
+
+				params := make(map[string]string)
+				if cfg.TLCP.Keystore != nil && cfg.TLCP.Keystore.Params != nil {
+					for k, v := range cfg.TLCP.Keystore.Params {
+						params[k] = v
+					}
+				}
+				if *tlcpSignCert != "" {
+					params["sign-cert"] = *tlcpSignCert
+				}
+				if *tlcpSignKey != "" {
+					params["sign-key"] = *tlcpSignKey
+				}
+				if *tlcpEncCert != "" {
+					params["enc-cert"] = *tlcpEncCert
+				}
+				if *tlcpEncKey != "" {
+					params["enc-key"] = *tlcpEncKey
+				}
+				cfg.TLCP.Keystore = &client.KeyStoreConfig{
+					Type:   "file",
+					Params: params,
+				}
+				if *auth != "" {
+					cfg.TLCP.Auth = *auth
+				}
 			}
-		} else {
-			return fmt.Errorf("请使用 -f 指定配置文件或通过标准输入提供JSON配置")
+		}
+
+		if *tlsCert != "" && *tlsKey != "" {
+			if cfg.Protocol == "tls" || cfg.Protocol == "auto" {
+				if cfg.TLS == nil {
+					cfg.TLS = &client.TLSConfig{}
+				}
+				cfg.TLS.KeyStore = ""
+
+				params := make(map[string]string)
+				if cfg.TLS.Keystore != nil && cfg.TLS.Keystore.Params != nil {
+					for k, v := range cfg.TLS.Keystore.Params {
+						params[k] = v
+					}
+				}
+				params["cert"] = *tlsCert
+				params["key"] = *tlsKey
+				cfg.TLS.Keystore = &client.KeyStoreConfig{
+					Type:   "file",
+					Params: params,
+				}
+				if *auth != "" {
+					cfg.TLS.Auth = *auth
+				}
+			}
 		}
 	}
 
-	cfg.Name = name
 	if err := cli.UpdateInstance(name, &cfg); err != nil {
 		return err
 	}

@@ -51,6 +51,12 @@ func Created(w http.ResponseWriter, data interface{}) {
 	WriteJSON(w, http.StatusCreated, data)
 }
 
+func SuccessText(w http.ResponseWriter, text string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(text))
+}
+
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
