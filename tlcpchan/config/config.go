@@ -254,7 +254,7 @@ type TLSConfig struct {
 	// - "TLS_AES_256_GCM_SHA384" (TLS 1.3)
 	// - "TLS_CHACHA20_POLY1305_SHA256" (TLS 1.3)
 	CipherSuites []string `yaml:"cipher-suites,omitempty" json:"cipherSuites,omitempty"`
-	// CurvePreferences 椭圆曲线偏好，可选值: "P256", "P384", "P521", "X25519"
+	// CurvePreferences 椭圆曲线偏好，可选值: "P256", "P38", "P521", "X25519"
 	CurvePreferences []string `yaml:"curve-preferences,omitempty" json:"curvePreferences,omitempty"`
 	// SessionTickets 是否启用会话票据
 	SessionTickets bool `yaml:"session-tickets,omitempty" json:"sessionTickets,omitempty"`

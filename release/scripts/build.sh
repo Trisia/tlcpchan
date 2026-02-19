@@ -84,11 +84,11 @@ build_platform() {
     
     # 编译 tlcpchan
     cd "$PROJECT_ROOT/tlcpchan"
-    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan$ext" .
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w" -o "$output_dir/tlcpchan$ext" .
     
     # 编译 tlcpchan-cli
     cd "$PROJECT_ROOT/tlcpchan-cli"
-    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X main.version=$VERSION" -o "$output_dir/tlcpchan-cli$ext" .
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -ldflags="-s -w" -o "$output_dir/tlcpchan-cli$ext" .
     
     cd "$PROJECT_ROOT"
     

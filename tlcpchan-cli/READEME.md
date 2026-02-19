@@ -8,7 +8,7 @@ tlcpchan-cli 是 TLCP/TLS 代理服务的命令行管理工具，用于与 tlcpc
 
 ### 1.1 连接服务
 
-tlcpchan-cli 默认连接到 `http://localhost:30080`。如果服务运行在其他地址，使用 `--api` 或 `-a` 选项指定：
+tlcpchan-cli 默认连接到 `http://localhost:20080`。如果服务运行在其他地址，使用 `--api` 或 `-a` 选项指定：
 
 **调用示例：**
 ```bash
@@ -16,7 +16,7 @@ tlcpchan-cli 默认连接到 `http://localhost:30080`。如果服务运行在其
 tlcpchan-cli system info
 
 # 连接自定义地址
-tlcpchan-cli --api http://192.168.1.100:30080 system info
+tlcpchan-cli --api http://192.168.1.100:20080 system info
 ```
 
 ### 1.2 验证连接
@@ -40,7 +40,7 @@ tlcpchan-cli system health
 
 | 选项 | 缩写 | 说明 | 默认值 |
 |------|------|------|--------|
-| `--api` | `-a` | API 服务地址 | `http://localhost:30080` |
+| `--api` | `-a` | API服务地址 | `http://localhost:20080` |
 | `--output` | `-o` | 输出格式（`table` 或 `json`） | `table` |
 
 **说明：**

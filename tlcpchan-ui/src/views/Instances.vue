@@ -79,6 +79,16 @@
             <el-option label="双向认证" value="mutual" />
           </el-select>
         </el-form-item>
+        <el-form-item label="选择密钥">
+          <el-select v-model="selectedKeystoreName" placeholder="请选择密钥（可选）" clearable>
+            <el-option
+              v-for="ks in keystores"
+              :key="ks.name"
+              :label="ks.name"
+              :value="ks.name"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="监听地址" required>
           <el-input v-model="form.listen" placeholder=":443" />
         </el-form-item>
@@ -102,7 +112,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useInstanceStore } from '@/stores/instance'
-import { instanceApi } from '@/api'
+import { instanceApi, keyStoreApi } from '@/api'
 import type { Instance } from '@/types'
 
 const router = useRouter()
@@ -111,6 +121,8 @@ const store = useInstanceStore()
 const loading = computed(() => store.loading)
 const instances = computed(() => store.instances)
 const showCreateDialog = ref(false)
+const keystores = ref<any[]>([])
+const selectedKeystoreName = ref('')
 
 const form = ref<Partial<Instance>>({
   name: '',
@@ -122,7 +134,18 @@ const form = ref<Partial<Instance>>({
   enabled: true,
 })
 
-onMounted(() => store.fetchInstances())
+onMounted(async () => {
+  await store.fetchInstances()
+  await fetchKeystores()
+})
+
+async function fetchKeystores() {
+  try {
+    keystores.value = await keyStoreApi.list() || []
+  } catch (err) {
+    console.error('获取密钥列表失败', err)
+  }
+}
 
 function typeText(type: Instance['type']): string {
   const map: Record<string, string> = { server: '服务端', client: '客户端', 'http-server': 'HTTP服务端', 'http-client': 'HTTP客户端' }
@@ -180,7 +203,20 @@ async function create() {
     ElMessage.error('请输入实例名称')
     return
   }
-  await instanceApi.create(form.value)
+
+  const data: any = { ...form.value }
+
+  if (selectedKeystoreName.value) {
+    const ksData = { name: selectedKeystoreName.value }
+    if (form.value.protocol === 'tlcp' || form.value.protocol === 'auto') {
+      data.tlcp = { ...data.tlcp, keystore: ksData }
+    }
+    if (form.value.protocol === 'tls' || form.value.protocol === 'auto') {
+      data.tls = { ...data.tls, keystore: ksData }
+    }
+  }
+
+  await instanceApi.create(data)
   showCreateDialog.value = false
   await store.fetchInstances()
   ElMessage.success('实例创建成功')

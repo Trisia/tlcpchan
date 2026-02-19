@@ -16,14 +16,21 @@ func systemInfo(args []string) error {
 		return printJSON(info)
 	}
 
+	formatMem := func(mb uint64) string {
+		if mb == 0 {
+			return "< 1 MB"
+		}
+		return fmt.Sprintf("%d MB", mb)
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "操作系统:\t%s\n", info.OS)
 	fmt.Fprintf(w, "架构:\t%s\n", info.Arch)
 	fmt.Fprintf(w, "CPU核心数:\t%d\n", info.NumCPU)
 	fmt.Fprintf(w, "Goroutine数:\t%d\n", info.NumGoroutine)
-	fmt.Fprintf(w, "内存分配:\t%d MB\n", info.MemAllocMB)
-	fmt.Fprintf(w, "内存总量:\t%d MB\n", info.MemTotalMB)
-	fmt.Fprintf(w, "系统内存:\t%d MB\n", info.MemSysMB)
+	fmt.Fprintf(w, "内存分配:\t%s\n", formatMem(info.MemAllocMB))
+	fmt.Fprintf(w, "内存总量:\t%s\n", formatMem(info.MemTotalMB))
+	fmt.Fprintf(w, "系统内存:\t%s\n", formatMem(info.MemSysMB))
 	fmt.Fprintf(w, "启动时间:\t%s\n", info.StartTime)
 	fmt.Fprintf(w, "运行时长:\t%s\n", info.Uptime)
 	w.Flush()

@@ -22,6 +22,12 @@ export interface InstanceConfig {
   bufferSize?: number
 }
 
+export interface KeyStoreConfig {
+  name?: string
+  type: string
+  params: Record<string, string>
+}
+
 export interface TLCPConfig {
   auth?: 'none' | 'one-way' | 'mutual'
   minVersion?: string
@@ -31,6 +37,7 @@ export interface TLCPConfig {
   sessionTickets?: boolean
   sessionCache?: boolean
   insecureSkipVerify?: boolean
+  keystore?: KeyStoreConfig
 }
 
 export interface TLSConfig {
@@ -42,6 +49,7 @@ export interface TLSConfig {
   sessionTickets?: boolean
   sessionCache?: boolean
   insecureSkipVerify?: boolean
+  keystore?: KeyStoreConfig
 }
 
 export interface HTTPConfig {
@@ -165,10 +173,4 @@ export interface Config {
   }
   keystores: KeyStoreConfig[]
   instances: InstanceConfig[]
-}
-
-export interface KeyStoreConfig {
-  name?: string
-  type: string
-  params: Record<string, string>
 }

@@ -157,6 +157,7 @@ func main() {
 		Version:         version,
 		KeyStoreManager: keyStoreMgr,
 		RootCertManager: rootCertMgr,
+		InstanceManager: instMgr,
 		StaticDir:       filepath.Join(wd, "ui"),
 	}
 	apiServer := controller.NewServer(opts)

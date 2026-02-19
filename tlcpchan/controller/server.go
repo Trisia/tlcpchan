@@ -33,6 +33,7 @@ type ServerOptions struct {
 	Version         string
 	KeyStoreManager *security.KeyStoreManager
 	RootCertManager *security.RootCertManager
+	InstanceManager *instance.Manager
 	StaticDir       string
 }
 
@@ -46,6 +47,7 @@ func NewServer(opts ServerOptions) *Server {
 
 	var keyStoreMgr *security.KeyStoreManager
 	var rootCertMgr *security.RootCertManager
+	var instMgr *instance.Manager
 
 	if opts.KeyStoreManager != nil {
 		keyStoreMgr = opts.KeyStoreManager
@@ -59,12 +61,16 @@ func NewServer(opts ServerOptions) *Server {
 		rootCertMgr = security.NewRootCertManager("")
 	}
 
-	mgr := instance.NewManager(log, keyStoreMgr, rootCertMgr)
-	for i := range opts.Config.Instances {
-		mgr.Create(&opts.Config.Instances[i])
+	if opts.InstanceManager != nil {
+		instMgr = opts.InstanceManager
+	} else {
+		instMgr = instance.NewManager(log, keyStoreMgr, rootCertMgr)
+		for i := range opts.Config.Instances {
+			instMgr.Create(&opts.Config.Instances[i])
+		}
 	}
 
-	instanceCtrl := NewInstanceController(mgr)
+	instanceCtrl := NewInstanceController(instMgr)
 	configCtrl := NewConfigController(opts.ConfigPath)
 	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController(opts.Version)

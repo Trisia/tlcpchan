@@ -66,7 +66,7 @@ func instanceCreate(args []string) error {
 	target := fs.String("target", "", "目标地址（必需）")
 	protocol := fs.String("protocol", "auto", "协议（auto/tlcp/tls）")
 	auth := fs.String("auth", "one-way", "认证模式（none/one-way/mutual）")
-	keystore := fs.String("keystore", "", "keystore 名称")
+	keystoreName := fs.String("keystore-name", "", "keystore 名称")
 	enabled := fs.Bool("enabled", true, "是否启用")
 	sni := fs.String("sni", "", "SNI 名称")
 	bufferSize := fs.Int("buffer-size", 0, "缓冲区大小")
@@ -105,17 +105,21 @@ func instanceCreate(args []string) error {
 		BufferSize: *bufferSize,
 	}
 
-	if *keystore != "" {
+	if *keystoreName != "" {
 		if *protocol == "tlcp" || *protocol == "auto" {
 			cfg.TLCP = &client.TLCPConfig{
-				Auth:     *auth,
-				KeyStore: *keystore,
+				Auth: *auth,
+				Keystore: &client.KeyStoreConfig{
+					Name: *keystoreName,
+				},
 			}
 		}
 		if *protocol == "tls" || *protocol == "auto" {
 			cfg.TLS = &client.TLSConfig{
-				Auth:     *auth,
-				KeyStore: *keystore,
+				Auth: *auth,
+				Keystore: &client.KeyStoreConfig{
+					Name: *keystoreName,
+				},
 			}
 		}
 	} else {
@@ -184,7 +188,7 @@ func instanceUpdate(args []string) error {
 	target := fs.String("target", "", "目标地址")
 	protocol := fs.String("protocol", "", "协议（auto/tlcp/tls）")
 	auth := fs.String("auth", "", "认证模式（none/one-way/mutual）")
-	keystore := fs.String("keystore", "", "keystore 名称")
+	keystoreName := fs.String("keystore-name", "", "keystore 名称")
 	enabled := fs.Bool("enabled", false, "是否启用")
 	sni := fs.String("sni", "", "SNI 名称")
 	bufferSize := fs.Int("buffer-size", 0, "缓冲区大小")
@@ -239,13 +243,14 @@ func instanceUpdate(args []string) error {
 		cfg.Enabled = true
 	}
 
-	if *keystore != "" {
+	if *keystoreName != "" {
 		if cfg.Protocol == "tlcp" || cfg.Protocol == "auto" {
 			if cfg.TLCP == nil {
 				cfg.TLCP = &client.TLCPConfig{}
 			}
-			cfg.TLCP.KeyStore = *keystore
-			cfg.TLCP.Keystore = nil
+			cfg.TLCP.Keystore = &client.KeyStoreConfig{
+				Name: *keystoreName,
+			}
 			if *auth != "" {
 				cfg.TLCP.Auth = *auth
 			}
@@ -254,8 +259,9 @@ func instanceUpdate(args []string) error {
 			if cfg.TLS == nil {
 				cfg.TLS = &client.TLSConfig{}
 			}
-			cfg.TLS.KeyStore = *keystore
-			cfg.TLS.Keystore = nil
+			cfg.TLS.Keystore = &client.KeyStoreConfig{
+				Name: *keystoreName,
+			}
 			if *auth != "" {
 				cfg.TLS.Auth = *auth
 			}
@@ -266,7 +272,6 @@ func instanceUpdate(args []string) error {
 				if cfg.TLCP == nil {
 					cfg.TLCP = &client.TLCPConfig{}
 				}
-				cfg.TLCP.KeyStore = ""
 
 				params := make(map[string]string)
 				if cfg.TLCP.Keystore != nil && cfg.TLCP.Keystore.Params != nil {
@@ -301,7 +306,6 @@ func instanceUpdate(args []string) error {
 				if cfg.TLS == nil {
 					cfg.TLS = &client.TLSConfig{}
 				}
-				cfg.TLS.KeyStore = ""
 
 				params := make(map[string]string)
 				if cfg.TLS.Keystore != nil && cfg.TLS.Keystore.Params != nil {

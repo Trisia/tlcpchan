@@ -123,7 +123,6 @@ type TLCPConfig struct {
 	SessionTickets     bool            `json:"sessionTickets,omitempty"`
 	SessionCache       bool            `json:"sessionCache,omitempty"`
 	InsecureSkipVerify bool            `json:"insecureSkipVerify,omitempty"`
-	KeyStore           string          `json:"keyStore,omitempty"`
 	Keystore           *KeyStoreConfig `json:"keystore,omitempty"`
 }
 
@@ -136,7 +135,6 @@ type TLSConfig struct {
 	SessionTickets     bool            `json:"sessionTickets,omitempty"`
 	SessionCache       bool            `json:"sessionCache,omitempty"`
 	InsecureSkipVerify bool            `json:"insecureSkipVerify,omitempty"`
-	KeyStore           string          `json:"keyStore,omitempty"`
 	Keystore           *KeyStoreConfig `json:"keystore,omitempty"`
 }
 
@@ -543,12 +541,12 @@ func (c *Client) ValidateConfig(cfg interface{}) error {
 type SystemInfo struct {
 	OS           string `json:"os"`
 	Arch         string `json:"arch"`
-	NumCPU       int    `json:"num_cpu"`
-	NumGoroutine int    `json:"num_goroutine"`
-	MemAllocMB   uint64 `json:"mem_alloc_mb"`
-	MemTotalMB   uint64 `json:"mem_total_mb"`
-	MemSysMB     uint64 `json:"mem_sys_mb"`
-	StartTime    string `json:"start_time"`
+	NumCPU       int    `json:"numCpu"`
+	NumGoroutine int    `json:"numGoroutine"`
+	MemAllocMB   uint64 `json:"memAllocMb"`
+	MemTotalMB   uint64 `json:"memTotalMb"`
+	MemSysMB     uint64 `json:"memSysMb"`
+	StartTime    string `json:"startTime"`
 	Uptime       string `json:"uptime"`
 }
 
