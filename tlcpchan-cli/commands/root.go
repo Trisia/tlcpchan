@@ -27,8 +27,8 @@ type Command struct {
 }
 
 func Execute(version string) error {
-	flag.StringVar(&apiURL, "api", "http://localhost:30080", "API服务地址")
-	flag.StringVar(&apiURL, "a", "http://localhost:30080", "API服务地址(缩写)")
+	flag.StringVar(&apiURL, "api", "http://localhost:20080", "API服务地址")
+	flag.StringVar(&apiURL, "a", "http://localhost:20080", "API服务地址(缩写)")
 	flag.StringVar(&output, "output", "table", "输出格式 (table|json)")
 	flag.StringVar(&output, "o", "table", "输出格式(缩写) (table|json)")
 	flag.Usage = printUsage

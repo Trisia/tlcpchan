@@ -117,8 +117,7 @@ logger.Error("连接失败", zap.Error(err), zap.String("remote", remoteAddr))
 
 - RESTful API 路由前缀: `/api/v1`
 - 响应格式: HTTP RESTful，状态使用 HTTP status code 返回，内容直接在 body 中返回，例如 `code 500 body:系统内部错误`
-- API 服务默认地址: `:30080`
-- Web UI 默认地址: `:30000`
+- API 服务默认地址: `:20080`
 
 ## 测试规范
 

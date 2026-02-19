@@ -71,8 +71,8 @@ RUN ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
 
-# 暴露端口（仅 30080 和 30443，不再需要 30000）
-EXPOSE 30080 30443
+# 暴露端口（仅 20080 和 20443，不再需要 30000）
+EXPOSE 20080 20443
 
 # 数据卷挂载点（持久化数据）
 # 注意：rootcerts 不使用 volume，因为我们预置了证书
@@ -80,7 +80,7 @@ VOLUME ["/etc/tlcpchan/keystores", "/etc/tlcpchan/logs"]
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:30080/api/system/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:20080/api/system/health || exit 1
 
 # 默认启动命令
 ENTRYPOINT ["tlcpchan"]

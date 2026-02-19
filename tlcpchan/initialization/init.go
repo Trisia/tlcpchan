@@ -276,8 +276,8 @@ func (m *Manager) Initialize() error {
 		{
 			Name:     "auto-proxy",
 			Type:     "server",
-			Listen:   ":30443",
-			Target:   "127.0.0.1:30080",
+			Listen:   ":20443",
+			Target:   "127.0.0.1:20080",
 			Protocol: "auto",
 			Enabled:  true,
 			TLCP: config.TLCPConfig{

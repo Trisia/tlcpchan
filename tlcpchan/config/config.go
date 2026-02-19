@@ -327,7 +327,7 @@ func Default() *Config {
 	return &Config{
 		Server: ServerConfig{
 			API: APIConfig{
-				Address: ":30080",
+				Address: ":20080",
 			},
 			UI: UIConfig{
 				Enabled: true,
@@ -406,7 +406,7 @@ func Save(path string, cfg *Config) error {
 // 注意: 该方法会自动填充缺失的默认值
 func Validate(cfg *Config) error {
 	if cfg.Server.API.Address == "" {
-		cfg.Server.API.Address = ":30080"
+		cfg.Server.API.Address = ":20080"
 	}
 
 	// 验证 keystores

@@ -115,13 +115,13 @@ TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录�
 
 | 模块 | 可执行文件 | 默认端口 | 说明 |
 |------|-----------|---------|------|
-| **tlcpchan** | tlcpchan | 30080 | 核心代理服务、API 服务、Web UI |
+| **tlcpchan** | tlcpchan | 20080 | 核心代理服务、API 服务、Web UI |
 | **tlcpchan-cli** | tlcpchan-cli | - | 命令行管理工具 |
 
 #### 访问路径
 
-- Web UI: `http://host:30080/` 或 `http://host:30080/ui/`
-- RESTful API: `http://host:30080/api/`
+- Web UI: `http://host:20080/` 或 `http://host:20080/ui/`
+- RESTful API: `http://host:20080/api/`
 
 #### 默认生成文件说明
 
@@ -344,7 +344,7 @@ type ServerConfig struct {
 }
 
 type APIConfig struct {
-    Address string `yaml:"address"` // API服务地址，默认 :30080
+    Address string `yaml:"address"` // API服务地址，默认 :20080
 }
 
 type UIConfig struct {
@@ -571,7 +571,7 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 - `tlcpchan-tls-root-ca`：TLS 根 CA 证书（RSA 2048，用于签发 TLS 证书）
 - `default-tlcp`：TLCP 双证书（签名证书 + 加密证书，由 TLCP 根 CA 签发）
 - `default-tls`：TLS 单证书（RSA 2048，由 TLS 根 CA 签发）
-- `auto-proxy`：默认代理实例（监听 :30443，转发到 API 服务 :30080）
+- `auto-proxy`：默认代理实例（监听 :20443，转发到 API 服务 :20080）
 
 #### 3.3.3 Keystore 管理
 
@@ -772,8 +772,8 @@ type Manager struct {
 
 5. **配置 auto-proxy 实例**
    - 类型：server
-   - 监听：:30443
-   - 目标：127.0.0.1:30080（API 服务）
+   - 监听：:20443
+   - 目标：127.0.0.1:20080（API 服务）
    - 协议：auto（自动检测 TLCP/TLS）
 
 6. **保存配置文件**
@@ -936,7 +936,7 @@ FROM alpine:3.18
 COPY tlcpchan /usr/bin/tlcpchan
 COPY config /etc/tlcpchan
 COPY ui /etc/tlcpchan/ui
-EXPOSE 30080 30443
+EXPOSE 20080 20443
 ENTRYPOINT ["/usr/bin/tlcpchan"]
 ```
 
