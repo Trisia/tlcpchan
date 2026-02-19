@@ -85,8 +85,10 @@ TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录�
 ├── config.yaml                   # tlcpchan 主配置文件
 │
 ├── keystores/                    # Keystore 证书文件
-│   ├── tlcpchan-root-ca.crt
-│   ├── tlcpchan-root-ca.key
+│   ├── tlcpchan-tlcp-root-ca.crt   # TLCP 根 CA 证书（SM2）
+│   ├── tlcpchan-tlcp-root-ca.key   # TLCP 根 CA 私钥（SM2）
+│   ├── tlcpchan-tls-root-ca.crt    # TLS 根 CA 证书（RSA 2048）
+│   ├── tlcpchan-tls-root-ca.key    # TLS 根 CA 私钥（RSA 2048）
 │   ├── default-tlcp-sign.crt
 │   ├── default-tlcp-sign.key
 │   ├── default-tlcp-enc.crt
@@ -95,7 +97,8 @@ TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录�
 │   └── default-tls.key
 │
 ├── rootcerts/                    # 根证书目录
-│   └── tlcpchan-root-ca.crt
+│   ├── tlcpchan-tlcp-root-ca.crt   # TLCP 根 CA 证书
+│   └── tlcpchan-tls-root-ca.crt    # TLS 根 CA 证书
 │
 ├── logs/                         # 日志目录
 │   └── tlcpchan.log
@@ -126,14 +129,17 @@ TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录�
 
 | 文件名 | 路径 | 类型 | 有效期 | 说明 |
 |--------|------|------|--------|------|
-| tlcpchan-root-ca.crt | keystores/ | 根 CA 证书 | 10 年 | 自签名根 CA，用于签发其他证书 |
-| tlcpchan-root-ca.key | keystores/ | 根 CA 私钥 | 10 年 | 根 CA 私钥，需保密 |
-| tlcpchan-root-ca.crt | rootcerts/ | 根 CA 证书 | 10 年 | 根 CA 证书副本，用于信任链验证 |
-| default-tlcp-sign.crt | keystores/ | TLCP 签名证书 | 5 年 | 由根 CA 签发，用于身份认证 |
+| tlcpchan-tlcp-root-ca.crt | keystores/ | TLCP 根 CA 证书 | 10 年 | 自签名 SM2 根 CA，用于签发 TLCP 证书 |
+| tlcpchan-tlcp-root-ca.key | keystores/ | TLCP 根 CA 私钥 | 10 年 | SM2 根 CA 私钥，需保密 |
+| tlcpchan-tlcp-root-ca.crt | rootcerts/ | TLCP 根 CA 证书 | 10 年 | TLCP 根 CA 证书副本，用于信任链验证 |
+| tlcpchan-tls-root-ca.crt | keystores/ | TLS 根 CA 证书 | 10 年 | 自签名 RSA 2048 根 CA，用于签发 TLS 证书 |
+| tlcpchan-tls-root-ca.key | keystores/ | TLS 根 CA 私钥 | 10 年 | RSA 2048 根 CA 私钥，需保密 |
+| tlcpchan-tls-root-ca.crt | rootcerts/ | TLS 根 CA 证书 | 10 年 | TLS 根 CA 证书副本，用于信任链验证 |
+| default-tlcp-sign.crt | keystores/ | TLCP 签名证书 | 5 年 | 由 TLCP 根 CA 签发，用于身份认证 |
 | default-tlcp-sign.key | keystores/ | TLCP 签名私钥 | 5 年 | 签名证书对应的私钥 |
-| default-tlcp-enc.crt | keystores/ | TLCP 加密证书 | 5 年 | 由根 CA 签发，用于密钥交换 |
+| default-tlcp-enc.crt | keystores/ | TLCP 加密证书 | 5 年 | 由 TLCP 根 CA 签发，用于密钥交换 |
 | default-tlcp-enc.key | keystores/ | TLCP 加密私钥 | 5 年 | 加密证书对应的私钥 |
-| default-tls.crt | keystores/ | TLS 证书 | 5 年 | 由根 CA 签发，用于 TLS 协议 |
+| default-tls.crt | keystores/ | TLS 证书 | 5 年 | 由 TLS 根 CA 签发（RSA 2048），用于 TLS 协议 |
 | default-tls.key | keystores/ | TLS 私钥 | 5 年 | TLS 证书对应的私钥 |
 | config.yaml | ./ | 配置文件 | - | 主配置文件，包含 keystores 和 auto-proxy 实例 |
 | .tlcpchan-initialized | ./ | 标志文件 | - | 初始化完成标志 |
@@ -514,7 +520,7 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 
 **初始化检查：**
 1. 检查配置文件是否存在
-2. 检查必要的 keystores 是否存在（tlcpchan-root-ca、default-tlcp、default-tls）
+2. 检查必要的 keystores 是否存在（tlcpchan-tlcp-root-ca、tlcpchan-tls-root-ca、default-tlcp、default-tls）
 3. 检查 auto-proxy 实例是否存在
 4. 检查关键证书文件是否存在
 
@@ -530,16 +536,19 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
   否                       │
   │                        │
   ▼                        │
-生成根 CA 证书 (10年有效期)
+生成 TLCP 根 CA 证书 (SM2，10年有效期)
   │
   ▼
-保存到 keystores/ 和 rootcerts/
+生成 TLS 根 CA 证书 (RSA 2048，10年有效期)
   │
   ▼
-生成 TLCP 双证书 (签名+加密，5年有效期)
+保存根证书到 keystores/ 和 rootcerts/
   │
   ▼
-生成 TLS 单证书 (5年有效期)
+用 TLCP 根 CA 签发 TLCP 双证书 (签名+加密，5年有效期)
+  │
+  ▼
+用 TLS 根 CA 签发 TLS 单证书 (RSA 2048，5年有效期)
   │
   ▼
 配置 keystores 到 config.yaml
@@ -558,9 +567,10 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 ```
 
 **初始化生成的内容：**
-- `tlcpchan-root-ca`：根 CA 证书（用于签发其他证书）
-- `default-tlcp`：TLCP 双证书（签名证书 + 加密证书）
-- `default-tls`：TLS 单证书
+- `tlcpchan-tlcp-root-ca`：TLCP 根 CA 证书（SM2，用于签发 TLCP 证书）
+- `tlcpchan-tls-root-ca`：TLS 根 CA 证书（RSA 2048，用于签发 TLS 证书）
+- `default-tlcp`：TLCP 双证书（签名证书 + 加密证书，由 TLCP 根 CA 签发）
+- `default-tls`：TLS 单证书（RSA 2048，由 TLS 根 CA 签发）
 - `auto-proxy`：默认代理实例（监听 :30443，转发到 API 服务 :30080）
 
 #### 3.3.3 Keystore 管理
@@ -732,25 +742,32 @@ type Manager struct {
 4. 检查关键证书文件是否存在于文件系统
 
 **完整初始化步骤：**
-1. **生成根 CA 证书**
+1. **生成 TLCP 根 CA 证书**
    - 使用 SM2 算法生成密钥对
    - 自签名 CA 证书，有效期 10 年
-   - 保存到 `keystores/tlcpchan-root-ca.crt/.key`
+   - 保存到 `keystores/tlcpchan-tlcp-root-ca.crt/.key`
    - 同时复制到 `rootcerts/` 目录供 RootCertManager 使用
 
-2. **生成 TLCP 证书对**
+2. **生成 TLS 根 CA 证书**
+   - 使用 RSA 2048 算法生成密钥对
+   - 自签名 CA 证书，有效期 10 年
+   - 保存到 `keystores/tlcpchan-tls-root-ca.crt/.key`
+   - 同时复制到 `rootcerts/` 目录供 RootCertManager 使用
+
+3. **生成 TLCP 证书对**
    - 签名证书：用于身份认证
    - 加密证书：用于密钥交换
-   - 由根 CA 签发，有效期 5 年
+   - 由 TLCP 根 CA 签发，有效期 5 年
    - 保存到 `keystores/default-tlcp-sign.crt/.key` 和 `default-tlcp-enc.crt/.key`
 
-3. **生成 TLS 证书**
+4. **生成 TLS 证书**
    - 单证书模式（同时用于签名和加密）
-   - 由根 CA 签发，有效期 5 年
+   - 使用 RSA 2048 算法
+   - 由 TLS 根 CA 签发，有效期 5 年
    - 保存到 `keystores/default-tls.crt/.key`
 
-4. **配置 keystores**
-   - 在 config.yaml 中配置三个 keystores
+5. **配置 keystores**
+   - 在 config.yaml 中配置四个 keystores
    - 使用 file 类型加载器
 
 5. **配置 auto-proxy 实例**

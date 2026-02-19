@@ -40,12 +40,16 @@ func (m *Manager) CheckInitialized() bool {
 	}
 
 	// 3. 检查必要的 keystores
-	hasRootCA := false
+	hasTLCPRootCA := false
+	hasTLSRootCA := false
 	hasDefaultTLCP := false
 	hasDefaultTLS := false
 	for _, ks := range cfg.KeyStores {
-		if ks.Name == "tlcpchan-root-ca" {
-			hasRootCA = true
+		if ks.Name == "tlcpchan-tlcp-root-ca" {
+			hasTLCPRootCA = true
+		}
+		if ks.Name == "tlcpchan-tls-root-ca" {
+			hasTLSRootCA = true
 		}
 		if ks.Name == "default-tlcp" {
 			hasDefaultTLCP = true
@@ -54,7 +58,7 @@ func (m *Manager) CheckInitialized() bool {
 			hasDefaultTLS = true
 		}
 	}
-	if !hasRootCA || !hasDefaultTLCP || !hasDefaultTLS {
+	if !hasTLCPRootCA || !hasTLSRootCA || !hasDefaultTLCP || !hasDefaultTLS {
 		return false
 	}
 
@@ -72,8 +76,10 @@ func (m *Manager) CheckInitialized() bool {
 
 	// 5. 检查关键文件是否存在
 	keyFiles := []string{
-		filepath.Join(m.workDir, "keystores", "tlcpchan-root-ca.crt"),
-		filepath.Join(m.workDir, "keystores", "tlcpchan-root-ca.key"),
+		filepath.Join(m.workDir, "keystores", "tlcpchan-tlcp-root-ca.crt"),
+		filepath.Join(m.workDir, "keystores", "tlcpchan-tlcp-root-ca.key"),
+		filepath.Join(m.workDir, "keystores", "tlcpchan-tls-root-ca.crt"),
+		filepath.Join(m.workDir, "keystores", "tlcpchan-tls-root-ca.key"),
 		filepath.Join(m.workDir, "keystores", "default-tlcp-sign.crt"),
 		filepath.Join(m.workDir, "keystores", "default-tlcp-sign.key"),
 		filepath.Join(m.workDir, "keystores", "default-tlcp-enc.crt"),
@@ -94,11 +100,11 @@ func (m *Manager) CheckInitialized() bool {
 func (m *Manager) Initialize() error {
 	logger.Info("开始初始化...")
 
-	// 1. 生成根 CA
-	logger.Info("生成根 CA 证书...")
-	rootCA, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+	// 1. 生成 TLCP 根 CA（SM2）
+	logger.Info("生成 TLCP 根 CA 证书（SM2）...")
+	tlcpRootCA, err := certgen.GenerateTLCPRootCA(certgen.CertGenConfig{
 		Type:       certgen.CertTypeRootCA,
-		CommonName: "tlcpchan-root-ca",
+		CommonName: "tlcpchan-tlcp-root-ca",
 		Org:        "tlcpchan",
 		OrgUnit:    "tlcpchan",
 		Years:      10,
@@ -108,31 +114,59 @@ func (m *Manager) Initialize() error {
 		return err
 	}
 
-	// 保存根证书到 keystores 和 rootcerts 两个位置
-	rootCACertPath := filepath.Join(m.workDir, "keystores", "tlcpchan-root-ca.crt")
-	rootCAKeyPath := filepath.Join(m.workDir, "keystores", "tlcpchan-root-ca.key")
-	if err := certgen.SaveCertToFile(rootCA.CertPEM, rootCA.KeyPEM, rootCACertPath, rootCAKeyPath); err != nil {
+	// 保存 TLCP 根证书到 keystores
+	tlcpRootCACertPath := filepath.Join(m.workDir, "keystores", "tlcpchan-tlcp-root-ca.crt")
+	tlcpRootCAKeyPath := filepath.Join(m.workDir, "keystores", "tlcpchan-tlcp-root-ca.key")
+	if err := certgen.SaveCertToFile(tlcpRootCA.CertPEM, tlcpRootCA.KeyPEM, tlcpRootCACertPath, tlcpRootCAKeyPath); err != nil {
 		return err
 	}
 
-	// 同时复制到 rootcerts 目录供 RootCertManager 使用
-	rootCertPath := filepath.Join(m.workDir, "rootcerts", "tlcpchan-root-ca.crt")
-	if err := os.MkdirAll(filepath.Dir(rootCertPath), 0755); err != nil {
+	// 同时复制到 rootcerts 目录
+	tlcpRootCertPath := filepath.Join(m.workDir, "rootcerts", "tlcpchan-tlcp-root-ca.crt")
+	if err := os.MkdirAll(filepath.Dir(tlcpRootCertPath), 0755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(rootCertPath, rootCA.CertPEM, 0644); err != nil {
+	if err := os.WriteFile(tlcpRootCertPath, tlcpRootCA.CertPEM, 0644); err != nil {
 		return err
 	}
+	logger.Info("TLCP 根 CA 证书生成完成")
 
-	logger.Info("根 CA 证书生成完成")
-
-	// 2. 加载根证书用于签发
-	signerCert, signerKey, err := certgen.LoadCertFromFile(rootCACertPath, rootCAKeyPath)
+	// 2. 生成 TLS 根 CA（RSA 2048）
+	logger.Info("生成 TLS 根 CA 证书（RSA 2048）...")
+	tlsRootCA, err := certgen.GenerateTLSRootCA(certgen.CertGenConfig{
+		Type:       certgen.CertTypeRootCA,
+		CommonName: "tlcpchan-tls-root-ca",
+		Org:        "tlcpchan",
+		OrgUnit:    "tlcpchan",
+		Years:      10,
+		Days:       0,
+		KeyBits:    2048,
+	})
 	if err != nil {
 		return err
 	}
 
-	// 3. 生成 TLCP 证书对
+	// 保存 TLS 根证书到 keystores
+	tlsRootCACertPath := filepath.Join(m.workDir, "keystores", "tlcpchan-tls-root-ca.crt")
+	tlsRootCAKeyPath := filepath.Join(m.workDir, "keystores", "tlcpchan-tls-root-ca.key")
+	if err := certgen.SaveCertToFile(tlsRootCA.CertPEM, tlsRootCA.KeyPEM, tlsRootCACertPath, tlsRootCAKeyPath); err != nil {
+		return err
+	}
+
+	// 同时复制到 rootcerts 目录
+	tlsRootCertPath := filepath.Join(m.workDir, "rootcerts", "tlcpchan-tls-root-ca.crt")
+	if err := os.WriteFile(tlsRootCertPath, tlsRootCA.CertPEM, 0644); err != nil {
+		return err
+	}
+	logger.Info("TLS 根 CA 证书生成完成")
+
+	// 3. 加载 TLCP 根证书用于签发 TLCP 证书
+	tlcpSignerCert, tlcpSignerKey, err := certgen.LoadTLCPCertFromFile(tlcpRootCACertPath, tlcpRootCAKeyPath)
+	if err != nil {
+		return err
+	}
+
+	// 4. 生成 TLCP 证书对（用 TLCP 根 CA 签发）
 	logger.Info("生成 TLCP 证书对...")
 	tlcpSignCfg := certgen.CertGenConfig{
 		Type:       certgen.CertTypeTLCPSign,
@@ -150,7 +184,7 @@ func (m *Manager) Initialize() error {
 		Years:      5,
 		Days:       0,
 	}
-	tlcpSignCert, tlcpEncCert, err := certgen.GenerateTLCPPair(signerCert, signerKey, tlcpSignCfg, tlcpEncCfg)
+	tlcpSignCert, tlcpEncCert, err := certgen.GenerateTLCPPair(tlcpSignerCert, tlcpSignerKey, tlcpSignCfg, tlcpEncCfg)
 	if err != nil {
 		return err
 	}
@@ -169,8 +203,14 @@ func (m *Manager) Initialize() error {
 	}
 	logger.Info("TLCP 证书对生成完成")
 
-	// 4. 生成 TLS 证书
-	logger.Info("生成 TLS 证书...")
+	// 5. 加载 TLS 根证书用于签发 TLS 证书
+	tlsSignerCert, tlsSignerKey, err := certgen.LoadTLSCertFromFile(tlsRootCACertPath, tlsRootCAKeyPath)
+	if err != nil {
+		return err
+	}
+
+	// 6. 生成 TLS 证书（用 TLS 根 CA 签发，RSA 2048）
+	logger.Info("生成 TLS 证书（RSA 2048）...")
 	tlsCfg := certgen.CertGenConfig{
 		Type:         certgen.CertTypeTLS,
 		CommonName:   "tlcpchan-default-tls",
@@ -178,10 +218,10 @@ func (m *Manager) Initialize() error {
 		OrgUnit:      "tlcpchan",
 		Years:        5,
 		Days:         0,
-		KeyAlgorithm: certgen.KeyAlgorithmECDSA,
-		KeyBits:      0,
+		KeyAlgorithm: certgen.KeyAlgorithmRSA,
+		KeyBits:      2048,
 	}
-	tlsCert, err := certgen.GenerateTLSCert(signerCert, signerKey, tlsCfg)
+	tlsCert, err := certgen.GenerateTLSCert(tlsSignerCert, tlsSignerKey, tlsCfg)
 	if err != nil {
 		return err
 	}
@@ -193,14 +233,22 @@ func (m *Manager) Initialize() error {
 	}
 	logger.Info("TLS 证书生成完成")
 
-	// 5. 配置 keystores
+	// 7. 配置 keystores
 	m.cfg.KeyStores = []config.KeyStoreConfig{
 		{
-			Name: "tlcpchan-root-ca",
+			Name: "tlcpchan-tlcp-root-ca",
 			Type: keystore.LoaderTypeFile,
 			Params: map[string]string{
-				"sign-cert": "./keystores/tlcpchan-root-ca.crt",
-				"sign-key":  "./keystores/tlcpchan-root-ca.key",
+				"sign-cert": "./keystores/tlcpchan-tlcp-root-ca.crt",
+				"sign-key":  "./keystores/tlcpchan-tlcp-root-ca.key",
+			},
+		},
+		{
+			Name: "tlcpchan-tls-root-ca",
+			Type: keystore.LoaderTypeFile,
+			Params: map[string]string{
+				"sign-cert": "./keystores/tlcpchan-tls-root-ca.crt",
+				"sign-key":  "./keystores/tlcpchan-tls-root-ca.key",
 			},
 		},
 		{

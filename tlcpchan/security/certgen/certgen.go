@@ -86,16 +86,16 @@ type GeneratedCert struct {
 	KeyPEM []byte
 }
 
-// GenerateRootCA 生成自签名根 CA 证书（SM2）
+// GenerateTLCPRootCA 生成自签名 TLCP 根 CA 证书（SM2）
 //
 // 功能：
 //
-//	生成一个自签名的 SM2 根 CA 证书，用于签发其他证书
+//	生成一个自签名的 SM2 根 CA 证书，用于签发 TLCP 证书
 //
 // 参数：
 //
 //	cfg - 证书生成配置，包含 CommonName、Org、OrgUnit、Years 等信息
-//	      - 如果 CommonName 为空，默认使用 "tlcpchan-root-ca"
+//	      - 如果 CommonName 为空，默认使用 "tlcpchan-tlcp-root-ca"
 //	      - 如果 Org 为空，默认使用 "tlcpchan"
 //	      - 如果 Years <= 0，默认使用 10 年
 //
@@ -108,9 +108,9 @@ type GeneratedCert struct {
 //   - 生成的根 CA 证书使用 SM2 算法
 //   - 证书具有 KeyUsageCertSign 和 KeyUsageCRLSign 权限
 //   - IsCA 设置为 true，表示这是一个 CA 证书
-func GenerateRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
+func GenerateTLCPRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
 	if cfg.CommonName == "" {
-		cfg.CommonName = "tlcpchan-root-ca"
+		cfg.CommonName = "tlcpchan-tlcp-root-ca"
 	}
 	if cfg.Org == "" {
 		cfg.Org = "tlcpchan"
@@ -172,6 +172,110 @@ func GenerateRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
 	})
 
 	privBytes, err := smx509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, fmt.Errorf("序列化私钥失败: %w", err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privBytes,
+	})
+
+	return &GeneratedCert{
+		CertPEM: certPEM,
+		KeyPEM:  keyPEM,
+	}, nil
+}
+
+// GenerateTLSRootCA 生成自签名 TLS 根 CA 证书（RSA 2048）
+//
+// 功能：
+//
+//	生成一个自签名的 RSA 2048 根 CA 证书，用于签发 TLS 证书
+//
+// 参数：
+//
+//	cfg - 证书生成配置，包含 CommonName、Org、OrgUnit、Years 等信息
+//	      - 如果 CommonName 为空，默认使用 "tlcpchan-tls-root-ca"
+//	      - 如果 Org 为空，默认使用 "tlcpchan"
+//	      - 如果 Years <= 0，默认使用 10 年
+//
+// 返回值：
+//
+//	*GeneratedCert - 包含证书 PEM 和私钥 PEM 的结果
+//	error - 错误信息，包括密钥生成失败、证书创建失败、私钥序列化失败等
+//
+// 注意事项：
+//   - 生成的根 CA 证书使用 RSA 2048 算法
+//   - 证书具有 KeyUsageCertSign 和 KeyUsageCRLSign 权限
+//   - IsCA 设置为 true，表示这是一个 CA 证书
+func GenerateTLSRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
+	if cfg.CommonName == "" {
+		cfg.CommonName = "tlcpchan-tls-root-ca"
+	}
+	if cfg.Org == "" {
+		cfg.Org = "tlcpchan"
+	}
+	if cfg.Years <= 0 && cfg.Days <= 0 {
+		cfg.Years = 10
+	}
+
+	keyBits := cfg.KeyBits
+	if keyBits <= 0 {
+		keyBits = 2048
+	}
+	priv, err := rsa.GenerateKey(rand.Reader, keyBits)
+	if err != nil {
+		return nil, fmt.Errorf("生成RSA密钥失败: %w", err)
+	}
+
+	notBefore := time.Now()
+	var notAfter time.Time
+	if cfg.Days > 0 {
+		notAfter = notBefore.AddDate(0, 0, cfg.Days)
+	} else {
+		notAfter = notBefore.AddDate(cfg.Years, 0, 0)
+	}
+
+	subject := pkix.Name{
+		CommonName: cfg.CommonName,
+	}
+	if cfg.Country != "" {
+		subject.Country = []string{cfg.Country}
+	}
+	if cfg.StateOrProvince != "" {
+		subject.Province = []string{cfg.StateOrProvince}
+	}
+	if cfg.Locality != "" {
+		subject.Locality = []string{cfg.Locality}
+	}
+	if cfg.Org != "" {
+		subject.Organization = []string{cfg.Org}
+	}
+	if cfg.OrgUnit != "" {
+		subject.OrganizationalUnit = []string{cfg.OrgUnit}
+	}
+
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, fmt.Errorf("创建证书失败: %w", err)
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	})
+
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, fmt.Errorf("序列化私钥失败: %w", err)
 	}
@@ -524,11 +628,11 @@ func SaveCertToFile(certPEM, keyPEM []byte, certPath, keyPath string) error {
 	return nil
 }
 
-// LoadCertFromFile 从文件加载证书和密钥
+// LoadTLCPCertFromFile 从文件加载 TLCP 证书和密钥（SM2）
 //
 // 功能：
 //
-//	从指定的文件路径加载证书和私钥
+//	从指定的文件路径加载 TLCP 证书和 SM2 私钥
 //
 // 参数：
 //
@@ -538,13 +642,13 @@ func SaveCertToFile(certPEM, keyPEM []byte, certPath, keyPath string) error {
 // 返回值：
 //
 //	*x509.Certificate - 解析后的证书对象
-//	crypto.PrivateKey - 解析后的私钥对象（可能是 *ecdsa.PrivateKey 或其他类型）
+//	crypto.PrivateKey - 解析后的 SM2 私钥对象
 //	error - 错误信息，包括文件读取失败、PEM 解析失败、证书/私钥解析失败等
 //
 // 注意事项：
 //   - 支持 "EC PRIVATE KEY" 和 "PRIVATE KEY" (PKCS8) 格式的私钥
-//   - 不支持其他类型的私钥格式
-func LoadCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
+//   - 优先使用国密 smx509 库解析
+func LoadTLCPCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("读取证书文件失败: %w", err)
@@ -560,14 +664,73 @@ func LoadCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.Priva
 		return nil, nil, fmt.Errorf("无法解析证书PEM")
 	}
 
-	var cert *x509.Certificate
-	if smCert, err := smx509.ParseCertificate(certBlock.Bytes); err == nil {
-		cert = smCert.ToX509()
-	} else {
-		cert, err = x509.ParseCertificate(certBlock.Bytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("解析证书失败: %w", err)
-		}
+	smCert, err := smx509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("解析 TLCP 证书失败: %w", err)
+	}
+	cert := smCert.ToX509()
+
+	keyBlock, _ := pem.Decode(keyPEM)
+	if keyBlock == nil {
+		return nil, nil, fmt.Errorf("无法解析密钥PEM")
+	}
+
+	var priv crypto.PrivateKey
+	switch keyBlock.Type {
+	case "EC PRIVATE KEY":
+		priv, err = smx509.ParseECPrivateKey(keyBlock.Bytes)
+	case "PRIVATE KEY":
+		priv, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+	default:
+		return nil, nil, fmt.Errorf("不支持的密钥类型: %s", keyBlock.Type)
+	}
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("解析 SM2 私钥失败: %w", err)
+	}
+
+	return cert, priv, nil
+}
+
+// LoadTLSCertFromFile 从文件加载 TLS 证书和密钥（RSA/ECDSA）
+//
+// 功能：
+//
+//	从指定的文件路径加载 TLS 证书和 RSA/ECDSA 私钥
+//
+// 参数：
+//
+//	certPath - 证书文件路径
+//	keyPath - 私钥文件路径
+//
+// 返回值：
+//
+//	*x509.Certificate - 解析后的证书对象
+//	crypto.PrivateKey - 解析后的私钥对象（*rsa.PrivateKey 或 *ecdsa.PrivateKey）
+//	error - 错误信息，包括文件读取失败、PEM 解析失败、证书/私钥解析失败等
+//
+// 注意事项：
+//   - 支持 "EC PRIVATE KEY" 和 "PRIVATE KEY" (PKCS8) 格式的私钥
+//   - 使用标准库 x509 解析
+func LoadTLSCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
+	certPEM, err := os.ReadFile(certPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("读取证书文件失败: %w", err)
+	}
+
+	keyPEM, err := os.ReadFile(keyPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("读取密钥文件失败: %w", err)
+	}
+
+	certBlock, _ := pem.Decode(certPEM)
+	if certBlock == nil {
+		return nil, nil, fmt.Errorf("无法解析证书PEM")
+	}
+
+	cert, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("解析 TLS 证书失败: %w", err)
 	}
 
 	keyBlock, _ := pem.Decode(keyPEM)
@@ -579,14 +742,8 @@ func LoadCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.Priva
 	switch keyBlock.Type {
 	case "EC PRIVATE KEY":
 		priv, err = x509.ParseECPrivateKey(keyBlock.Bytes)
-		if err != nil {
-			priv, err = smx509.ParseECPrivateKey(keyBlock.Bytes)
-		}
 	case "PRIVATE KEY":
 		priv, err = x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-		if err != nil {
-			priv, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-		}
 	default:
 		return nil, nil, fmt.Errorf("不支持的密钥类型: %s", keyBlock.Type)
 	}

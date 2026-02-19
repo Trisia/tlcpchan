@@ -447,7 +447,25 @@ tlcpchan-cli config reload
 
 配置验证由服务端加载文件并检测，CLI 仅负责调用。
 
-**调用示例：**
+**参数说明：**
+
+| 参数 | 说明 | 是否必需 |
+|------|------|---------|
+| `-f, --file` | 配置文件路径，可选，不提供则使用默认配置文件 | 否 |
+
+**示例 1：验证默认配置文件**
+
+```bash
+tlcpchan-cli config validate
+```
+
+**响应示例：**
+```
+配置文件 默认配置文件 格式有效
+```
+
+**示例 2：验证指定配置文件**
+
 ```bash
 tlcpchan-cli config validate -f /etc/tlcpchan/config/config.yaml
 ```

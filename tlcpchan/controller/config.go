@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"path/filepath"
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/logger"
@@ -446,11 +447,6 @@ func (c *ConfigController) Validate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cleanPath := filepath.Clean(configPath)
-	if !filepath.IsAbs(cleanPath) {
-		if c.cfg.WorkDir != "" {
-			cleanPath = filepath.Join(c.cfg.WorkDir, cleanPath)
-		}
-	}
 
 	if _, err := config.Load(cleanPath); err != nil {
 		BadRequest(w, err.Error())

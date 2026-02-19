@@ -830,7 +830,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 			BadRequest(w, "使用签发者证书功能暂未实现")
 			return
 		} else {
-			caCert, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+			caCert, err := certgen.GenerateTLCPRootCA(certgen.CertGenConfig{
 				Type:            certgen.CertTypeRootCA,
 				CommonName:      req.Name + "-ca",
 				Country:         req.CertConfig.Country,
@@ -883,7 +883,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 			IPAddresses:     req.CertConfig.IPAddresses,
 		}
 
-		signerX509Cert, signerPrivKey, err := certgen.LoadCertFromFile(
+		signerX509Cert, signerPrivKey, err := certgen.LoadTLCPCertFromFile(
 			signerCertPath,
 			signerKeyPath,
 		)
@@ -946,7 +946,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 			IPAddresses:     req.CertConfig.IPAddresses,
 		}
 
-		signerCert, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+		signerCert, err := certgen.GenerateTLSRootCA(certgen.CertGenConfig{
 			Type:            certgen.CertTypeRootCA,
 			CommonName:      req.Name + "-ca",
 			Country:         req.CertConfig.Country,
@@ -970,7 +970,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		signerX509Cert, signerPrivKey, err := certgen.LoadCertFromFile(signerCertPath, signerKeyPath)
+		signerX509Cert, signerPrivKey, err := certgen.LoadTLSCertFromFile(signerCertPath, signerKeyPath)
 		if err != nil {
 			InternalError(w, "加载签发者证书失败: "+err.Error())
 			return
@@ -1018,6 +1018,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 
 // GenerateRootCARequest 生成根 CA 请求
 type GenerateRootCARequest struct {
+	Type            string `json:"type,omitempty"` // 类型：tlcp 或 tls，默认 tlcp
 	CommonName      string `json:"commonName"`
 	Country         string `json:"country,omitempty"`
 	StateOrProvince string `json:"stateOrProvince,omitempty"`
@@ -1094,7 +1095,9 @@ func (c *SecurityController) GenerateRootCA(w http.ResponseWriter, r *http.Reque
 		req.Years = 10
 	}
 
-	rootCA, err := certgen.GenerateRootCA(certgen.CertGenConfig{
+	var rootCA *certgen.GeneratedCert
+	var err error
+	cfg := certgen.CertGenConfig{
 		Type:            certgen.CertTypeRootCA,
 		CommonName:      req.CommonName,
 		Country:         req.Country,
@@ -1105,7 +1108,14 @@ func (c *SecurityController) GenerateRootCA(w http.ResponseWriter, r *http.Reque
 		EmailAddress:    req.EmailAddress,
 		Years:           req.Years,
 		Days:            req.Days,
-	})
+	}
+
+	if req.Type == "tls" {
+		rootCA, err = certgen.GenerateTLSRootCA(cfg)
+	} else {
+		rootCA, err = certgen.GenerateTLCPRootCA(cfg)
+	}
+
 	if err != nil {
 		InternalError(w, "生成根证书失败: "+err.Error())
 		return

@@ -62,32 +62,34 @@ func configReload(args []string) error {
 
 func configValidate(args []string) error {
 	fs := flagSet("validate")
-	file := fs.String("file", "", "配置文件路径(YAML)")
+	file := fs.String("file", "", "配置文件路径(YAML)，可选，不提供则使用默认配置文件")
 	fs.StringVar(file, "f", "", "配置文件路径(YAML)(缩写)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	if *file == "" {
-		return fmt.Errorf("请使用 -f 指定配置文件")
-	}
-
-	req := map[string]string{
-		"path": *file,
+	req := make(map[string]string)
+	if *file != "" {
+		req["path"] = *file
 	}
 
 	if err := cli.ValidateConfig(req); err != nil {
 		return err
 	}
 
+	displayFile := *file
+	if displayFile == "" {
+		displayFile = "默认配置文件"
+	}
+
 	if isJSONOutput() {
 		return printJSON(map[string]interface{}{
 			"success": true,
 			"message": "配置文件格式有效",
-			"file":    *file,
+			"file":    displayFile,
 		})
 	}
 
-	fmt.Printf("配置文件 %s 格式有效\n", *file)
+	fmt.Printf("配置文件 %s 格式有效\n", displayFile)
 	return nil
 }
