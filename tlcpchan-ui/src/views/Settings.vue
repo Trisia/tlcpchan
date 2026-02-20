@@ -12,8 +12,8 @@
             <el-descriptions-item label="启动时间">{{ formatTime(info?.startTime) }}</el-descriptions-item>
             <el-descriptions-item label="运行时长">{{ formatUptime(info?.uptime || 0) }}</el-descriptions-item>
             <el-descriptions-item label="进程ID">{{ info?.pid }}</el-descriptions-item>
-            <el-descriptions-item label="Goroutines">{{ info?.goroutines }}</el-descriptions-item>
-            <el-descriptions-item label="内存使用">{{ info?.memory.allocMb }} MB / {{ info?.memory.sysMb }} MB</el-descriptions-item>
+            <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
+            <el-descriptions-item label="内存使用">{{ info?.memory?.allocMb }} MB / {{ info?.memory?.sysMb }} MB</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
@@ -27,15 +27,15 @@
             <el-descriptions-item label="状态">
               <el-tag :type="health?.status === 'healthy' ? 'success' : 'danger'">{{ health?.status }}</el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="实例总数">{{ health?.instances.total }}</el-descriptions-item>
-            <el-descriptions-item label="运行中">{{ health?.instances.running }}</el-descriptions-item>
-            <el-descriptions-item label="已停止">{{ health?.instances.stopped }}</el-descriptions-item>
-            <el-descriptions-item label="证书总数">{{ health?.certificates.total }}</el-descriptions-item>
+            <el-descriptions-item label="实例总数">{{ health?.instances?.total }}</el-descriptions-item>
+            <el-descriptions-item label="运行中">{{ health?.instances?.running }}</el-descriptions-item>
+            <el-descriptions-item label="已停止">{{ health?.instances?.stopped }}</el-descriptions-item>
+            <el-descriptions-item label="证书总数">{{ health?.certificates?.total }}</el-descriptions-item>
             <el-descriptions-item label="已过期">
-              <span :class="{ 'text-danger': health?.certificates.expired }">{{ health?.certificates.expired }}</span>
+              <span :class="{ 'text-danger': health?.certificates?.expired }">{{ health?.certificates?.expired }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="即将过期">
-              <span :class="{ 'text-warning': health?.certificates.expiringSoon }">{{ health?.certificates.expiringSoon }}</span>
+              <span :class="{ 'text-warning': health?.certificates?.expiringSoon }">{{ health?.certificates?.expiringSoon }}</span>
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
@@ -59,20 +59,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useSystemStore } from '@/stores/system'
-import axios from 'axios'
+import http from '@/utils/http'
+import type { SystemInfo, HealthStatus } from '@/types'
 
-const API_BASE = '/api/v1'
-const store = useSystemStore()
 
-const info = computed(() => store.info)
-const health = computed(() => store.health)
+const info = ref<SystemInfo | null>(null)
+const health = ref<HealthStatus | null>(null)
 
 onMounted(() => {
-  store.fetchInfo()
-  store.fetchHealth()
+  fetchInfo()
+  fetchHealth()
 })
 
 function formatTime(timeStr?: string): string {
@@ -80,17 +78,36 @@ function formatTime(timeStr?: string): string {
   return new Date(timeStr).toLocaleString('zh-CN')
 }
 
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
+function formatUptime(seconds: string | number): string {
+  const secNum = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds
+  const days = Math.floor(secNum / 86400)
+  const hours = Math.floor((secNum % 86400) / 3600)
+  const minutes = Math.floor((secNum % 3600) / 60)
   if (days > 0) return `${days}天 ${hours}小时`
   if (hours > 0) return `${hours}小时 ${minutes}分钟`
   return `${minutes}分钟`
 }
 
+async function fetchInfo() {
+  try {
+    const response = await http.get('/system/info')
+    info.value = response.data
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+  }
+}
+
+async function fetchHealth() {
+  try {
+    const response = await http.get('/health')
+    health.value = response.data
+  } catch (error) {
+    console.error('获取健康状态失败:', error)
+  }
+}
+
 function reloadConfig() {
-  axios.post(`${API_BASE}/config/reload`)
+  http.post('/config/reload')
     .then(() => {
       ElMessage.success('配置已重载')
     })
@@ -102,7 +119,7 @@ function reloadConfig() {
 function shutdown() {
   ElMessageBox.confirm('确定要关闭服务吗？此操作不可恢复。', '警告', { type: 'warning' })
     .then(() => {
-      axios.get(`${API_BASE}/system/health`)
+      http.get('/system/health')
         .then(() => {
           ElMessage.warning('服务正在关闭...')
         })

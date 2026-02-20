@@ -111,7 +111,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useInstanceStore } from '@/stores/instance'
 import http, { 
   getInstances, 
   startInstance as startInstanceApi, 
@@ -124,7 +123,6 @@ import http, {
 import type { Instance, InstanceConfig } from '@/types'
 
 const router = useRouter()
-const store = useInstanceStore()
 
 const instances = ref<Instance[]>([])
 const showCreateDialog = ref(false)
@@ -156,7 +154,6 @@ function loadInstances() {
   getInstances()
     .then((data) => {
       instances.value = data
-      store.setInstances(data)
     })
     .catch((err) => {
       console.error('加载实例失败:', err)
@@ -183,7 +180,7 @@ function typeText(type: Instance['config']['type']): string {
 
 function authText(auth: Instance['config']['auth']): string {
   const map: Record<string, string> = { none: '无', 'one-way': '单向', mutual: '双向' }
-  return map[auth] || auth
+  return auth ? (map[auth] || auth) : '无'
 }
 
 function statusType(status: Instance['status']): '' | 'success' | 'warning' | 'danger' | 'info' {
@@ -274,7 +271,6 @@ function toggleEnabled(row: Instance) {
   instanceActions.value[row.name] = true
   updateInstanceApi(row.name, { enabled: row.enabled })
     .then(() => {
-      store.updateInstance(row.name, { enabled: row.enabled })
       ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
     })
     .catch((err) => {

@@ -36,21 +36,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useInstanceStore } from '@/stores/instance'
+import { ref, onMounted } from 'vue'
+import { getInstances } from '@/utils/http'
 import axios from 'axios'
+import type { Instance } from '@/types'
 
 const API_BASE = '/api/v1'
-const store = useInstanceStore()
-
-const instances = computed(() => store.instances)
+const instances = ref<Instance[]>([])
 const selectedInstance = ref('')
 const logLevel = ref('')
 const logs = ref<Array<{ time: string; level: string; message: string }>>([])
 const loading = ref(false)
 
 onMounted(() => {
-  store.fetchInstances()
+  loadInstances()
   setTimeout(() => {
     const first = instances.value[0]
     if (first) {
@@ -59,6 +58,15 @@ onMounted(() => {
     }
   }, 100)
 })
+
+async function loadInstances() {
+  try {
+    const data = await getInstances()
+    instances.value = data
+  } catch (error) {
+    console.error('加载实例失败:', error)
+  }
+}
 
 function fetchLogs() {
   if (!selectedInstance.value) return

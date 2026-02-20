@@ -7,11 +7,9 @@ const http = axios.create({
   headers: API_CONFIG.headers,
 })
 
-export default http
-
 // 获取实例列表
 export function getInstances() {
-  return http.get('/instances').then((data: any) => data.instances || [])
+  return http.get('/instances').then((response: any) => response.data.instances || [])
 }
 
 // 获取单个实例

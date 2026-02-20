@@ -13,7 +13,7 @@
               <el-icon size="28"><Connection /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ health?.instances.total || 0 }}</div>
+              <div class="stat-value">{{ health?.instances?.total || 0 }}</div>
               <div class="stat-label">实例总数</div>
             </div>
           </div>
@@ -26,7 +26,7 @@
               <el-icon size="28"><CircleCheck /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ health?.instances.running || 0 }}</div>
+              <div class="stat-value">{{ health?.instances?.running || 0 }}</div>
               <div class="stat-label">运行中</div>
             </div>
           </div>
@@ -39,7 +39,7 @@
               <el-icon size="28"><Key /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ health?.certificates.total || 0 }}</div>
+              <div class="stat-value">{{ health?.certificates?.total || 0 }}</div>
               <div class="stat-label">证书总数</div>
             </div>
           </div>
@@ -73,7 +73,7 @@
             </div>
           </template>
           <div class="table-container">
-            <el-table :data="instances" v-loading="instanceStore.loading" max-height="400">
+            <el-table :data="instances" v-loading="instanceLoading" max-height="400">
               <el-table-column prop="name" label="名称" />
                <el-table-column prop="config.type" label="类型" width="100" class="hide-on-mobile">
                 <template #default="{ row }">
@@ -144,21 +144,47 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
-import { useInstanceStore } from '@/stores/instance'
-import { useSystemStore } from '@/stores/system'
-import type { Instance } from '@/types'
+import { ref, onMounted } from 'vue'
+import { getInstances, startInstance as startInstanceApi, stopInstance as stopInstanceApi } from '@/utils/http'
+import http from '@/utils/http'
+import type { Instance, SystemInfo, HealthStatus } from '@/types'
 
-const instanceStore = useInstanceStore()
-const systemStore = useSystemStore()
-
-const instances = computed(() => instanceStore.instances)
-const info = computed(() => systemStore.info)
-const health = computed(() => systemStore.health)
+const instances = ref<Instance[]>([])
+const info = ref<SystemInfo | null>(null)
+const health = ref<HealthStatus | null>(null)
+const instanceLoading = ref(false)
 
 onMounted(async () => {
-  await Promise.all([instanceStore.fetchInstances(), systemStore.fetchInfo(), systemStore.fetchHealth()])
+  await Promise.all([fetchInstances(), fetchInfo(), fetchHealth()])
 })
+
+async function fetchInstances() {
+  instanceLoading.value = true
+  try {
+    const data = await getInstances()
+    instances.value = data
+  } finally {
+    instanceLoading.value = false
+  }
+}
+
+async function fetchInfo() {
+  try {
+    const response = await http.get('/system/info')
+    info.value = response.data
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+  }
+}
+
+async function fetchHealth() {
+  try {
+    const response = await http.get('/health')
+    health.value = response.data
+  } catch (error) {
+    console.error('获取健康状态失败:', error)
+  }
+}
 
 function formatUptime(uptimeStr: string | number): string {
   if (typeof uptimeStr === 'number') {
@@ -188,13 +214,15 @@ function statusText(status: Instance['status']): string {
 }
 
 async function start(name: string) {
-  await instanceStore.startInstance(name)
-  await systemStore.fetchHealth()
+  await startInstanceApi(name)
+  await fetchHealth()
+  await fetchInstances()
 }
 
 async function stop(name: string) {
-  await instanceStore.stopInstance(name)
-  await systemStore.fetchHealth()
+  await stopInstanceApi(name)
+  await fetchHealth()
+  await fetchInstances()
 }
 </script>
 

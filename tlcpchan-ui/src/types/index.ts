@@ -170,10 +170,12 @@ export interface InstanceHealthResponse {
   results: HealthCheckResult[]
 }
 
-export enum CertType {
-  TLCP = 'tlcp',
-  TLS = 'tls'
-}
+export const CertType = {
+  TLCP: 'tlcp',
+  TLS: 'tls'
+} as const
+
+export type CertType = typeof CertType[keyof typeof CertType]
 
 export interface VersionInfo {
   version: string
