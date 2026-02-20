@@ -3,6 +3,40 @@
 
 本文档为 agentic coding agents 提供项目上下文和代码规范。
 
+## 构建/测试/格式化命令
+
+### 后端（Go）
+
+```bash
+# 在 tlcpchan/ 目录下执行
+cd tlcpchan
+go build -o tlcpchan ./cmd/tlcpchan          # 构建核心服务
+go test ./... -v                              # 运行所有测试
+go test ./path/to/package -run TestName -v   # 运行单个测试
+go fmt ./...                                  # 格式化代码
+go vet ./...                                  # 静态检查
+```
+
+### 前端（Vue/TypeScript）
+
+```bash
+# 在 tlcpchan-ui/ 目录下执行
+cd tlcpchan-ui
+npm install          # 安装依赖
+npm run dev          # 开发模式启动
+npm run build        # 生产构建
+npm run test         # 运行所有测试
+npm run test:watch   # 监听模式运行测试
+```
+
+### CLI（Go）
+
+```bash
+# 在 tlcpchan-cli/ 目录下执行
+cd tlcpchan-cli
+go build -o tlcpchan-cli   # 构建命令行工具
+```
+
 ## 规约
 
 - 在进行开发前必须先把开发的内容系统的整理并加入设计文档
