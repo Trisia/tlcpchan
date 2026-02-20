@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getInstances } from '@/utils/http'
+import http from '@/utils/http'
 import axios from 'axios'
 import type { Instance } from '@/types'
 
@@ -61,8 +61,8 @@ onMounted(() => {
 
 async function loadInstances() {
   try {
-    const data = await getInstances()
-    instances.value = data
+    const response = await http.get('/instances')
+    instances.value = response.data.instances || []
   } catch (error) {
     console.error('加载实例失败:', error)
   }

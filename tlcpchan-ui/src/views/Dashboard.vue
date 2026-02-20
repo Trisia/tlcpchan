@@ -145,7 +145,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getInstances, startInstance as startInstanceApi, stopInstance as stopInstanceApi } from '@/utils/http'
 import http from '@/utils/http'
 import type { Instance, SystemInfo, HealthStatus } from '@/types'
 
@@ -161,8 +160,8 @@ onMounted(async () => {
 async function fetchInstances() {
   instanceLoading.value = true
   try {
-    const data = await getInstances()
-    instances.value = data
+    const response = await http.get('/instances')
+    instances.value = response.data.instances || []
   } finally {
     instanceLoading.value = false
   }
@@ -214,13 +213,13 @@ function statusText(status: Instance['status']): string {
 }
 
 async function start(name: string) {
-  await startInstanceApi(name)
+  await http.post(`/instances/${name}/start`)
   await fetchHealth()
   await fetchInstances()
 }
 
 async function stop(name: string) {
-  await stopInstanceApi(name)
+  await http.post(`/instances/${name}/stop`)
   await fetchHealth()
   await fetchInstances()
 }

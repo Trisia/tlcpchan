@@ -104,13 +104,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import http, { 
-  getInstanceLogs,
-  getInstanceHealth,
-  startInstance as startInstanceApi,
-  stopInstance as stopInstanceApi,
-  reloadInstance as reloadInstanceApi
-} from '@/utils/http'
+import http from '@/utils/http'
 import type { Instance, InstanceConfig, InstanceHealthResponse } from '@/types'
 
 const route = useRoute()
@@ -155,9 +149,12 @@ function fetchStats() {
 function fetchLogs() {
   logsLoading.value = true
   
-  getInstanceLogs(name.value, 100, logLevel.value || undefined)
-    .then((data: any) => {
-      logs.value = data.logs
+  const params: any = { lines: 100 }
+  if (logLevel.value) params.level = logLevel.value
+  
+  http.get(`/instances/${name.value}/logs`, { params })
+    .then((response: any) => {
+      logs.value = response.data.logs
     })
     .catch((err) => {
       console.error('获取日志失败:', err)
@@ -171,9 +168,9 @@ function checkHealth() {
   healthLoading.value = true
   healthResults.value = null
   
-  getInstanceHealth(name.value)
-    .then((data: any) => {
-      healthResults.value = data
+  http.get(`/instances/${name.value}/health`)
+    .then((response: any) => {
+      healthResults.value = response.data
       ElMessage.success('健康检查完成')
     })
     .catch((err) => {
@@ -218,7 +215,7 @@ const actionLoading = ref<Record<string, boolean>>({})
 
 function start() {
   actionLoading.value.start = true
-  startInstanceApi(name.value)
+  http.post(`/instances/${name.value}/start`)
     .then(() => {
       fetchInstance()
       ElMessage.success('实例已启动')
@@ -234,7 +231,7 @@ function start() {
 
 function stop() {
   actionLoading.value.stop = true
-  stopInstanceApi(name.value)
+  http.post(`/instances/${name.value}/stop`)
     .then(() => {
       fetchInstance()
       ElMessage.success('实例已停止')
@@ -250,7 +247,7 @@ function stop() {
 
 function reload() {
   actionLoading.value.reload = true
-  reloadInstanceApi(name.value)
+  http.post(`/instances/${name.value}/reload`)
     .then(() => {
       fetchInstance()
       ElMessage.success('实例已重载')

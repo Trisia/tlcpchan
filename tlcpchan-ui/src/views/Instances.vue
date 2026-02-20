@@ -111,15 +111,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import http, { 
-  getInstances, 
-  startInstance as startInstanceApi, 
-  stopInstance as stopInstanceApi,
-  reloadInstance as reloadInstanceApi,
-  deleteInstance as deleteInstanceApi,
-  createInstance as createInstanceApi,
-  updateInstance as updateInstanceApi
-} from '@/utils/http'
+import http from '@/utils/http'
 import type { Instance, InstanceConfig } from '@/types'
 
 const router = useRouter()
@@ -151,9 +143,9 @@ onMounted(() => {
 
 function loadInstances() {
   refreshLoading.value = true
-  getInstances()
-    .then((data) => {
-      instances.value = data
+  http.get('/instances')
+    .then((response: any) => {
+      instances.value = response.data.instances || []
     })
     .catch((err) => {
       console.error('加载实例失败:', err)
@@ -199,7 +191,7 @@ function viewDetail(name: string) {
 
 function start(name: string) {
   instanceActions.value[name] = true
-  startInstanceApi(name)
+  http.post(`/instances/${name}/start`)
     .then(() => {
       ElMessage.success('实例已启动')
       loadInstances()
@@ -215,7 +207,7 @@ function start(name: string) {
 
 function stop(name: string) {
   instanceActions.value[name] = true
-  stopInstanceApi(name)
+  http.post(`/instances/${name}/stop`)
     .then(() => {
       ElMessage.success('实例已停止')
       loadInstances()
@@ -231,7 +223,7 @@ function stop(name: string) {
 
 function reload(name: string) {
   instanceActions.value[name] = true
-  reloadInstanceApi(name)
+  http.post(`/instances/${name}/reload`)
     .then(() => {
       ElMessage.success('实例已重载')
       loadInstances()
@@ -249,7 +241,7 @@ function remove(name: string) {
   ElMessageBox.confirm('确定要删除此实例吗？', '确认删除', { type: 'warning' })
     .then(() => {
       instanceActions.value[name] = true
-      deleteInstanceApi(name)
+      http.delete(`/instances/${name}`)
         .then(() => {
           ElMessage.success('实例已删除')
           loadInstances()
@@ -269,7 +261,7 @@ function remove(name: string) {
 
 function toggleEnabled(row: Instance) {
   instanceActions.value[row.name] = true
-  updateInstanceApi(row.name, { enabled: row.enabled })
+  http.put(`/instances/${row.name}`, { enabled: row.enabled })
     .then(() => {
       ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
     })
@@ -303,7 +295,7 @@ function create() {
   }
 
   createLoading.value = true
-  createInstanceApi(data)
+  http.post('/instances', data)
     .then(() => {
       showCreateDialog.value = false
       loadInstances()
