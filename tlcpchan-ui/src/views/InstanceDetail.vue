@@ -13,20 +13,20 @@
           <template #header>
             <span>统计信息</span>
           </template>
-          <el-row :gutter="20">
-            <el-col :span="6">
-              <el-statistic title="总连接数" :value="stats?.connections_total || 0" />
-            </el-col>
-            <el-col :span="6">
-              <el-statistic title="活跃连接" :value="stats?.connections_active || 0" />
-            </el-col>
-            <el-col :span="6">
-              <el-statistic title="接收字节" :value="formatBytes(stats?.bytes_received || 0)" />
-            </el-col>
-            <el-col :span="6">
-              <el-statistic title="发送字节" :value="formatBytes(stats?.bytes_sent || 0)" />
-            </el-col>
-          </el-row>
+           <el-row :gutter="20">
+             <el-col :span="6">
+               <el-statistic title="总连接数" :value="stats?.totalConnections || 0" />
+             </el-col>
+             <el-col :span="6">
+               <el-statistic title="活跃连接" :value="stats?.activeConnections || 0" />
+             </el-col>
+             <el-col :span="6">
+               <el-statistic title="接收字节" :value="formatBytes(stats?.bytesReceived || 0)" />
+             </el-col>
+             <el-col :span="6">
+               <el-statistic title="发送字节" :value="formatBytes(stats?.bytesSent || 0)" />
+             </el-col>
+           </el-row>
         </el-card>
 
         <el-card style="margin-top: 20px">
@@ -104,14 +104,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import http from '@/utils/http'
-import type { Instance, InstanceConfig, InstanceHealthResponse } from '@/types'
+import { instanceApi } from '@/api'
+import type { Instance, InstanceConfig, InstanceHealthResponse, InstanceStats } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 
 const instance = ref<Instance | null>(null)
-const stats = ref<{ connections_total: number; connections_active: number; bytes_received: number; bytes_sent: number } | null>(null)
+const stats = ref<InstanceStats | null>(null)
 const logs = ref<Array<{ time: string; level: string; message: string }>>([])
 const logLevel = ref('')
 const logsLoading = ref(false)
@@ -126,59 +126,46 @@ onMounted(() => {
   fetchLogs()
 })
 
-function fetchInstance() {
-  http.get(`/instances/${name.value}`)
-    .then((data: any) => {
-      instance.value = data
-    })
-    .catch((err) => {
-      console.error('获取实例失败:', err)
-    })
+async function fetchInstance() {
+  try {
+    instance.value = await instanceApi.get(name.value)
+  } catch (err) {
+    console.error('获取实例失败:', err)
+  }
 }
 
-function fetchStats() {
-  http.get(`/instances/${name.value}/stats`)
-    .then((data: any) => {
-      stats.value = data
-    })
-    .catch((err) => {
-      console.error('获取统计失败:', err)
-    })
+async function fetchStats() {
+  try {
+    stats.value = await instanceApi.stats(name.value)
+  } catch (err) {
+    console.error('获取统计失败:', err)
+  }
 }
 
-function fetchLogs() {
+async function fetchLogs() {
   logsLoading.value = true
-  
-  const params: any = { lines: 100 }
-  if (logLevel.value) params.level = logLevel.value
-  
-  http.get(`/instances/${name.value}/logs`, { params })
-    .then((response: any) => {
-      logs.value = response.data.logs
-    })
-    .catch((err) => {
-      console.error('获取日志失败:', err)
-    })
-    .finally(() => {
-      logsLoading.value = false
-    })
+  try {
+    const params: any = { lines: 100 }
+    if (logLevel.value) params.level = logLevel.value
+    logs.value = await instanceApi.logs(name.value, params)
+  } catch (err) {
+    console.error('获取日志失败:', err)
+  } finally {
+    logsLoading.value = false
+  }
 }
 
-function checkHealth() {
+async function checkHealth() {
   healthLoading.value = true
   healthResults.value = null
-  
-  http.get(`/instances/${name.value}/health`)
-    .then((response: any) => {
-      healthResults.value = response.data
-      ElMessage.success('健康检查完成')
-    })
-    .catch((err) => {
-      ElMessage.error(`健康检查失败: ${err.message}`)
-    })
-    .finally(() => {
-      healthLoading.value = false
-    })
+  try {
+    healthResults.value = await instanceApi.health(name.value)
+    ElMessage.success('健康检查完成')
+  } catch (err: any) {
+    ElMessage.error(`健康检查失败: ${err.message}`)
+  } finally {
+    healthLoading.value = false
+  }
 }
 
 function formatBytes(bytes: number): string {
@@ -213,52 +200,46 @@ function authText(auth: InstanceConfig['auth']): string {
 
 const actionLoading = ref<Record<string, boolean>>({})
 
-function start() {
+async function start() {
   actionLoading.value.start = true
-  http.post(`/instances/${name.value}/start`)
-    .then(() => {
-      fetchInstance()
-      ElMessage.success('实例已启动')
-    })
-    .catch((err) => {
-      console.error('启动失败:', err)
-      ElMessage.error('启动失败')
-    })
-    .finally(() => {
-      actionLoading.value.start = false
-    })
+  try {
+    await instanceApi.start(name.value)
+    fetchInstance()
+    ElMessage.success('实例已启动')
+  } catch (err) {
+    console.error('启动失败:', err)
+    ElMessage.error('启动失败')
+  } finally {
+    actionLoading.value.start = false
+  }
 }
 
-function stop() {
+async function stop() {
   actionLoading.value.stop = true
-  http.post(`/instances/${name.value}/stop`)
-    .then(() => {
-      fetchInstance()
-      ElMessage.success('实例已停止')
-    })
-    .catch((err) => {
-      console.error('停止失败:', err)
-      ElMessage.error('停止失败')
-    })
-    .finally(() => {
-      actionLoading.value.stop = false
-    })
+  try {
+    await instanceApi.stop(name.value)
+    fetchInstance()
+    ElMessage.success('实例已停止')
+  } catch (err) {
+    console.error('停止失败:', err)
+    ElMessage.error('停止失败')
+  } finally {
+    actionLoading.value.stop = false
+  }
 }
 
-function reload() {
+async function reload() {
   actionLoading.value.reload = true
-  http.post(`/instances/${name.value}/reload`)
-    .then(() => {
-      fetchInstance()
-      ElMessage.success('实例已重载')
-    })
-    .catch((err) => {
-      console.error('重载失败:', err)
-      ElMessage.error('重载失败')
-    })
-    .finally(() => {
-      actionLoading.value.reload = false
-    })
+  try {
+    await instanceApi.reload(name.value)
+    fetchInstance()
+    ElMessage.success('实例已重载')
+  } catch (err) {
+    console.error('重载失败:', err)
+    ElMessage.error('重载失败')
+  } finally {
+    actionLoading.value.reload = false
+  }
 }
 </script>
 

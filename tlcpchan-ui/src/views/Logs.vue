@@ -37,52 +37,44 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import http from '@/utils/http'
-import axios from 'axios'
+import { instanceApi } from '@/api'
 import type { Instance } from '@/types'
 
-const API_BASE = '/api/v1'
 const instances = ref<Instance[]>([])
 const selectedInstance = ref('')
 const logLevel = ref('')
 const logs = ref<Array<{ time: string; level: string; message: string }>>([])
 const loading = ref(false)
 
-onMounted(() => {
-  loadInstances()
-  setTimeout(() => {
-    const first = instances.value[0]
-    if (first) {
-      selectedInstance.value = first.name
-      fetchLogs()
-    }
-  }, 100)
+onMounted(async () => {
+  await loadInstances()
+  const first = instances.value[0]
+  if (first) {
+    selectedInstance.value = first.name
+    fetchLogs()
+  }
 })
 
 async function loadInstances() {
   try {
-    const response = await http.get('/instances')
-    instances.value = response.data.instances || []
+    instances.value = await instanceApi.list()
   } catch (error) {
     console.error('加载实例失败:', error)
   }
 }
 
-function fetchLogs() {
+async function fetchLogs() {
   if (!selectedInstance.value) return
   loading.value = true
-  const params = new URLSearchParams({ lines: String(500) })
-  if (logLevel.value) params.append('level', logLevel.value)
-  axios.get(`${API_BASE}/instances/${selectedInstance.value}/logs?${params.toString()}`)
-    .then((res) => {
-      logs.value = res.data.logs
-    })
-    .catch((err) => {
-      console.error('获取日志失败', err)
-    })
-    .finally(() => {
-      loading.value = false
-    })
+  try {
+    const params: any = { lines: 500 }
+    if (logLevel.value) params.level = logLevel.value
+    logs.value = await instanceApi.logs(selectedInstance.value, params)
+  } catch (err) {
+    console.error('获取日志失败', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 function formatTime(timeStr: string): string {

@@ -111,7 +111,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import http from '@/utils/http'
+import { instanceApi, keyStoreApi } from '@/api'
 import type { Instance, InstanceConfig } from '@/types'
 
 const router = useRouter()
@@ -141,28 +141,24 @@ onMounted(() => {
   loadKeystores()
 })
 
-function loadInstances() {
+async function loadInstances() {
   refreshLoading.value = true
-  http.get('/instances')
-    .then((response: any) => {
-      instances.value = response.data.instances || []
-    })
-    .catch((err) => {
-      console.error('加载实例失败:', err)
-    })
-    .finally(() => {
-      refreshLoading.value = false
-    })
+  try {
+    instances.value = await instanceApi.list()
+  } catch (err) {
+    console.error('加载实例失败:', err)
+  } finally {
+    refreshLoading.value = false
+  }
 }
 
-function loadKeystores() {
-  http.get('/security/keystores')
-    .then((res: any) => {
-      keystores.value = res || []
-    })
-    .catch((err) => {
-      console.error('获取密钥列表失败:', err)
-    })
+async function loadKeystores() {
+  try {
+    const result = await keyStoreApi.list()
+    keystores.value = result.keystores || []
+  } catch (err) {
+    console.error('获取密钥列表失败:', err)
+  }
 }
 
 function typeText(type: Instance['config']['type']): string {
@@ -189,94 +185,80 @@ function viewDetail(name: string) {
   router.push(`/instances/${name}`)
 }
 
-function start(name: string) {
+async function start(name: string) {
   instanceActions.value[name] = true
-  http.post(`/instances/${name}/start`)
-    .then(() => {
-      ElMessage.success('实例已启动')
-      loadInstances()
-    })
-    .catch((err) => {
-      console.error('启动失败:', err)
-      ElMessage.error('启动失败')
-    })
-    .finally(() => {
-      instanceActions.value[name] = false
-    })
+  try {
+    await instanceApi.start(name)
+    ElMessage.success('实例已启动')
+    loadInstances()
+  } catch (err) {
+    console.error('启动失败:', err)
+    ElMessage.error('启动失败')
+  } finally {
+    instanceActions.value[name] = false
+  }
 }
 
-function stop(name: string) {
+async function stop(name: string) {
   instanceActions.value[name] = true
-  http.post(`/instances/${name}/stop`)
-    .then(() => {
-      ElMessage.success('实例已停止')
-      loadInstances()
-    })
-    .catch((err) => {
-      console.error('停止失败:', err)
-      ElMessage.error('停止失败')
-    })
-    .finally(() => {
-      instanceActions.value[name] = false
-    })
+  try {
+    await instanceApi.stop(name)
+    ElMessage.success('实例已停止')
+    loadInstances()
+  } catch (err) {
+    console.error('停止失败:', err)
+    ElMessage.error('停止失败')
+  } finally {
+    instanceActions.value[name] = false
+  }
 }
 
-function reload(name: string) {
+async function reload(name: string) {
   instanceActions.value[name] = true
-  http.post(`/instances/${name}/reload`)
-    .then(() => {
-      ElMessage.success('实例已重载')
-      loadInstances()
-    })
-    .catch((err) => {
-      console.error('重载失败:', err)
-      ElMessage.error('重载失败')
-    })
-    .finally(() => {
-      instanceActions.value[name] = false
-    })
+  try {
+    await instanceApi.reload(name)
+    ElMessage.success('实例已重载')
+    loadInstances()
+  } catch (err) {
+    console.error('重载失败:', err)
+    ElMessage.error('重载失败')
+  } finally {
+    instanceActions.value[name] = false
+  }
 }
 
-function remove(name: string) {
-  ElMessageBox.confirm('确定要删除此实例吗？', '确认删除', { type: 'warning' })
-    .then(() => {
-      instanceActions.value[name] = true
-      http.delete(`/instances/${name}`)
-        .then(() => {
-          ElMessage.success('实例已删除')
-          loadInstances()
-        })
-        .catch((err) => {
-          console.error('删除失败:', err)
-          ElMessage.error('删除失败')
-        })
-        .finally(() => {
-          instanceActions.value[name] = false
-        })
-    })
-    .catch(() => {
-      // 用户取消
-    })
+async function remove(name: string) {
+  try {
+    await ElMessageBox.confirm('确定要删除此实例吗？', '确认删除', { type: 'warning' })
+    instanceActions.value[name] = true
+    await instanceApi.delete(name)
+    ElMessage.success('实例已删除')
+    loadInstances()
+  } catch (err) {
+    if (err !== 'cancel') {
+      console.error('删除失败:', err)
+      ElMessage.error('删除失败')
+    }
+  } finally {
+    instanceActions.value[name] = false
+  }
 }
 
-function toggleEnabled(row: Instance) {
+async function toggleEnabled(row: Instance) {
   instanceActions.value[row.name] = true
-  http.put(`/instances/${row.name}`, { enabled: row.enabled })
-    .then(() => {
-      ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
-    })
-    .catch((err) => {
-      console.error('更新状态失败:', err)
-      ElMessage.error('更新状态失败')
-      // 恢复原始状态
-      row.enabled = !row.enabled
-    })
-    .finally(() => {
-      instanceActions.value[row.name] = false
-    })
+  try {
+    await instanceApi.update(row.name, { enabled: row.enabled })
+    ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
+  } catch (err) {
+    console.error('更新状态失败:', err)
+    ElMessage.error('更新状态失败')
+    row.enabled = !row.enabled
+  } finally {
+    instanceActions.value[row.name] = false
+  }
 }
 
-function create() {
+async function create() {
   if (!form.value.name) {
     ElMessage.error('请输入实例名称')
     return
@@ -295,22 +277,19 @@ function create() {
   }
 
   createLoading.value = true
-  http.post('/instances', data)
-    .then(() => {
-      showCreateDialog.value = false
-      loadInstances()
-      ElMessage.success('实例创建成功')
-      // 重置表单
-      form.value.name = ''
-      selectedKeystoreName.value = ''
-    })
-    .catch((err) => {
-      console.error('创建失败:', err)
-      ElMessage.error('创建失败')
-    })
-    .finally(() => {
-      createLoading.value = false
-    })
+  try {
+    await instanceApi.create(data)
+    showCreateDialog.value = false
+    loadInstances()
+    ElMessage.success('实例创建成功')
+    form.value.name = ''
+    selectedKeystoreName.value = ''
+  } catch (err) {
+    console.error('创建失败:', err)
+    ElMessage.error('创建失败')
+  } finally {
+    createLoading.value = false
+  }
 }
 </script>
 

@@ -145,7 +145,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import http from '@/utils/http'
+import { systemApi, instanceApi } from '@/api'
 import type { Instance, SystemInfo, HealthStatus } from '@/types'
 
 const instances = ref<Instance[]>([])
@@ -160,8 +160,7 @@ onMounted(async () => {
 async function fetchInstances() {
   instanceLoading.value = true
   try {
-    const response = await http.get('/instances')
-    instances.value = response.data.instances || []
+    instances.value = await instanceApi.list()
   } finally {
     instanceLoading.value = false
   }
@@ -169,8 +168,7 @@ async function fetchInstances() {
 
 async function fetchInfo() {
   try {
-    const response = await http.get('/system/info')
-    info.value = response.data
+    info.value = await systemApi.info()
   } catch (error) {
     console.error('获取系统信息失败:', error)
   }
@@ -178,8 +176,7 @@ async function fetchInfo() {
 
 async function fetchHealth() {
   try {
-    const response = await http.get('/health')
-    health.value = response.data
+    health.value = await systemApi.health()
   } catch (error) {
     console.error('获取健康状态失败:', error)
   }
@@ -213,13 +210,13 @@ function statusText(status: Instance['status']): string {
 }
 
 async function start(name: string) {
-  await http.post(`/instances/${name}/start`)
+  await instanceApi.start(name)
   await fetchHealth()
   await fetchInstances()
 }
 
 async function stop(name: string) {
-  await http.post(`/instances/${name}/stop`)
+  await instanceApi.stop(name)
   await fetchHealth()
   await fetchInstances()
 }

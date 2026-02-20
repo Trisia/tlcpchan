@@ -282,7 +282,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
 import { Plus, MagicStick } from '@element-plus/icons-vue'
-import http from '@/utils/http'
+import { keyStoreApi } from '@/api'
 import { CertType } from '@/types'
 
 const loading = ref(false)
@@ -338,7 +338,7 @@ async function fetchKeyStores() {
   loading.value = true
   try {
     const result = await keyStoreApi.list()
-    keystores.value = result.keystores
+    keystores.value = result.keystores || []
   } catch (err) {
     console.error('获取密钥列表失败', err)
   } finally {

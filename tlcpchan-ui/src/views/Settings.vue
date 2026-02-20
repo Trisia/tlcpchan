@@ -6,15 +6,14 @@
           <template #header>
             <span>系统信息</span>
           </template>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
-            <el-descriptions-item label="操作系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
-            <el-descriptions-item label="启动时间">{{ formatTime(info?.startTime) }}</el-descriptions-item>
-            <el-descriptions-item label="运行时长">{{ formatUptime(info?.uptime || 0) }}</el-descriptions-item>
-            <el-descriptions-item label="进程ID">{{ info?.pid }}</el-descriptions-item>
-            <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
-            <el-descriptions-item label="内存使用">{{ info?.memory?.allocMb }} MB / {{ info?.memory?.sysMb }} MB</el-descriptions-item>
-          </el-descriptions>
+           <el-descriptions :column="1" border>
+             <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
+             <el-descriptions-item label="操作系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
+             <el-descriptions-item label="启动时间">{{ formatTime(info?.startTime) }}</el-descriptions-item>
+             <el-descriptions-item label="运行时长">{{ formatUptime(info?.uptime || 0) }}</el-descriptions-item>
+             <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
+             <el-descriptions-item label="内存使用">{{ info?.memAllocMb }} MB / {{ info?.memSysMb }} MB</el-descriptions-item>
+           </el-descriptions>
         </el-card>
       </el-col>
 
@@ -61,7 +60,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import http from '@/utils/http'
+import { systemApi, configApi } from '@/api'
 import type { SystemInfo, HealthStatus } from '@/types'
 
 
@@ -90,8 +89,7 @@ function formatUptime(seconds: string | number): string {
 
 async function fetchInfo() {
   try {
-    const response = await http.get('/system/info')
-    info.value = response.data
+    info.value = await systemApi.info()
   } catch (error) {
     console.error('获取系统信息失败:', error)
   }
@@ -99,33 +97,25 @@ async function fetchInfo() {
 
 async function fetchHealth() {
   try {
-    const response = await http.get('/health')
-    health.value = response.data
+    health.value = await systemApi.health()
   } catch (error) {
     console.error('获取健康状态失败:', error)
   }
 }
 
-function reloadConfig() {
-  http.post('/config/reload')
-    .then(() => {
-      ElMessage.success('配置已重载')
-    })
-    .catch((err) => {
-      console.error('重载配置失败', err)
-    })
+async function reloadConfig() {
+  try {
+    await configApi.reload()
+    ElMessage.success('配置已重载')
+  } catch (err) {
+    console.error('重载配置失败', err)
+  }
 }
 
 function shutdown() {
   ElMessageBox.confirm('确定要关闭服务吗？此操作不可恢复。', '警告', { type: 'warning' })
     .then(() => {
-      http.get('/system/health')
-        .then(() => {
-          ElMessage.warning('服务正在关闭...')
-        })
-        .catch((err) => {
-          console.error('关闭服务失败', err)
-        })
+      ElMessage.warning('关闭服务功能暂未实现')
     })
     .catch(() => {})
 }

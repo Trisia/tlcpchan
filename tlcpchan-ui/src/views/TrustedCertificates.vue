@@ -138,7 +138,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
 import { Plus, MagicStick } from '@element-plus/icons-vue'
-// 删除api模块导入，使用http模块代替
+import { trustedApi, rootCertApi } from '@/api'
 
 const loading = ref(false)
 const trustedCerts = ref<any[]>([])
@@ -219,18 +219,17 @@ async function generateRootCA() {
   }
 }
 
-function remove(name: string) {
-  ElMessageBox.confirm('确定要删除此信任证书吗？', '确认删除', { type: 'warning' })
-    .then(async () => {
-      try {
-        await trustedApi.delete(name)
-        ElMessage.success('信任证书已删除')
-        fetchTrustedCerts()
-      } catch (err) {
-        console.error('删除失败', err)
-      }
-    })
-    .catch(() => {})
+async function remove(name: string) {
+  try {
+    await ElMessageBox.confirm('确定要删除此信任证书吗？', '确认删除', { type: 'warning' })
+    await trustedApi.delete(name)
+    ElMessage.success('信任证书已删除')
+    fetchTrustedCerts()
+  } catch (err) {
+    if (err !== 'cancel') {
+      console.error('删除失败', err)
+    }
+  }
 }
 
 function resetUploadForm() {
