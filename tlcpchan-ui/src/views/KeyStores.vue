@@ -51,8 +51,9 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-button type="success" size="small" link @click="showExportCSRDialog(row)">导出 CSR</el-button>
             <el-button type="primary" size="small" link @click="showUpdateCertDialog(row)">更新证书</el-button>
             <el-button type="danger" size="small" link @click="remove(row.name)">删除</el-button>
           </template>
@@ -275,6 +276,86 @@
         <el-button type="primary" :loading="updateLoading" @click="updateCertificates">更新</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showExportCSRDialog" title="导出证书请求 (CSR)" width="600px">
+      <el-form :model="exportCSRForm" label-width="140px">
+        <el-form-item v-if="selectedKeyStore?.type === CertType.TLCP" label="密钥类型" required>
+          <el-radio-group v-model="exportCSRForm.keyType">
+            <el-radio value="sign">签名密钥</el-radio>
+            <el-radio value="enc">加密密钥</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-divider content-position="left">证书主体 (DN)</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="通用名称 (CN)" required>
+              <el-input v-model="exportCSRForm.csrParams.commonName" placeholder="example.com" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="组织 (O)">
+              <el-input v-model="exportCSRForm.csrParams.org" placeholder="Example Org" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="国家 (C)">
+              <el-input v-model="exportCSRForm.csrParams.country" placeholder="CN" maxlength="2" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="省/州 (ST)">
+              <el-input v-model="exportCSRForm.csrParams.stateOrProvince" placeholder="Beijing" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="地区 (L)">
+              <el-input v-model="exportCSRForm.csrParams.locality" placeholder="Beijing" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="组织单位 (OU)">
+              <el-input v-model="exportCSRForm.csrParams.orgUnit" placeholder="IT" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="邮箱地址">
+              <el-input v-model="exportCSRForm.csrParams.emailAddress" placeholder="admin@example.com" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">主题备用名称 (SAN)</el-divider>
+        <el-form-item label="DNS 名称">
+          <el-select
+            v-model="exportCSRForm.csrParams.dnsNames"
+            multiple
+            filterable
+            allow-create
+            placeholder="添加 DNS 名称，如 example.com"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="IP 地址">
+          <el-select
+            v-model="exportCSRForm.csrParams.ipAddresses"
+            multiple
+            filterable
+            allow-create
+            placeholder="添加 IP 地址，如 192.168.1.1"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showExportCSRDialog = false">取消</el-button>
+        <el-button type="primary" :loading="exportCSRLoading" @click="exportCSR">导出</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -291,9 +372,11 @@ const keystores = ref<any[]>([])
 const showCreateDialog = ref(false)
 const showGenerateDialog = ref(false)
 const showUpdateCertDialog = ref(false)
+const showExportCSRDialog = ref(false)
 const createLoading = ref(false)
 const generateLoading = ref(false)
 const updateLoading = ref(false)
+const exportCSRLoading = ref(false)
 
 const createForm = ref({
   name: '',
@@ -330,6 +413,21 @@ const updateSignCertFiles = ref<UploadUserFile[]>([])
 const updateEncCertFiles = ref<UploadUserFile[]>([])
 const selectedKeyStore = ref<any>(null)
 
+const exportCSRForm = ref({
+  keyType: 'sign' as 'sign' | 'enc',
+  csrParams: {
+    commonName: '',
+    country: '',
+    stateOrProvince: '',
+    locality: '',
+    org: '',
+    orgUnit: '',
+    emailAddress: '',
+    dnsNames: [] as string[],
+    ipAddresses: [] as string[],
+  },
+})
+
 const hasTLCP = computed(() => keystores.value.some((k) => k.type === CertType.TLCP))
 
 onMounted(() => fetchKeyStores())
@@ -355,6 +453,43 @@ function showUpdateCertDialog(row: any) {
   updateSignCertFiles.value = []
   updateEncCertFiles.value = []
   showUpdateCertDialog.value = true
+}
+
+function showExportCSRDialog(row: any) {
+  selectedKeyStore.value = row
+  exportCSRForm.value = {
+    keyType: 'sign',
+    csrParams: {
+      commonName: '',
+      country: '',
+      stateOrProvince: '',
+      locality: '',
+      org: '',
+      orgUnit: '',
+      emailAddress: '',
+      dnsNames: [],
+      ipAddresses: [],
+    },
+  }
+  showExportCSRDialog.value = true
+}
+
+async function exportCSR() {
+  if (!exportCSRForm.value.csrParams.commonName) {
+    ElMessage.error('请填写通用名称 (CN)')
+    return
+  }
+
+  exportCSRLoading.value = true
+  try {
+    await keyStoreApi.exportCSR(selectedKeyStore.value.name, exportCSRForm.value)
+    ElMessage.success('CSR导出成功')
+    showExportCSRDialog.value = false
+  } catch (err: any) {
+    ElMessage.error(err.message || '导出失败')
+  } finally {
+    exportCSRLoading.value = false
+  }
 }
 
 async function createKeyStore() {

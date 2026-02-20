@@ -386,6 +386,65 @@ func (c *Client) ReloadKeyStore(name string) error {
 	return err
 }
 
+type ExportCSRRequest struct {
+	KeyType   string `json:"keyType"`
+	CSRParams struct {
+		CommonName      string   `json:"commonName"`
+		Country         string   `json:"country,omitempty"`
+		StateOrProvince string   `json:"stateOrProvince,omitempty"`
+		Locality        string   `json:"locality,omitempty"`
+		Org             string   `json:"org,omitempty"`
+		OrgUnit         string   `json:"orgUnit,omitempty"`
+		EmailAddress    string   `json:"emailAddress,omitempty"`
+		DNSNames        []string `json:"dnsNames,omitempty"`
+		IPAddresses     []string `json:"ipAddresses,omitempty"`
+	} `json:"csrParams"`
+}
+
+func (c *Client) ExportKeyStoreCSR(name string, req ExportCSRRequest) ([]byte, string, error) {
+	url, err := url.JoinPath(c.baseURL, "/api/security/keystores/"+url.PathEscape(name)+"/export-csr")
+	if err != nil {
+		return nil, "", fmt.Errorf("构建URL失败: %w", err)
+	}
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("序列化请求体失败: %w", err)
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, "", fmt.Errorf("创建请求失败: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, "", fmt.Errorf("发送请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, "", fmt.Errorf("请求失败: %s - %s", resp.Status, string(respBody))
+	}
+
+	filename := name + ".csr"
+	if cd := resp.Header.Get("Content-Disposition"); cd != "" {
+		if len(cd) > len("attachment; filename=\"") && cd[:len("attachment; filename=\"")] == "attachment; filename=\"" {
+			if len(cd) > len("attachment; filename=\"")+1 {
+				filename = cd[len("attachment; filename=\"") : len(cd)-1]
+			}
+		}
+	}
+
+	return respBody, filename, nil
+}
+
 type RootCertInfo struct {
 	Filename string `json:"filename"`
 	Subject  string `json:"subject"`

@@ -59,6 +59,42 @@ export const keyStoreApi = {
     await http.post(`/security/keystores/${name}/reload`)
   },
 
+  exportCSR: async (name: string, data: {
+    keyType: 'sign' | 'enc'
+    csrParams: {
+      commonName: string
+      country?: string
+      stateOrProvince?: string
+      locality?: string
+      org?: string
+      orgUnit?: string
+      emailAddress?: string
+      dnsNames?: string[]
+      ipAddresses?: string[]
+    }
+  }) => {
+    const res = await http.post(`/security/keystores/${name}/export-csr`, data, {
+      responseType: 'blob'
+    })
+    
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    let filename = `${name}-csr-${Date.now()}.csr`
+    const contentDisposition = res.headers['content-disposition']
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="([^"]+)/)
+      if (match) {
+        filename = match[1]
+      }
+    }
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
   updateCertificates: async (name: string, data: any) => {
     const formData = new FormData()
     if (data.signCert) formData.append('signCert', data.signCert)

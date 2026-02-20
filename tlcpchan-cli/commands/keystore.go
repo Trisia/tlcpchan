@@ -262,3 +262,80 @@ func keyStoreReload(args []string) error {
 	fmt.Printf("keystore %s 已重载\n", args[0])
 	return nil
 }
+
+func keyStoreExportCSR(args []string) error {
+	fs := flagSet("export-csr")
+	keyType := fs.String("key-type", "sign", "密钥类型 (sign/enc)")
+	commonName := fs.String("cn", "", "证书通用名称 (CN)")
+	country := fs.String("c", "", "国家 (C, 2字母代码)")
+	stateOrProvince := fs.String("st", "", "省/州 (ST)")
+	locality := fs.String("l", "", "地区/城市 (L)")
+	org := fs.String("org", "", "组织名称 (O)")
+	orgUnit := fs.String("org-unit", "", "组织单位 (OU)")
+	email := fs.String("email", "", "邮箱地址")
+	dnsNames := fs.String("dns", "", "DNS名称, 多个用逗号分隔")
+	ipAddrs := fs.String("ip", "", "IP地址, 多个用逗号分隔")
+	outputPath := fs.String("output", "", "输出文件路径")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if *commonName == "" {
+		return fmt.Errorf("请指定 --cn")
+	}
+
+	if len(fs.Args()) == 0 {
+		return fmt.Errorf("请指定 keystore 名称")
+	}
+	name := fs.Args()[0]
+
+	var dnsList []string
+	if *dnsNames != "" {
+		dnsList = splitAndTrim(*dnsNames, ",")
+	}
+
+	var ipList []string
+	if *ipAddrs != "" {
+		ipList = splitAndTrim(*ipAddrs, ",")
+	}
+
+	req := client.ExportCSRRequest{
+		KeyType: *keyType,
+	}
+	req.CSRParams.CommonName = *commonName
+	req.CSRParams.Country = *country
+	req.CSRParams.StateOrProvince = *stateOrProvince
+	req.CSRParams.Locality = *locality
+	req.CSRParams.Org = *org
+	req.CSRParams.OrgUnit = *orgUnit
+	req.CSRParams.EmailAddress = *email
+	req.CSRParams.DNSNames = dnsList
+	req.CSRParams.IPAddresses = ipList
+
+	data, filename, err := cli.ExportKeyStoreCSR(name, req)
+	if err != nil {
+		return err
+	}
+
+	outputFile := *outputPath
+	if outputFile == "" {
+		outputFile = filename
+	}
+
+	if err := os.WriteFile(outputFile, data, 0644); err != nil {
+		return fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "CSR导出成功",
+			"name":    name,
+			"output":  outputFile,
+		})
+	}
+
+	fmt.Printf("CSR已导出到: %s\n", outputFile)
+	return nil
+}

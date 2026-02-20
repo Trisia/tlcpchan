@@ -11,6 +11,8 @@ type (
 	LoaderType      = keystore.LoaderType
 	KeyStoreInfo    = keystore.KeyStoreInfo
 	KeyStoreManager = keystore.Manager
+	KeyType         = keystore.KeyType
+	CSRParams       = keystore.CSRParams
 	RootCert        = rootcert.RootCert
 	RootCertPool    = rootcert.RootCertPool
 	RootCertManager = rootcert.Manager
@@ -23,6 +25,8 @@ const (
 	LoaderTypeNamed  = keystore.LoaderTypeNamed
 	LoaderTypeSKF    = keystore.LoaderTypeSKF
 	LoaderTypeSDF    = keystore.LoaderTypeSDF
+	KeyTypeSign      = keystore.KeyTypeSign
+	KeyTypeEnc       = keystore.KeyTypeEnc
 )
 
 func NewKeyStoreManager() *KeyStoreManager {

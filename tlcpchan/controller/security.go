@@ -2,9 +2,12 @@ package controller
 
 import (
 	"encoding/json"
+	"encoding/pem"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/security"
@@ -47,6 +50,7 @@ func (c *SecurityController) RegisterRoutes(r *Router) {
 	r.GET("/api/security/keystores/:name", c.GetKeyStore)
 	r.DELETE("/api/security/keystores/:name", c.DeleteKeyStore)
 	r.POST("/api/security/keystores/:name/reload", c.ReloadKeyStore)
+	r.POST("/api/security/keystores/:name/export-csr", c.ExportCSR)
 
 	r.GET("/api/security/rootcerts", c.ListRootCerts)
 	r.POST("/api/security/rootcerts", c.AddRootCert)
@@ -1014,6 +1018,106 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 	}
 
 	Success(w, info)
+}
+
+// ExportCSRRequest 导出CSR请求
+type ExportCSRRequest struct {
+	KeyType   keystore.KeyType   `json:"keyType"`
+	CSRParams keystore.CSRParams `json:"csrParams"`
+}
+
+/**
+ * @api {post} /api/security/keystores/:name/export-csr 导出证书请求(CSR)
+ * @apiName ExportCSR
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 使用现有密钥生成并导出证书请求文件(CSR)
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ *
+ * @apiBody {String} keyType 密钥类型，可选值："sign"（签名密钥）、"enc"（加密密钥，仅TLCP有效）
+ * @apiBody {Object} csrParams 证书请求参数
+ * @apiBody {String} csrParams.commonName 通用名称(CN)
+ * @apiBody {String} [csrParams.country] 国家代码(C)，2个字母
+ * @apiBody {String} [csrParams.stateOrProvince] 省/州(ST)
+ * @apiBody {String} [csrParams.locality] 地区/城市(L)
+ * @apiBody {String} [csrParams.org] 组织名称(O)
+ * @apiBody {String} [csrParams.orgUnit] 组织单位(OU)
+ * @apiBody {String} [csrParams.emailAddress] 邮箱地址
+ * @apiBody {String[]} [csrParams.dnsNames] DNS主题备用名称列表
+ * @apiBody {String[]} [csrParams.ipAddresses] IP主题备用名称列表
+ *
+ * @apiSuccess {File} - PEM格式的证书请求文件(.csr)
+ *
+ * @apiParamExample {json} Request-Example:
+ *     {
+ *       "keyType": "sign",
+ *       "csrParams": {
+ *         "commonName": "example.com",
+ *         "country": "CN",
+ *         "stateOrProvince": "Beijing",
+ *         "locality": "Beijing",
+ *         "org": "Example Org",
+ *         "orgUnit": "IT",
+ *         "emailAddress": "admin@example.com",
+ *         "dnsNames": ["example.com", "www.example.com"],
+ *         "ipAddresses": ["192.168.1.1"]
+ *       }
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     keystore 不存在
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     commonName不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     生成CSR失败: 具体错误信息
+ */
+func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
+	name := PathParam(r, "name")
+	ks, err := c.keyStoreMgr.GetKeyStore(name)
+	if err != nil {
+		NotFound(w, "keystore 不存在")
+		return
+	}
+
+	var req ExportCSRRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		BadRequest(w, "无效的请求: "+err.Error())
+		return
+	}
+
+	if req.CSRParams.CommonName == "" {
+		BadRequest(w, "commonName不能为空")
+		return
+	}
+
+	derBytes, err := ks.GenerateCSR(req.KeyType, req.CSRParams)
+	if err != nil {
+		InternalError(w, "生成CSR失败: "+err.Error())
+		return
+	}
+
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derBytes,
+	})
+
+	timestamp := time.Now().Format("20060102150405")
+	var keyTypeSuffix string
+	if req.KeyType == "" {
+		keyTypeSuffix = "default"
+	} else {
+		keyTypeSuffix = string(req.KeyType)
+	}
+	filename := fmt.Sprintf("%s-%s-%s.csr", name, keyTypeSuffix, timestamp)
+
+	w.Header().Set("Content-Type", "application/x-pem-file")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Write(pemBytes)
 }
 
 // GenerateRootCARequest 生成根 CA 请求

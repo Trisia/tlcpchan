@@ -15,6 +15,27 @@ const (
 	KeyStoreTypeTLS  KeyStoreType = "tls"
 )
 
+// KeyType 密钥类型
+type KeyType string
+
+const (
+	KeyTypeSign KeyType = "sign"
+	KeyTypeEnc  KeyType = "enc"
+)
+
+// CSRParams 证书请求参数
+type CSRParams struct {
+	CommonName      string   `json:"commonName"`
+	Country         string   `json:"country,omitempty"`
+	StateOrProvince string   `json:"stateOrProvince,omitempty"`
+	Locality        string   `json:"locality,omitempty"`
+	Org             string   `json:"org,omitempty"`
+	OrgUnit         string   `json:"orgUnit,omitempty"`
+	EmailAddress    string   `json:"emailAddress,omitempty"`
+	DNSNames        []string `json:"dnsNames,omitempty"`
+	IPAddresses     []string `json:"ipAddresses,omitempty"`
+}
+
 // KeyStore 抽象 keystore 接口
 type KeyStore interface {
 	Type() KeyStoreType
@@ -22,6 +43,7 @@ type KeyStore interface {
 	TLSCertificate() (*tls.Certificate, error)
 	Reload() error
 	Equals(other KeyStore) bool
+	GenerateCSR(keyType KeyType, params CSRParams) ([]byte, error)
 }
 
 // LoaderType 加载器类型
