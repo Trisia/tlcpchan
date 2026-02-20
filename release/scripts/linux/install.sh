@@ -23,7 +23,6 @@ mkdir -p /etc/tlcpchan/logs
 echo "[INFO] 复制文件..."
 cp "$SCRIPT_DIR/tlcpchan" /etc/tlcpchan/
 cp "$SCRIPT_DIR/tlcpchan-cli" /etc/tlcpchan/
-cp "$SCRIPT_DIR/tlcpchan-ui" /etc/tlcpchan/
 if [ -d "$SCRIPT_DIR/ui" ]; then
     cp -r "$SCRIPT_DIR/ui" /etc/tlcpchan/
 fi
@@ -40,13 +39,11 @@ chown -R tlcpchan:tlcpchan /etc/tlcpchan/keystores
 chown -R tlcpchan:tlcpchan /etc/tlcpchan/logs
 chmod +x /etc/tlcpchan/tlcpchan
 chmod +x /etc/tlcpchan/tlcpchan-cli
-chmod +x /etc/tlcpchan/tlcpchan-ui
 
 # 创建软链接
 echo "[INFO] 创建软链接..."
 ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan
 ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli
-ln -sf /etc/tlcpchan/tlcpchan-ui /usr/bin/tlcpchan-ui
 ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
 
 # 重新加载 systemd

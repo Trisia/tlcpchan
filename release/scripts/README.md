@@ -206,9 +206,8 @@ package.bat
 
 每个完整包包含：
 
-- `tlcpchan` - 核心服务
+- `tlcpchan` - 核心服务（包含API服务和Web UI）
 - `tlcpchan-cli` - 命令行工具（含 `tlcpc` 别名）
-- `tlcpchan-ui` - UI 服务
 - `ui/` - 前端静态资源
 - `rootcerts/` - 预置信任证书
 - systemd 服务文件（Linux）

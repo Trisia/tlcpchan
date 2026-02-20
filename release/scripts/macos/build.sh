@@ -41,7 +41,6 @@ create_app_bundle() {
     # 复制可执行文件
     cp "$BUILD_DIR/darwin-$arch/tlcpchan" "$app_dir/Contents/MacOS/"
     cp "$BUILD_DIR/darwin-$arch/tlcpchan-cli" "$app_dir/Contents/MacOS/"
-    cp "$BUILD_DIR/darwin-$arch/tlcpchan-ui" "$app_dir/Contents/MacOS/"
     
     # 复制资源文件
     cp -r "$BUILD_DIR/darwin-$arch/ui" "$app_dir/Contents/Resources/"
