@@ -10,6 +10,9 @@
 - 对应对于所有开发的功能尽可能的提供测试
 - 对于测试产生的临时文件，应该在测试结束后进行清理，除非这些文件后续仍然需要
 
+## 特殊约定
+
+- 当需要使用chrome-dev-tools 时，总是以 kkk 用户启动google-chrome
 
 ## 项目概述
 
@@ -23,35 +26,6 @@ TLCP Channel 是一款 TLCP/TLS 协议代理工具，支持双协议并行工作
 
 - 始终使用中文（简体）思考和回复
 - 代码注释、提交信息使用中文
-
-## 构建命令
-
-### Go 项目 (tlcpchan/)
-
-```bash
-cd tlcpchan
-go build -o bin/tlcpchan .             # 构建主程序
-go run .                                 # 运行主程序
-go test ./...                            # 运行所有测试
-go test -v -run TestName ./path          # 运行单个测试（例如：go test -v -run TestConfig ./config）
-go test -cover ./...                     # 测试覆盖率
-go fmt ./...                             # 格式化代码
-golangci-lint run                        # 静态检查（如已安装）
-go mod tidy                              # 整理依赖
-```
-
-### 前端项目 (tlcpchan-ui/)
-
-```bash
-cd tlcpchan-ui/web
-npm install                               # 安装依赖
-npm run dev                               # 开发模式
-npm run build                             # 构建生产版本
-npm run typecheck                         # 类型检查
-npm run lint                              # 代码检查
-npm test                                  # 运行所有测试
-npm test -- --grep "test name"            # 运行单个测试
-```
 
 ## 代码风格指南
 
