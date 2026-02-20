@@ -46,7 +46,7 @@ go build -o tlcpchan-cli   # 构建命令行工具
 
 ## 特殊约定
 
-- 当需要使用chrome-dev-tools 时，总是以 kkk 用户启动google-chrome
+- 当需要使用chrome-dev-tools 时，总是以 --no-sandbox 启动google-chrome 
 
 ## 项目概述
 
