@@ -3,6 +3,7 @@ export interface Instance {
   status: 'created' | 'running' | 'stopped' | 'error'
   config: InstanceConfig
   enabled: boolean
+  uptime?: number
 }
 
 export interface InstanceConfig {
@@ -134,11 +135,27 @@ export interface SystemInfo {
   memSysMb: number
   startTime: string
   uptime: string
+  version?: string
+  pid?: number
+  memory?: {
+    allocMb: number
+    sysMb: number
+  }
 }
 
 export interface HealthStatus {
   status: string
   version: string
+  instances?: {
+    total: number
+    running: number
+    stopped: number
+  }
+  certificates?: {
+    total: number
+    expired: number
+    expiringSoon: number
+  }
 }
 
 export interface HealthCheckResult {
@@ -151,6 +168,11 @@ export interface HealthCheckResult {
 export interface InstanceHealthResponse {
   instance: string
   results: HealthCheckResult[]
+}
+
+export enum CertType {
+  TLCP = 'tlcp',
+  TLS = 'tls'
 }
 
 export interface VersionInfo {

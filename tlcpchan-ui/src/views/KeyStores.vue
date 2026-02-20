@@ -282,7 +282,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
 import { Plus, MagicStick } from '@element-plus/icons-vue'
-import { keyStoreApi } from '@/api'
+import http from '@/utils/http'
 import { CertType } from '@/types'
 
 const loading = ref(false)

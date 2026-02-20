@@ -138,7 +138,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
 import { Plus, MagicStick } from '@element-plus/icons-vue'
-import { trustedApi, rootCertApi } from '@/api'
+// 删除api模块导入，使用http模块代替
 
 const loading = ref(false)
 const trustedCerts = ref<any[]>([])

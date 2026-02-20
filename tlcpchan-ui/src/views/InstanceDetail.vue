@@ -56,12 +56,12 @@
             <span>配置信息</span>
           </template>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="类型">{{ instance?.type }}</el-descriptions-item>
-            <el-descriptions-item label="协议">{{ instance?.protocol }}</el-descriptions-item>
-            <el-descriptions-item label="认证模式">{{ authText(instance?.auth || 'none') }}</el-descriptions-item>
-            <el-descriptions-item label="监听地址">{{ instance?.listen }}</el-descriptions-item>
-            <el-descriptions-item label="目标地址">{{ instance?.target }}</el-descriptions-item>
-            <el-descriptions-item label="运行时长">{{ formatUptime(instance?.uptime || 0) }}</el-descriptions-item>
+            <el-descriptions-item label="类型">{{ instance?.config.type }}</el-descriptions-item>
+            <el-descriptions-item label="协议">{{ instance?.config.protocol }}</el-descriptions-item>
+            <el-descriptions-item label="认证模式">{{ authText(instance?.config.auth || 'none') }}</el-descriptions-item>
+            <el-descriptions-item label="监听地址">{{ instance?.config.listen }}</el-descriptions-item>
+            <el-descriptions-item label="目标地址">{{ instance?.config.target }}</el-descriptions-item>
+             <el-descriptions-item label="运行时长">{{ formatUptime(instance?.uptime || 0) }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
 
@@ -91,9 +91,9 @@
            <template #header>
              <span>操作</span>
            </template>
-           <el-button type="primary" @click="start" :disabled="instance?.status === 'running'">启动</el-button>
-           <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'">停止</el-button>
-           <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'">重载</el-button>
+            <el-button type="primary" @click="start" :disabled="instance?.status === 'running'" :loading="actionLoading.start">启动</el-button>
+            <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'" :loading="actionLoading.stop">停止</el-button>
+            <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'" :loading="actionLoading.reload">重载</el-button>
          </el-card>
       </el-col>
     </el-row>
@@ -104,8 +104,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { instanceApi } from '@/api'
-import type { Instance, InstanceHealthResponse } from '@/types'
+import http, { 
+  getInstanceLogs,
+  getInstanceHealth,
+  startInstance as startInstanceApi,
+  stopInstance as stopInstanceApi,
+  reloadInstance as reloadInstanceApi
+} from '@/utils/http'
+import type { Instance, InstanceConfig, InstanceHealthResponse } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -120,41 +126,62 @@ const healthResults = ref<InstanceHealthResponse | null>(null)
 
 const name = computed(() => route.params.name as string)
 
-onMounted(async () => {
-  await fetchInstance()
-  await fetchStats()
-  await fetchLogs()
+onMounted(() => {
+  fetchInstance()
+  fetchStats()
+  fetchLogs()
 })
 
-async function fetchInstance() {
-  instance.value = await instanceApi.get(name.value)
+function fetchInstance() {
+  http.get(`/instances/${name.value}`)
+    .then((data: any) => {
+      instance.value = data
+    })
+    .catch((err) => {
+      console.error('获取实例失败:', err)
+    })
 }
 
-async function fetchStats() {
-  stats.value = await instanceApi.stats(name.value)
+function fetchStats() {
+  http.get(`/instances/${name.value}/stats`)
+    .then((data: any) => {
+      stats.value = data
+    })
+    .catch((err) => {
+      console.error('获取统计失败:', err)
+    })
 }
 
-async function fetchLogs() {
+function fetchLogs() {
   logsLoading.value = true
-  try {
-    const data = await instanceApi.logs(name.value, 100, logLevel.value || undefined)
-    logs.value = data.logs
-  } finally {
-    logsLoading.value = false
-  }
+  
+  getInstanceLogs(name.value, 100, logLevel.value || undefined)
+    .then((data: any) => {
+      logs.value = data.logs
+    })
+    .catch((err) => {
+      console.error('获取日志失败:', err)
+    })
+    .finally(() => {
+      logsLoading.value = false
+    })
 }
 
-async function checkHealth() {
+function checkHealth() {
   healthLoading.value = true
   healthResults.value = null
-  try {
-    healthResults.value = await instanceApi.health(name.value)
-    ElMessage.success('健康检查完成')
-  } catch (err) {
-    ElMessage.error(`健康检查失败: ${(err as Error).message}`)
-  } finally {
-    healthLoading.value = false
-  }
+  
+  getInstanceHealth(name.value)
+    .then((data: any) => {
+      healthResults.value = data
+      ElMessage.success('健康检查完成')
+    })
+    .catch((err) => {
+      ElMessage.error(`健康检查失败: ${err.message}`)
+    })
+    .finally(() => {
+      healthLoading.value = false
+    })
 }
 
 function formatBytes(bytes: number): string {
@@ -182,27 +209,59 @@ function statusText(status: Instance['status']): string {
   return map[status] || status
 }
 
-function authText(auth: Instance['auth']): string {
+function authText(auth: InstanceConfig['auth']): string {
   const map: Record<string, string> = { none: '无', 'one-way': '单向', mutual: '双向' }
-  return map[auth] || auth
+  return auth ? map[auth] || auth : '无'
 }
 
-async function start() {
-  await instanceApi.start(name.value)
-  await fetchInstance()
-  ElMessage.success('实例已启动')
+const actionLoading = ref<Record<string, boolean>>({})
+
+function start() {
+  actionLoading.value.start = true
+  startInstanceApi(name.value)
+    .then(() => {
+      fetchInstance()
+      ElMessage.success('实例已启动')
+    })
+    .catch((err) => {
+      console.error('启动失败:', err)
+      ElMessage.error('启动失败')
+    })
+    .finally(() => {
+      actionLoading.value.start = false
+    })
 }
 
-async function stop() {
-  await instanceApi.stop(name.value)
-  await fetchInstance()
-  ElMessage.success('实例已停止')
+function stop() {
+  actionLoading.value.stop = true
+  stopInstanceApi(name.value)
+    .then(() => {
+      fetchInstance()
+      ElMessage.success('实例已停止')
+    })
+    .catch((err) => {
+      console.error('停止失败:', err)
+      ElMessage.error('停止失败')
+    })
+    .finally(() => {
+      actionLoading.value.stop = false
+    })
 }
 
-async function reload() {
-  await instanceApi.reload(name.value)
-  await fetchInstance()
-  ElMessage.success('实例已重载')
+function reload() {
+  actionLoading.value.reload = true
+  reloadInstanceApi(name.value)
+    .then(() => {
+      fetchInstance()
+      ElMessage.success('实例已重载')
+    })
+    .catch((err) => {
+      console.error('重载失败:', err)
+      ElMessage.error('重载失败')
+    })
+    .finally(() => {
+      actionLoading.value.reload = false
+    })
 }
 </script>
 

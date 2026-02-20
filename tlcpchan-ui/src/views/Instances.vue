@@ -11,25 +11,25 @@
         </div>
       </template>
 
-      <el-table :data="instances" v-loading="loading">
+      <el-table :data="instances" v-loading="refreshLoading">
         <el-table-column prop="name" label="名称" />
-        <el-table-column prop="type" label="类型" width="120">
+        <el-table-column prop="config.type" label="类型" width="120">
           <template #default="{ row }">
-            <el-tag size="small">{{ typeText(row.type) }}</el-tag>
+            <el-tag size="small">{{ typeText(row.config.type) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="protocol" label="协议" width="80">
+        <el-table-column prop="config.protocol" label="协议" width="80">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.protocol === 'tlcp' ? 'primary' : 'success'">{{ row.protocol }}</el-tag>
+            <el-tag size="small" :type="row.config.protocol === 'tlcp' ? 'primary' : 'success'">{{ row.config.protocol }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="auth" label="认证模式" width="100">
+        <el-table-column prop="config.auth" label="认证模式" width="100">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ authText(row.auth) }}</el-tag>
+            <el-tag size="small" type="info">{{ authText(row.config.auth) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="listen" label="监听地址" />
-        <el-table-column prop="target" label="目标地址" />
+        <el-table-column prop="config.listen" label="监听地址" />
+        <el-table-column prop="config.target" label="目标地址" />
         <el-table-column prop="enabled" label="启用" width="80">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
@@ -43,10 +43,10 @@
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" link @click="viewDetail(row.name)">详情</el-button>
-            <el-button v-if="row.status !== 'running'" type="success" size="small" link @click="start(row.name)">启动</el-button>
-            <el-button v-if="row.status === 'running'" type="warning" size="small" link @click="stop(row.name)">停止</el-button>
-            <el-button v-if="row.status === 'running'" type="info" size="small" link @click="reload(row.name)">重载</el-button>
-            <el-button type="danger" size="small" link @click="remove(row.name)">删除</el-button>
+            <el-button v-if="row.status !== 'running'" type="success" size="small" link @click="start(row.name)" :loading="instanceActions[row.name]">启动</el-button>
+            <el-button v-if="row.status === 'running'" type="warning" size="small" link @click="stop(row.name)" :loading="instanceActions[row.name]">停止</el-button>
+            <el-button v-if="row.status === 'running'" type="info" size="small" link @click="reload(row.name)" :loading="instanceActions[row.name]">重载</el-button>
+            <el-button type="danger" size="small" link @click="remove(row.name)" :loading="instanceActions[row.name]">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -101,30 +101,42 @@
       </el-form>
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="create">创建</el-button>
+        <el-button type="primary" @click="create" :loading="createLoading">创建</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useInstanceStore } from '@/stores/instance'
-import { instanceApi, keyStoreApi } from '@/api'
-import type { Instance } from '@/types'
+import http, { 
+  getInstances, 
+  startInstance as startInstanceApi, 
+  stopInstance as stopInstanceApi,
+  reloadInstance as reloadInstanceApi,
+  deleteInstance as deleteInstanceApi,
+  createInstance as createInstanceApi,
+  updateInstance as updateInstanceApi
+} from '@/utils/http'
+import type { Instance, InstanceConfig } from '@/types'
 
 const router = useRouter()
 const store = useInstanceStore()
 
-const loading = computed(() => store.loading)
-const instances = computed(() => store.instances)
+const instances = ref<Instance[]>([])
 const showCreateDialog = ref(false)
 const keystores = ref<any[]>([])
 const selectedKeystoreName = ref('')
 
-const form = ref<Partial<Instance>>({
+// 按钮级别的加载状态
+const instanceActions = ref<Record<string, boolean>>({})
+const createLoading = ref(false)
+const refreshLoading = ref(false)
+
+const form = ref<Partial<InstanceConfig>>({
   name: '',
   type: 'server',
   protocol: 'auto',
@@ -134,25 +146,42 @@ const form = ref<Partial<Instance>>({
   enabled: true,
 })
 
-onMounted(async () => {
-  await store.fetchInstances()
-  await fetchKeystores()
+onMounted(() => {
+  loadInstances()
+  loadKeystores()
 })
 
-async function fetchKeystores() {
-  try {
-    keystores.value = await keyStoreApi.list() || []
-  } catch (err) {
-    console.error('获取密钥列表失败', err)
-  }
+function loadInstances() {
+  refreshLoading.value = true
+  getInstances()
+    .then((data) => {
+      instances.value = data
+      store.setInstances(data)
+    })
+    .catch((err) => {
+      console.error('加载实例失败:', err)
+    })
+    .finally(() => {
+      refreshLoading.value = false
+    })
 }
 
-function typeText(type: Instance['type']): string {
+function loadKeystores() {
+  http.get('/security/keystores')
+    .then((res: any) => {
+      keystores.value = res || []
+    })
+    .catch((err) => {
+      console.error('获取密钥列表失败:', err)
+    })
+}
+
+function typeText(type: Instance['config']['type']): string {
   const map: Record<string, string> = { server: '服务端', client: '客户端', 'http-server': 'HTTP服务端', 'http-client': 'HTTP客户端' }
   return map[type] || type
 }
 
-function authText(auth: Instance['auth']): string {
+function authText(auth: Instance['config']['auth']): string {
   const map: Record<string, string> = { none: '无', 'one-way': '单向', mutual: '双向' }
   return map[auth] || auth
 }
@@ -171,34 +200,95 @@ function viewDetail(name: string) {
   router.push(`/instances/${name}`)
 }
 
-async function start(name: string) {
-  await store.startInstance(name)
-  ElMessage.success('实例已启动')
+function start(name: string) {
+  instanceActions.value[name] = true
+  startInstanceApi(name)
+    .then(() => {
+      ElMessage.success('实例已启动')
+      loadInstances()
+    })
+    .catch((err) => {
+      console.error('启动失败:', err)
+      ElMessage.error('启动失败')
+    })
+    .finally(() => {
+      instanceActions.value[name] = false
+    })
 }
 
-async function stop(name: string) {
-  await store.stopInstance(name)
-  ElMessage.success('实例已停止')
+function stop(name: string) {
+  instanceActions.value[name] = true
+  stopInstanceApi(name)
+    .then(() => {
+      ElMessage.success('实例已停止')
+      loadInstances()
+    })
+    .catch((err) => {
+      console.error('停止失败:', err)
+      ElMessage.error('停止失败')
+    })
+    .finally(() => {
+      instanceActions.value[name] = false
+    })
 }
 
-async function reload(name: string) {
-  await instanceApi.reload(name)
-  await store.fetchInstances()
-  ElMessage.success('实例已重载')
+function reload(name: string) {
+  instanceActions.value[name] = true
+  reloadInstanceApi(name)
+    .then(() => {
+      ElMessage.success('实例已重载')
+      loadInstances()
+    })
+    .catch((err) => {
+      console.error('重载失败:', err)
+      ElMessage.error('重载失败')
+    })
+    .finally(() => {
+      instanceActions.value[name] = false
+    })
 }
 
-async function remove(name: string) {
-  await ElMessageBox.confirm('确定要删除此实例吗？', '确认删除', { type: 'warning' })
-  await store.deleteInstance(name)
-  ElMessage.success('实例已删除')
+function remove(name: string) {
+  ElMessageBox.confirm('确定要删除此实例吗？', '确认删除', { type: 'warning' })
+    .then(() => {
+      instanceActions.value[name] = true
+      deleteInstanceApi(name)
+        .then(() => {
+          ElMessage.success('实例已删除')
+          loadInstances()
+        })
+        .catch((err) => {
+          console.error('删除失败:', err)
+          ElMessage.error('删除失败')
+        })
+        .finally(() => {
+          instanceActions.value[name] = false
+        })
+    })
+    .catch(() => {
+      // 用户取消
+    })
 }
 
-async function toggleEnabled(row: Instance) {
-  await instanceApi.update(row.name, { enabled: row.enabled })
-  ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
+function toggleEnabled(row: Instance) {
+  instanceActions.value[row.name] = true
+  updateInstanceApi(row.name, { enabled: row.enabled })
+    .then(() => {
+      store.updateInstance(row.name, { enabled: row.enabled })
+      ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
+    })
+    .catch((err) => {
+      console.error('更新状态失败:', err)
+      ElMessage.error('更新状态失败')
+      // 恢复原始状态
+      row.enabled = !row.enabled
+    })
+    .finally(() => {
+      instanceActions.value[row.name] = false
+    })
 }
 
-async function create() {
+function create() {
   if (!form.value.name) {
     ElMessage.error('请输入实例名称')
     return
@@ -216,10 +306,23 @@ async function create() {
     }
   }
 
-  await instanceApi.create(data)
-  showCreateDialog.value = false
-  await store.fetchInstances()
-  ElMessage.success('实例创建成功')
+  createLoading.value = true
+  createInstanceApi(data)
+    .then(() => {
+      showCreateDialog.value = false
+      loadInstances()
+      ElMessage.success('实例创建成功')
+      // 重置表单
+      form.value.name = ''
+      selectedKeystoreName.value = ''
+    })
+    .catch((err) => {
+      console.error('创建失败:', err)
+      ElMessage.error('创建失败')
+    })
+    .finally(() => {
+      createLoading.value = false
+    })
 }
 </script>
 

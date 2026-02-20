@@ -1,38 +1,44 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
-import type { SystemInfo, HealthInfo } from '@/types'
-
-const API_BASE = '/api/v1'
+import http from '@/utils/http'
+import type { SystemInfo, HealthStatus } from '@/types'
 
 export const useSystemStore = defineStore('system', () => {
   const info = ref<SystemInfo | null>(null)
-  const health = ref<HealthInfo | null>(null)
-  const loading = ref(false)
+  const health = ref<HealthStatus | null>(null)
 
-  function fetchInfo() {
-    loading.value = true
-    axios.get(`${API_BASE}/system/info`)
-      .then((res) => {
-        info.value = res.data
-      })
-      .catch((err) => {
-        console.error('获取系统信息失败', err)
-      })
-      .finally(() => {
-        loading.value = false
-      })
+  function setInfo(data: SystemInfo | null) {
+    info.value = data
   }
 
-  function fetchHealth() {
-    axios.get(`${API_BASE}/system/health`)
-      .then((res) => {
-        health.value = res.data
-      })
-      .catch((err) => {
-        console.error('获取健康状态失败', err)
-      })
+  function setHealth(data: HealthStatus | null) {
+    health.value = data
   }
 
-  return { info, health, loading, fetchInfo, fetchHealth }
+  async function fetchInfo() {
+    try {
+      const data = await http.get('/system/info')
+      info.value = data
+    } catch (error) {
+      console.error('获取系统信息失败:', error)
+    }
+  }
+
+  async function fetchHealth() {
+    try {
+      const data = await http.get('/health')
+      health.value = data
+    } catch (error) {
+      console.error('获取健康状态失败:', error)
+    }
+  }
+
+  return { 
+    info, 
+    health, 
+    setInfo, 
+    setHealth,
+    fetchInfo,
+    fetchHealth
+  }
 })

@@ -1,57 +1,50 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
+import { getInstances, startInstance as apiStartInstance, stopInstance as apiStopInstance } from '@/utils/http'
 import type { Instance } from '@/types'
-
-const API_BASE = '/api/v1'
 
 export const useInstanceStore = defineStore('instance', () => {
   const instances = ref<Instance[]>([])
   const loading = ref(false)
 
-  function fetchInstances() {
+  function setInstances(data: Instance[]) {
+    instances.value = data
+  }
+
+  function updateInstance(name: string, updates: Partial<Instance>) {
+    const index = instances.value.findIndex(inst => inst.name === name)
+    if (index !== -1) {
+      instances.value[index] = { ...instances.value[index], ...updates } as Instance
+    }
+  }
+
+  async function fetchInstances() {
     loading.value = true
-    axios.get(`${API_BASE}/instances`)
-      .then((res) => {
-        instances.value = res.data.instances
-      })
-      .catch((err) => {
-        console.error('获取实例列表失败', err)
-      })
-      .finally(() => {
-        loading.value = false
-      })
+    try {
+      const data = await getInstances()
+      instances.value = data
+    } finally {
+      loading.value = false
+    }
   }
 
-  function startInstance(name: string) {
-    axios.post(`${API_BASE}/instances/${name}/start`)
-      .then(() => {
-        fetchInstances()
-      })
-      .catch((err) => {
-        console.error('启动实例失败', err)
-      })
+  async function startInstance(name: string) {
+    await apiStartInstance(name)
+    await fetchInstances()
   }
 
-  function stopInstance(name: string) {
-    axios.post(`${API_BASE}/instances/${name}/stop`)
-      .then(() => {
-        fetchInstances()
-      })
-      .catch((err) => {
-        console.error('停止实例失败', err)
-      })
+  async function stopInstance(name: string) {
+    await apiStopInstance(name)
+    await fetchInstances()
   }
 
-  function deleteInstance(name: string) {
-    axios.delete(`${API_BASE}/instances/${name}`)
-      .then(() => {
-        fetchInstances()
-      })
-      .catch((err) => {
-        console.error('删除实例失败', err)
-      })
+  return { 
+    instances, 
+    loading,
+    setInstances, 
+    updateInstance,
+    fetchInstances,
+    startInstance,
+    stopInstance
   }
-
-  return { instances, loading, fetchInstances, startInstance, stopInstance, deleteInstance }
 })
