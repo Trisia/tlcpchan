@@ -3,7 +3,9 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/Trisia/tlcpchan-cli/client"
 )
@@ -76,8 +78,32 @@ func instanceCreate(args []string) error {
 	tlcpEncCert := fs.String("tlcp-enc-cert", "", "TLCP 加密证书路径")
 	tlcpEncKey := fs.String("tlcp-enc-key", "", "TLCP 加密密钥路径")
 
-	tlsCert := fs.String("tls-cert", "", "TLS 证书路径")
-	tlsKey := fs.String("tls-key", "", "TLS 密钥路径")
+	tlsSignCert := fs.String("tls-sign-cert", "", "TLS 签名证书路径")
+	tlsSignKey := fs.String("tls-sign-key", "", "TLS 签名密钥路径")
+
+	clientCA := fs.String("client-ca", "", "客户端CA证书路径，多个用逗号分隔")
+	serverCA := fs.String("server-ca", "", "服务端CA证书路径，多个用逗号分隔")
+
+	timeoutDial := fs.Int("timeout-dial", 0, "连接建立超时（秒）")
+	timeoutRead := fs.Int("timeout-read", 0, "读取超时（秒）")
+	timeoutWrite := fs.Int("timeout-write", 0, "写入超时（秒）")
+	timeoutHandshake := fs.Int("timeout-handshake", 0, "握手超时（秒）")
+
+	tlcpMinVersion := fs.String("tlcp-min-version", "", "TLCP最小协议版本")
+	tlcpMaxVersion := fs.String("tlcp-max-version", "", "TLCP最大协议版本")
+	tlcpCipherSuites := fs.String("tlcp-cipher-suites", "", "TLCP密码套件，多个用逗号分隔")
+	tlcpCurvePreferences := fs.String("tlcp-curve-preferences", "", "TLCP椭圆曲线偏好，多个用逗号分隔")
+	tlcpSessionTickets := fs.Bool("tlcp-session-tickets", false, "启用TLCP会话票据")
+	tlcpSessionCache := fs.Bool("tlcp-session-cache", false, "启用TLCP会话缓存")
+	tlcpInsecureSkipVerify := fs.Bool("tlcp-insecure-skip-verify", false, "跳过TLCP证书验证（不安全）")
+
+	tlsMinVersion := fs.String("tls-min-version", "", "TLS最小协议版本")
+	tlsMaxVersion := fs.String("tls-max-version", "", "TLS最大协议版本")
+	tlsCipherSuites := fs.String("tls-cipher-suites", "", "TLS密码套件，多个用逗号分隔")
+	tlsCurvePreferences := fs.String("tls-curve-preferences", "", "TLS椭圆曲线偏好，多个用逗号分隔")
+	tlsSessionTickets := fs.Bool("tls-session-tickets", false, "启用TLS会话票据")
+	tlsSessionCache := fs.Bool("tls-session-cache", false, "启用TLS会话缓存")
+	tlsInsecureSkipVerify := fs.Bool("tls-insecure-skip-verify", false, "跳过TLS证书验证（不安全）")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -105,6 +131,29 @@ func instanceCreate(args []string) error {
 		BufferSize: *bufferSize,
 	}
 
+	if *clientCA != "" {
+		cfg.ClientCA = splitString(*clientCA, ",")
+	}
+	if *serverCA != "" {
+		cfg.ServerCA = splitString(*serverCA, ",")
+	}
+
+	if *timeoutDial > 0 || *timeoutRead > 0 || *timeoutWrite > 0 || *timeoutHandshake > 0 {
+		cfg.Timeout = &client.TimeoutConfig{}
+		if *timeoutDial > 0 {
+			cfg.Timeout.Dial = time.Duration(*timeoutDial) * time.Second
+		}
+		if *timeoutRead > 0 {
+			cfg.Timeout.Read = time.Duration(*timeoutRead) * time.Second
+		}
+		if *timeoutWrite > 0 {
+			cfg.Timeout.Write = time.Duration(*timeoutWrite) * time.Second
+		}
+		if *timeoutHandshake > 0 {
+			cfg.Timeout.Handshake = time.Duration(*timeoutHandshake) * time.Second
+		}
+	}
+
 	if *keystoreName != "" {
 		if *protocol == "tlcp" || *protocol == "auto" {
 			cfg.TLCP = &client.TLCPConfig{
@@ -113,6 +162,8 @@ func instanceCreate(args []string) error {
 					Name: *keystoreName,
 				},
 			}
+			populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
+				tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
 		}
 		if *protocol == "tls" || *protocol == "auto" {
 			cfg.TLS = &client.TLSConfig{
@@ -121,6 +172,8 @@ func instanceCreate(args []string) error {
 					Name: *keystoreName,
 				},
 			}
+			populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
+				tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 		}
 	} else {
 		if (*tlcpSignCert != "" && *tlcpSignKey != "") || (*tlcpEncCert != "" && *tlcpEncKey != "") {
@@ -145,14 +198,16 @@ func instanceCreate(args []string) error {
 						Params: params,
 					},
 				}
+				populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
+					tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
 			}
 		}
 
-		if *tlsCert != "" && *tlsKey != "" {
+		if *tlsSignCert != "" && *tlsSignKey != "" {
 			if *protocol == "tls" || *protocol == "auto" {
 				params := map[string]string{
-					"cert": *tlsCert,
-					"key":  *tlsKey,
+					"sign-cert": *tlsSignCert,
+					"sign-key":  *tlsSignKey,
 				}
 				cfg.TLS = &client.TLSConfig{
 					Auth: *auth,
@@ -161,6 +216,8 @@ func instanceCreate(args []string) error {
 						Params: params,
 					},
 				}
+				populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
+					tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 			}
 		}
 	}
@@ -198,8 +255,32 @@ func instanceUpdate(args []string) error {
 	tlcpEncCert := fs.String("tlcp-enc-cert", "", "TLCP 加密证书路径")
 	tlcpEncKey := fs.String("tlcp-enc-key", "", "TLCP 加密密钥路径")
 
-	tlsCert := fs.String("tls-cert", "", "TLS 证书路径")
-	tlsKey := fs.String("tls-key", "", "TLS 密钥路径")
+	tlsSignCert := fs.String("tls-sign-cert", "", "TLS 签名证书路径")
+	tlsSignKey := fs.String("tls-sign-key", "", "TLS 签名密钥路径")
+
+	clientCA := fs.String("client-ca", "", "客户端CA证书路径，多个用逗号分隔")
+	serverCA := fs.String("server-ca", "", "服务端CA证书路径，多个用逗号分隔")
+
+	timeoutDial := fs.Int("timeout-dial", 0, "连接建立超时（秒）")
+	timeoutRead := fs.Int("timeout-read", 0, "读取超时（秒）")
+	timeoutWrite := fs.Int("timeout-write", 0, "写入超时（秒）")
+	timeoutHandshake := fs.Int("timeout-handshake", 0, "握手超时（秒）")
+
+	tlcpMinVersion := fs.String("tlcp-min-version", "", "TLCP最小协议版本")
+	tlcpMaxVersion := fs.String("tlcp-max-version", "", "TLCP最大协议版本")
+	tlcpCipherSuites := fs.String("tlcp-cipher-suites", "", "TLCP密码套件，多个用逗号分隔")
+	tlcpCurvePreferences := fs.String("tlcp-curve-preferences", "", "TLCP椭圆曲线偏好，多个用逗号分隔")
+	tlcpSessionTickets := fs.Bool("tlcp-session-tickets", false, "启用TLCP会话票据")
+	tlcpSessionCache := fs.Bool("tlcp-session-cache", false, "启用TLCP会话缓存")
+	tlcpInsecureSkipVerify := fs.Bool("tlcp-insecure-skip-verify", false, "跳过TLCP证书验证（不安全）")
+
+	tlsMinVersion := fs.String("tls-min-version", "", "TLS最小协议版本")
+	tlsMaxVersion := fs.String("tls-max-version", "", "TLS最大协议版本")
+	tlsCipherSuites := fs.String("tls-cipher-suites", "", "TLS密码套件，多个用逗号分隔")
+	tlsCurvePreferences := fs.String("tls-curve-preferences", "", "TLS椭圆曲线偏好，多个用逗号分隔")
+	tlsSessionTickets := fs.Bool("tls-session-tickets", false, "启用TLS会话票据")
+	tlsSessionCache := fs.Bool("tls-session-cache", false, "启用TLS会话缓存")
+	tlsInsecureSkipVerify := fs.Bool("tls-insecure-skip-verify", false, "跳过TLS证书验证（不安全）")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -243,6 +324,31 @@ func instanceUpdate(args []string) error {
 		cfg.Enabled = true
 	}
 
+	if *clientCA != "" {
+		cfg.ClientCA = splitString(*clientCA, ",")
+	}
+	if *serverCA != "" {
+		cfg.ServerCA = splitString(*serverCA, ",")
+	}
+
+	if *timeoutDial > 0 || *timeoutRead > 0 || *timeoutWrite > 0 || *timeoutHandshake > 0 {
+		if cfg.Timeout == nil {
+			cfg.Timeout = &client.TimeoutConfig{}
+		}
+		if *timeoutDial > 0 {
+			cfg.Timeout.Dial = time.Duration(*timeoutDial) * time.Second
+		}
+		if *timeoutRead > 0 {
+			cfg.Timeout.Read = time.Duration(*timeoutRead) * time.Second
+		}
+		if *timeoutWrite > 0 {
+			cfg.Timeout.Write = time.Duration(*timeoutWrite) * time.Second
+		}
+		if *timeoutHandshake > 0 {
+			cfg.Timeout.Handshake = time.Duration(*timeoutHandshake) * time.Second
+		}
+	}
+
 	if *keystoreName != "" {
 		if cfg.Protocol == "tlcp" || cfg.Protocol == "auto" {
 			if cfg.TLCP == nil {
@@ -254,6 +360,8 @@ func instanceUpdate(args []string) error {
 			if *auth != "" {
 				cfg.TLCP.Auth = *auth
 			}
+			populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
+				tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
 		}
 		if cfg.Protocol == "tls" || cfg.Protocol == "auto" {
 			if cfg.TLS == nil {
@@ -265,6 +373,8 @@ func instanceUpdate(args []string) error {
 			if *auth != "" {
 				cfg.TLS.Auth = *auth
 			}
+			populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
+				tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 		}
 	} else {
 		if (*tlcpSignCert != "" && *tlcpSignKey != "") || (*tlcpEncCert != "" && *tlcpEncKey != "") {
@@ -298,10 +408,12 @@ func instanceUpdate(args []string) error {
 				if *auth != "" {
 					cfg.TLCP.Auth = *auth
 				}
+				populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
+					tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
 			}
 		}
 
-		if *tlsCert != "" && *tlsKey != "" {
+		if *tlsSignCert != "" && *tlsSignKey != "" {
 			if cfg.Protocol == "tls" || cfg.Protocol == "auto" {
 				if cfg.TLS == nil {
 					cfg.TLS = &client.TLSConfig{}
@@ -313,8 +425,8 @@ func instanceUpdate(args []string) error {
 						params[k] = v
 					}
 				}
-				params["cert"] = *tlsCert
-				params["key"] = *tlsKey
+				params["sign-cert"] = *tlsSignCert
+				params["sign-key"] = *tlsSignKey
 				cfg.TLS.Keystore = &client.KeyStoreConfig{
 					Type:   "file",
 					Params: params,
@@ -322,6 +434,8 @@ func instanceUpdate(args []string) error {
 				if *auth != "" {
 					cfg.TLS.Auth = *auth
 				}
+				populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
+					tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 			}
 		}
 	}
@@ -533,4 +647,65 @@ func instanceHealth(args []string) error {
 		fmt.Println()
 	}
 	return nil
+}
+
+func splitString(s, sep string) []string {
+	var result []string
+	for _, part := range strings.Split(s, sep) {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
+func populateTLCPConfig(cfg *client.TLCPConfig, minVersion, maxVersion, cipherSuites, curvePreferences *string,
+	sessionTickets, sessionCache, insecureSkipVerify *bool) {
+	if *minVersion != "" {
+		cfg.MinVersion = *minVersion
+	}
+	if *maxVersion != "" {
+		cfg.MaxVersion = *maxVersion
+	}
+	if *cipherSuites != "" {
+		cfg.CipherSuites = splitString(*cipherSuites, ",")
+	}
+	if *curvePreferences != "" {
+		cfg.CurvePreferences = splitString(*curvePreferences, ",")
+	}
+	if *sessionTickets {
+		cfg.SessionTickets = *sessionTickets
+	}
+	if *sessionCache {
+		cfg.SessionCache = *sessionCache
+	}
+	if *insecureSkipVerify {
+		cfg.InsecureSkipVerify = *insecureSkipVerify
+	}
+}
+
+func populateTLSConfig(cfg *client.TLSConfig, minVersion, maxVersion, cipherSuites, curvePreferences *string,
+	sessionTickets, sessionCache, insecureSkipVerify *bool) {
+	if *minVersion != "" {
+		cfg.MinVersion = *minVersion
+	}
+	if *maxVersion != "" {
+		cfg.MaxVersion = *maxVersion
+	}
+	if *cipherSuites != "" {
+		cfg.CipherSuites = splitString(*cipherSuites, ",")
+	}
+	if *curvePreferences != "" {
+		cfg.CurvePreferences = splitString(*curvePreferences, ",")
+	}
+	if *sessionTickets {
+		cfg.SessionTickets = *sessionTickets
+	}
+	if *sessionCache {
+		cfg.SessionCache = *sessionCache
+	}
+	if *insecureSkipVerify {
+		cfg.InsecureSkipVerify = *insecureSkipVerify
+	}
 }

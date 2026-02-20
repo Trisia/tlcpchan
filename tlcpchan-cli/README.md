@@ -108,18 +108,42 @@ tlcpchan-cli instance show my-proxy
 | `--target` | 目标地址 | 是 | - |
 | `--protocol` | 协议（auto/tlcp/tls） | 否 | auto |
 | `--auth` | 认证模式（none/one-way/mutual） | 否 | one-way |
-| `--keystore` | keystore 名称（引用已创建的 keystore） | 否 | - |
+| `--keystore-name` | keystore 名称（引用已创建的 keystore） | 否 | - |
 | `--enabled` | 是否启用 | 否 | true |
 | `--sni` | SNI 名称 | 否 | - |
 | `--buffer-size` | 缓冲区大小 | 否 | 0 |
+| **CA 证书参数** | | | |
+| `--client-ca` | 客户端CA证书路径，多个用逗号分隔 | 否 | - |
+| `--server-ca` | 服务端CA证书路径，多个用逗号分隔 | 否 | - |
+| **超时配置参数** | | | |
+| `--timeout-dial` | 连接建立超时（秒） | 否 | 0 |
+| `--timeout-read` | 读取超时（秒） | 否 | 0 |
+| `--timeout-write` | 写入超时（秒） | 否 | 0 |
+| `--timeout-handshake` | 握手超时（秒） | 否 | 0 |
 | **TLCP 直接文件参数** | | | |
 | `--tlcp-sign-cert` | TLCP 签名证书路径 | 否 | - |
 | `--tlcp-sign-key` | TLCP 签名密钥路径 | 否 | - |
 | `--tlcp-enc-cert` | TLCP 加密证书路径 | 否 | - |
 | `--tlcp-enc-key` | TLCP 加密密钥路径 | 否 | - |
+| **TLCP 高级配置参数** | | | |
+| `--tlcp-min-version` | TLCP最小协议版本 | 否 | - |
+| `--tlcp-max-version` | TLCP最大协议版本 | 否 | - |
+| `--tlcp-cipher-suites` | TLCP密码套件，多个用逗号分隔 | 否 | - |
+| `--tlcp-curve-preferences` | TLCP椭圆曲线偏好，多个用逗号分隔 | 否 | - |
+| `--tlcp-session-tickets` | 启用TLCP会话票据 | 否 | false |
+| `--tlcp-session-cache` | 启用TLCP会话缓存 | 否 | false |
+| `--tlcp-insecure-skip-verify` | 跳过TLCP证书验证（不安全） | 否 | false |
 | **TLS 直接文件参数** | | | |
-| `--tls-cert` | TLS 证书路径 | 否 | - |
-| `--tls-key` | TLS 密钥路径 | 否 | - |
+| `--tls-sign-cert` | TLS 签名证书路径 | 否 | - |
+| `--tls-sign-key` | TLS 签名密钥路径 | 否 | - |
+| **TLS 高级配置参数** | | | |
+| `--tls-min-version` | TLS最小协议版本 | 否 | - |
+| `--tls-max-version` | TLS最大协议版本 | 否 | - |
+| `--tls-cipher-suites` | TLS密码套件，多个用逗号分隔 | 否 | - |
+| `--tls-curve-preferences` | TLS椭圆曲线偏好，多个用逗号分隔 | 否 | - |
+| `--tls-session-tickets` | 启用TLS会话票据 | 否 | false |
+| `--tls-session-cache` | 启用TLS会话缓存 | 否 | false |
+| `--tls-insecure-skip-verify` | 跳过TLS证书验证（不安全） | 否 | false |
 
 **说明：**
 - 使用 `--keystore` 参数引用已创建的 keystore
@@ -207,8 +231,8 @@ tlcpchan-cli instance create \
   --listen :8443 \
   --target localhost:8080 \
   --protocol tls \
-  --tls-cert /etc/tlcpchan/certs/server.crt \
-  --tls-key /etc/tlcpchan/certs/server.key
+  --tls-sign-cert /etc/tlcpchan/certs/server.crt \
+  --tls-sign-key /etc/tlcpchan/certs/server.key
 ```
 
 **响应示例：**
@@ -229,8 +253,8 @@ tlcpchan-cli instance create \
   --tlcp-sign-key /etc/tlcpchan/certs/sign.key \
   --tlcp-enc-cert /etc/tlcpchan/certs/enc.crt \
   --tlcp-enc-key /etc/tlcpchan/certs/enc.key \
-  --tls-cert /etc/tlcpchan/certs/server.crt \
-  --tls-key /etc/tlcpchan/certs/server.key
+  --tls-sign-cert /etc/tlcpchan/certs/server.crt \
+  --tls-sign-key /etc/tlcpchan/certs/server.key
 ```
 
 **响应示例：**
@@ -250,18 +274,42 @@ tlcpchan-cli instance create \
 | `--target` | 目标地址 |
 | `--protocol` | 协议（auto/tlcp/tls） |
 | `--auth` | 认证模式（none/one-way/mutual） |
-| `--keystore` | keystore 名称（引用已创建的 keystore） |
+| `--keystore-name` | keystore 名称（引用已创建的 keystore） |
 | `--enabled` | 是否启用 |
 | `--sni` | SNI 名称 |
 | `--buffer-size` | 缓冲区大小 |
+| **CA 证书参数** | |
+| `--client-ca` | 客户端CA证书路径，多个用逗号分隔 |
+| `--server-ca` | 服务端CA证书路径，多个用逗号分隔 |
+| **超时配置参数** | |
+| `--timeout-dial` | 连接建立超时（秒） |
+| `--timeout-read` | 读取超时（秒） |
+| `--timeout-write` | 写入超时（秒） |
+| `--timeout-handshake` | 握手超时（秒） |
 | **TLCP 直接文件参数** | |
 | `--tlcp-sign-cert` | TLCP 签名证书路径 |
 | `--tlcp-sign-key` | TLCP 签名密钥路径 |
 | `--tlcp-enc-cert` | TLCP 加密证书路径 |
 | `--tlcp-enc-key` | TLCP 加密密钥路径 |
+| **TLCP 高级配置参数** | |
+| `--tlcp-min-version` | TLCP最小协议版本 |
+| `--tlcp-max-version` | TLCP最大协议版本 |
+| `--tlcp-cipher-suites` | TLCP密码套件，多个用逗号分隔 |
+| `--tlcp-curve-preferences` | TLCP椭圆曲线偏好，多个用逗号分隔 |
+| `--tlcp-session-tickets` | 启用TLCP会话票据 |
+| `--tlcp-session-cache` | 启用TLCP会话缓存 |
+| `--tlcp-insecure-skip-verify` | 跳过TLCP证书验证（不安全） |
 | **TLS 直接文件参数** | |
-| `--tls-cert` | TLS 证书路径 |
-| `--tls-key` | TLS 密钥路径 |
+| `--tls-sign-cert` | TLS 签名证书路径 |
+| `--tls-sign-key` | TLS 签名密钥路径 |
+| **TLS 高级配置参数** | |
+| `--tls-min-version` | TLS最小协议版本 |
+| `--tls-max-version` | TLS最大协议版本 |
+| `--tls-cipher-suites` | TLS密码套件，多个用逗号分隔 |
+| `--tls-curve-preferences` | TLS椭圆曲线偏好，多个用逗号分隔 |
+| `--tls-session-tickets` | 启用TLS会话票据 |
+| `--tls-session-cache` | 启用TLS会话缓存 |
+| `--tls-insecure-skip-verify` | 跳过TLS证书验证（不安全） |
 
 **调用示例：**
 ```bash

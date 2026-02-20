@@ -92,20 +92,28 @@ type Instance struct {
 }
 
 type InstanceConfig struct {
-	Name       string      `json:"name"`
-	Type       string      `json:"type"`
-	Listen     string      `json:"listen"`
-	Target     string      `json:"target"`
-	Protocol   string      `json:"protocol"`
-	Auth       string      `json:"auth,omitempty"`
-	Enabled    bool        `json:"enabled"`
-	ClientCA   []string    `json:"clientCa,omitempty"`
-	ServerCA   []string    `json:"serverCa,omitempty"`
-	TLCP       *TLCPConfig `json:"tlcp,omitempty"`
-	TLS        *TLSConfig  `json:"tls,omitempty"`
-	HTTP       *HTTPConfig `json:"http,omitempty"`
-	SNI        string      `json:"sni,omitempty"`
-	BufferSize int         `json:"bufferSize,omitempty"`
+	Name       string         `json:"name"`
+	Type       string         `json:"type"`
+	Listen     string         `json:"listen"`
+	Target     string         `json:"target"`
+	Protocol   string         `json:"protocol"`
+	Auth       string         `json:"auth,omitempty"`
+	Enabled    bool           `json:"enabled"`
+	ClientCA   []string       `json:"clientCa,omitempty"`
+	ServerCA   []string       `json:"serverCa,omitempty"`
+	TLCP       *TLCPConfig    `json:"tlcp,omitempty"`
+	TLS        *TLSConfig     `json:"tls,omitempty"`
+	HTTP       *HTTPConfig    `json:"http,omitempty"`
+	SNI        string         `json:"sni,omitempty"`
+	BufferSize int            `json:"bufferSize,omitempty"`
+	Timeout    *TimeoutConfig `json:"timeout,omitempty"`
+}
+
+type TimeoutConfig struct {
+	Dial      time.Duration `json:"dial,omitempty"`
+	Read      time.Duration `json:"read,omitempty"`
+	Write     time.Duration `json:"write,omitempty"`
+	Handshake time.Duration `json:"handshake,omitempty"`
 }
 
 type KeyStoreConfig struct {
