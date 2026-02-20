@@ -93,6 +93,7 @@ logger.Error("连接失败", zap.Error(err), zap.String("remote", remoteAddr))
 
 ### TypeScript 代码规范
 
+
 #### 文件命名
 
 - 组件：大驼峰，如 `ProxyConfig.tsx`
@@ -190,3 +191,9 @@ func TestProxyConnection(t *testing.T) {
 - 在创建、修改、编辑 HTTP接口时，总是更新接口上的apidoc文档
 - 接口参数和响应值都应该遵循驼峰命名，特殊名称或缩写除外
 - 当对公开接口进行修改后必须检查关联的文档、CLI、UI涉及并进行修改
+
+## 前端开发规范
+
+- 实现可能简洁，不要过度封装
+- 枚举类型的元素若元素数量少于10，下拉或其他需要循环显示的情况，直接以多行代码的方式实现，不要动态生成
+- 禁止使用async await等关键字语法，特殊情况除外
