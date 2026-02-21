@@ -8,17 +8,17 @@ TLCP Channel 支持多种平台和架构，满足不同部署环境的需求。�
 
 | 操作系统 | 架构 | 打包格式 | 适用场景 |
 |---------|------|---------|----------|
-| Linux | amd64 | tar.gz, deb, rpm | x86主机 |
+| Linux | amd64 | tar.gz, deb, rpm | 服务器部署 |
 | Linux | arm64 | tar.gz, deb, rpm | ARM主机 |
 | Linux | loong64 | tar.gz, deb, rpm | 龙芯平台 |
 | macOS | amd64 | tar.gz, app | Mac 桌面应用 |
 | macOS | arm64 | tar.gz, app | Apple Silicon |
-| Windows | amd64 | zip | Windows主机 |
+| Windows | amd64 | zip | Windows 服务器/桌面 |
 
-### 操作系统支持
+### 国产操作系统支持
 
-- **RPM 包支持**：银河麒麟、统信 UOS、CentOS、Redhat
-- **DEB 包支持**：统信 UOS、Ubuntu、Debian
+- **RPM 包支持**：银河麒麟、统信 UOS、中标麒麟、红旗 Linux
+- **DEB 包支持**：统信 UOS、深度 Deepin
 
 ## 2. 安装文件清单
 
@@ -33,6 +33,7 @@ ui/                    # Web 管理界面静态文件
 └── version.txt
 rootcerts/             # 预置国密CA信任证书
 ├── ca-sm2-root.crt
+├── 上海市数字证书认证中心有限公司_CN=SHECA SM2,O=UniTrust,C=CN.pem
 └── ... 其他50+个证书
 keystores/             # 用户证书存储目录（初始为空）
 logs/                  # 日志目录（初始为空）
@@ -73,16 +74,16 @@ TLCP Channel 设计为轻量级代理服务，对系统资源要求较低。实�
 
 ### 资源需求参考
 
-- **内存**：100MB
-- **CPU**：200Hz
-- **存储**：200MB
-- **网络**：无特殊要求
+- **内存**：空闲时 50-100 MB，高负载时根据连接数增加
+- **CPU**：单核心基本够用，高并发建议多核心
+- **存储**：安装包体积的 1.5-2 倍（包含证书和日志增长）
+- **网络**：无特殊要求，根据代理流量调整
 
 ### 端口需求
 
-- **20080**：API 服务和 Web UI
-- **20443**：默认代理端口
-- **其他端口**：根据 `instances` 配置自定义
+- **20080**：API 服务和 Web UI（必须开放）
+- **20443**：默认代理端口（必须开放）
+- **其他端口**：根据 `instances` 配置自定义（需手动开放）
 
 ## 5. 安装方式详细说明
 
@@ -153,6 +154,8 @@ ls -la
 -rwxr-xr-x 1 user group 2.5M Jan  1 12:00 tlcpchan-cli
 drwxr-xr-x 4 user group 4096 Jan  1 12:00 ui
 drwxr-xr-x 2 user group 4096 Jan  1 12:00 rootcerts
+drwxr-xr-x 2 user group 4096 Jan  1 12:00 keystores
+drwxr-xr-x 2 user group 4096 Jan  1 12:00 logs
 -rw-r--r-- 1 user group  100 Jan  1 12:00 config.yaml
 ```
 
@@ -180,7 +183,7 @@ sudo chmod +x /etc/tlcpchan/tlcpchan
 sudo chmod +x /etc/tlcpchan/tlcpchan-cli
 ```
 
-[可选] 创建命令行符号链接：
+创建命令行符号链接：
 
 ```bash
 sudo ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan
@@ -270,7 +273,7 @@ cd "C:\Program Files\TLCP Channel"
 .\tlcpchan.exe
 ```
 
-[可选] 手动添加到 PATH
+#### 手动添加到 PATH
 
 将 TLCP Channel 的安装路径添加到系统环境变量，方便命令行调用：
 
@@ -338,6 +341,7 @@ sudo systemctl stop tlcpchan
 
 TLCP Channel 采用日志轮转策略，避免日志文件无限增长占用磁盘空间。默认配置下，日志文件会自动轮转、压缩和清理。
 
+#### 日志配置位置
 
 日志配置在 `/etc/tlcpchan/config.yaml` 中的 `server.log` 部分：
 
@@ -353,14 +357,14 @@ server:
     enabled: true                  # 是否启用文件日志
 ```
 
-日志轮转策略说明
+#### 日志轮转策略说明
 
 1. **大小限制**：当日志文件达到 100MB 时，会自动轮转
 2. **数量限制**：最多保留 5 个历史日志文件
 3. **时间限制**：超过 30 天的日志文件自动删除
 4. **压缩处理**：历史日志文件自动压缩为 .gz 格式
 
-日志文件示例
+#### 日志文件示例
 
 ```
 /etc/tlcpchan/logs/
@@ -371,7 +375,7 @@ server:
 └── tlcpchan.log.4.gz
 ```
 
-查看日志
+#### 查看日志
 
 查看实时日志输出：
 
@@ -385,7 +389,7 @@ tail -f /etc/tlcpchan/logs/tlcpchan.log
 zcat /etc/tlcpchan/logs/tlcpchan.log.1.gz | head -20
 ```
 
-日志内容示例
+#### 日志内容示例
 
 ```
 2024-01-01T12:00:00+08:00 [INFO] proxy: 代理服务启动 address=:20443
@@ -441,7 +445,7 @@ sudo /etc/tlcpchan/tlcpchan
 查看当前安装的 TLCP Channel 版本：
 
 ```bash
-tlcpchan --version
+tlcpchan -version
 ```
 
 **预期输出**：
@@ -626,7 +630,7 @@ docker cp tlcpchan:/etc/tlcpchan/keystores ./backup/keystores/
 
 ## 10. 未来扩展计划
 
-为了提升部署便利性，计划未来将 TLCP Channel 发布到以下官方仓库：
+为了提升部署便利性和企业级支持，计划未来将 TLCP Channel 发布到以下官方仓库：
 
 ### Linux 包管理仓库
 
