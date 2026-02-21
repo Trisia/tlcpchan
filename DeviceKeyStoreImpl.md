@@ -2,6 +2,11 @@
 
 ## 硬件 KeyStore 实现方案
 
+### 硬件接口
+
+- https://github.com/guanzhi/GmSSL/blob/master/src/skf/skf.h
+- https://github.com/guanzhi/GmSSL/blob/master/src/sdf/sdf.h
+
 ### 1. 架构概述
 
 本方案实现了基于国密硬件密钥存储接口的 KeyStore，支持 SKF（密码设备接口规范）和 SDF（密码设备功能接口）两种标准，使用 Go 语言开发，完全避免了 CGO 依赖。
