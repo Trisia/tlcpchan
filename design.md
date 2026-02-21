@@ -74,6 +74,10 @@ TLCP（Transport Layer Cryptography Protocol，传输层密码协议）是中国
 
 TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录下便于管理。
 
+**工作目录：**
+- Linux/Unix 默认：`/etc/tlcpchan`
+- Windows：程序所在目录
+
 #### 完整目录结构
 
 ```
@@ -310,128 +314,41 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 ### 2.6 源代码目录结构
 
 ```
-tlcpchan/
-├── main.go                 # 主程序入口
-├── config/                 # 配置管理模块
-├── initialization/         # 初始化模块
-├── security/               # 安全模块
-│   ├── keystore/          # Keystore 管理
-│   ├── rootcert/          # 根证书管理
-│   └── certgen/           # 证书生成
-├── instance/              # 实例管理模块
-├── proxy/                 # 代理引擎
-├── controller/            # API 控制器
-├── logger/                # 日志模块
-└── stats/                 # 统计模块
+tlcpchan/                      # 项目根目录
+├── tlcpchan/                  # [核心] 核心服务（Go）
+│   ├── main.go                # 主程序入口
+│   ├── config/                # 配置管理模块
+│   ├── initialization/        # 初始化模块
+│   ├── security/              # 安全模块
+│   │   ├── keystore/         # Keystore 管理
+│   │   ├── rootcert/         # 根证书管理
+│   │   └── certgen/          # 证书生成
+│   ├── instance/             # 实例管理模块
+│   ├── proxy/                # 代理引擎
+│   ├── controller/           # API 控制器
+│   ├── logger/               # 日志模块
+│   └── stats/                # 统计模块
+├── tlcpchan-cli/              # [CLI] 命令行工具（Go）
+│   ├── main.go
+│   ├── client/
+│   └── commands/
+├── tlcpchan-ui/               # [UI] Web 前端（Vue/TypeScript）
+│   ├── src/
+│   │   ├── api/
+│   │   ├── views/
+│   │   ├── layouts/
+│   │   ├── types/
+│   │   └── router/
+│   └── public/
+├── design.md                  # 设计文档
+└── AGENTS.md                  # Agent 指南
 ```
 
 ## 3. 核心模块设计
 
-### 3.1 配置管理模块
+### 3.1 代理模块
 
-#### 3.1.1 配置结构
-
-```go
-type Config struct {
-    Server    ServerConfig    `yaml:"server"`
-    Instances []InstanceConfig `yaml:"instances"`
-}
-
-type ServerConfig struct {
-    API  APIConfig  `yaml:"api"`
-    UI   UIConfig   `yaml:"ui"`
-    Log  LogConfig  `yaml:"log"`
-}
-
-type APIConfig struct {
-    Address string `yaml:"address"` // API服务地址，默认 :20080
-}
-
-type UIConfig struct {
-    Enabled bool   `yaml:"enabled"` // 是否启动UI服务
-    Address string `yaml:"address"` // UI服务地址，默认 :30000
-    Path    string `yaml:"path"`    // UI静态文件路径
-}
-
-type LogConfig struct {
-    Level      string `yaml:"level"`       // 日志级别：debug/info/warn/error
-    File       string `yaml:"file"`        // 日志文件路径
-    MaxSize    int    `yaml:"max_size"`    // 单文件最大大小(MB)
-    MaxBackups int    `yaml:"max_backups"` // 最大备份数
-    MaxAge     int    `yaml:"max_age"`     // 最大保留天数
-    Compress   bool   `yaml:"compress"`    // 是否压缩
-}
-
-type InstanceConfig struct {
-    Name     string            `yaml:"name"`     // 实例名称
-    Type     string            `yaml:"type"`     // 类型：server/client/http-server/http-client
-    Listen   string            `yaml:"listen"`   // 监听地址
-    Target   string            `yaml:"target"`   // 目标地址
-    Protocol string            `yaml:"protocol"` // 协议：auto/tlcp/tls
-    Enabled  bool              `yaml:"enabled"`  // 是否启用
-    
-    // TLS/TLCP 配置
-    TLCP     TLCPConfig        `yaml:"tlcp"`
-    TLS      TLSConfig         `yaml:"tls"`
-    
-    // 安全配置（详见 security.md）
-    ClientCA []string          `yaml:"client-ca,omitempty"` // 客户端CA证书（服务端验证）
-    ServerCA []string          `yaml:"server-ca,omitempty"` // 服务端CA证书（客户端验证）
-    
-    // HTTP代理配置
-    HTTP      *HTTPConfig      `yaml:"http,omitempty"`
-    
-    // 日志配置
-    Log       *LogConfig        `yaml:"log,omitempty"`
-    
-    // 统计配置
-    Stats     *StatsConfig      `yaml:"stats,omitempty"`
-}
-
-type TLCPConfig struct {
-    Auth             string              `yaml:"auth,omitempty"`              // 认证模式：none/one-way/mutual
-    MinVersion       string              `yaml:"min-version,omitempty"`       // 最低协议版本
-    MaxVersion       string              `yaml:"max-version,omitempty"`       // 最高协议版本
-    CipherSuites     []string            `yaml:"cipher-suites,omitempty"`     // 密码套件
-    CurvePreferences []string            `yaml:"curve-preferences,omitempty"` // 曲线偏好
-    SessionTickets   bool                `yaml:"session-tickets,omitempty"`   // 会话票据
-    SessionCache     bool                `yaml:"session-cache,omitempty"`     // 会话缓存
-    InsecureSkipVerify bool              `yaml:"insecure-skip-verify,omitempty"` // 跳过验证（客户端）
-    Keystore         *config.KeyStoreConfig `yaml:"keystore,omitempty"`     // Keystore 配置（详见 security.md）
-}
-
-type TLSConfig struct {
-    Auth             string              `yaml:"auth,omitempty"`              // 认证模式：none/one-way/mutual
-    MinVersion       string              `yaml:"min-version,omitempty"`       // 最低协议版本
-    MaxVersion       string              `yaml:"max-version,omitempty"`       // 最高协议版本
-    CipherSuites     []string            `yaml:"cipher-suites,omitempty"`     // 密码套件
-    CurvePreferences []string            `yaml:"curve-preferences,omitempty"` // 曲线偏好
-    SessionTickets   bool                `yaml:"session-tickets,omitempty"`   // 会话票据
-    SessionCache     bool                `yaml:"session-cache,omitempty"`     // 会话缓存
-    InsecureSkipVerify bool              `yaml:"insecure-skip-verify,omitempty"` // 跳过验证（客户端）
-    Keystore         *config.KeyStoreConfig `yaml:"keystore,omitempty"`     // Keystore 配置（详见 security.md）
-}
-
-type HTTPConfig struct {
-    RequestHeaders  HeadersConfig `yaml:"request_headers"`
-    ResponseHeaders HeadersConfig `yaml:"response_headers"`
-}
-
-type HeadersConfig struct {
-    Add    map[string]string `yaml:"add"`    // 添加头部
-    Remove []string          `yaml:"remove"` // 移除头部
-    Set    map[string]string `yaml:"set"`    // 设置头部
-}
-
-type StatsConfig struct {
-    Enabled  bool          `yaml:"enabled"`  // 是否启用统计
-    Interval time.Duration `yaml:"interval"` // 统计间隔
-}
-```
-
-### 3.2 代理模块
-
-#### 3.2.1 服务端代理（TLCP/TLS → TCP）
+#### 3.1.1 服务端代理（TLCP/TLS → TCP）
 
 服务端代理接收TLCP/TLS加密流量，解密后转发到目标TCP服务。
 
@@ -466,7 +383,7 @@ type StatsConfig struct {
 - TLCP：检查ClientHello中的国密密码套件或TLCP特定扩展
 - TLS：标准TLS握手协议
 
-#### 3.2.2 客户端代理（TCP → TLCP/TLS）
+#### 3.1.2 客户端代理（TCP → TLCP/TLS）
 
 客户端代理接收明文TCP流量，加密后转发到目标TLCP/TLS服务。
 
@@ -482,7 +399,7 @@ type StatsConfig struct {
 3. 缓存协议类型，后续连接复用
 4. 创建对应的http.Client实例
 
-#### 3.2.3 HTTP代理
+#### 3.1.3 HTTP代理
 
 HTTP代理在TCP代理基础上增加HTTP协议解析和头部处理能力。
 
@@ -498,13 +415,13 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 5. 根据配置修改响应头
 6. 返回给客户端
 
-### 3.3 安全参数管理模块
+### 3.2 安全参数管理模块
 
 安全参数（Keystore、根证书）的详细配置和管理方法请参考 [security.md](./security.md)。
 
 安全参数管理模块统一管理 Keystore 和根证书，提供抽象的接口设计，支持多种加载方式。
 
-#### 3.3.1 核心概念
+#### 3.2.1 核心概念
 
 | 概念 | 说明 |
 |------|------|
@@ -514,7 +431,7 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 
 > **详细文档**：安全参数的完整配置和管理方法请参考 [security.md](./security.md)。
 
-#### 3.3.2 初始化流程
+#### 3.2.2 初始化流程
 
 系统首次启动时会自动执行初始化流程，生成测试证书和默认配置。
 
@@ -573,7 +490,7 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 - `default-tls`：TLS 单证书（RSA 2048，由 TLS 根 CA 签发）
 - `auto-proxy`：默认代理实例（监听 :20443，转发到 API 服务 :20080）
 
-#### 3.3.3 Keystore 管理
+#### 3.2.3 Keystore 管理
 
 Keystore 管理器负责管理所有密钥存储，提供统一的访问接口。
 
@@ -615,7 +532,7 @@ type Manager struct {
 - 持久化由控制器层通过 `config.Config.KeyStores` 负责
 - 配置变更后需要调用 `Reload()` 生效
 
-#### 3.3.4 根证书管理
+#### 3.2.4 根证书管理
 
 根证书管理器负责管理所有信任的根证书，提供证书验证功能。
 
@@ -656,7 +573,7 @@ type Manager struct {
 - 解析并加载所有有效证书
 - 忽略无效证书文件并记录日志
 
-#### 3.3.5 热更新机制
+#### 3.2.5 热更新机制
 
 **Keystore 热更新：**
 ```bash
@@ -676,7 +593,7 @@ POST /api/security/rootcerts/reload
 - 重建两个证书池
 - 新连接使用更新后的证书池
 
-### 3.4 实例管理模块
+### 3.3 实例管理模块
 
 ```go
 type Instance interface {
@@ -700,7 +617,7 @@ func (m *InstanceManager) List() []Instance
 func (m *InstanceManager) Delete(name string) error
 ```
 
-### 3.5 统计模块
+### 3.4 统计模块
 
 ```go
 type Metrics struct {
@@ -715,7 +632,7 @@ type Metrics struct {
 }
 ```
 
-### 3.6 初始化模块
+### 3.5 初始化模块
 
 初始化模块负责系统首次启动时的初始化工作，包括生成测试证书、创建默认配置等。
 
@@ -818,6 +735,8 @@ CheckInitialized()?
 
 ### 4.2 路由设计
 
+API 路径前缀统一为 `/api/`。
+
 | 方法 | 路径 | 描述 |
 |------|------|------|
 | GET | /api/instances | 获取实例列表 |
@@ -828,24 +747,27 @@ CheckInitialized()?
 | POST | /api/instances/:name/start | 启动实例 |
 | POST | /api/instances/:name/stop | 停止实例 |
 | POST | /api/instances/:name/reload | 重载实例 |
+| POST | /api/instances/:name/restart | 重启实例 |
 | GET | /api/instances/:name/stats | 获取统计信息 |
 | GET | /api/instances/:name/logs | 获取日志 |
+| GET | /api/instances/:name/health | 实例健康检查 |
 | POST | /api/config/reload | 重载全局配置 |
 | GET | /api/config | 获取当前配置 |
 | GET | /api/security/keystores | 获取 keystore 列表 |
 | POST | /api/security/keystores | 创建 keystore |
+| POST | /api/security/keystores/generate | 生成新 keystore |
 | GET | /api/security/keystores/:name | 获取 keystore 详情 |
 | DELETE | /api/security/keystores/:name | 删除 keystore |
 | POST | /api/security/keystores/:name/reload | 重载 keystore |
+| POST | /api/security/keystores/:name/export-csr | 导出 CSR |
 | GET | /api/security/rootcerts | 获取根证书列表 |
 | POST | /api/security/rootcerts | 添加根证书 |
-| GET | /api/security/rootcerts/:name | 获取根证书详情 |
-| DELETE | /api/security/rootcerts/:name | 删除根证书 |
+| POST | /api/security/rootcerts/generate | 生成根 CA |
+| GET | /api/security/rootcerts/:filename | 获取根证书详情 |
+| DELETE | /api/security/rootcerts/:filename | 删除根证书 |
 | POST | /api/security/rootcerts/reload | 重载所有根证书 |
 | GET | /api/system/info | 系统信息 |
 | GET | /api/system/health | 健康检查 |
-
-> **安全参数 API 详细文档**：请参考 [security.md](./security.md)
 
 ## 5. UI设计
 
