@@ -131,7 +131,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Menu } from '@element-plus/icons-vue'
-import http from '@/utils/http'
+import http from '@/api/index'
 
 const route = useRoute()
 const uiVersion = ref('dev')
