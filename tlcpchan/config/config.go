@@ -77,6 +77,14 @@ func ParseAuthType(s string) AuthType {
 	}
 }
 
+// MCPConfig MCP服务配置
+type MCPConfig struct {
+	// Enabled 是否启用MCP服务
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// APIKey MCP服务API密钥，为空表示无需认证
+	APIKey string `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+}
+
 // Config 主配置结构，包含服务端配置、代理实例列表和证书目录
 type Config struct {
 	// Server 服务端配置，包含API、UI和日志配置
@@ -85,6 +93,8 @@ type Config struct {
 	KeyStores []KeyStoreConfig `yaml:"keystores" json:"keystores"`
 	// Instances 代理实例配置列表，每个实例代表一个独立的代理服务
 	Instances []InstanceConfig `yaml:"instances" json:"instances"`
+	// MCP MCP服务配置
+	MCP MCPConfig `yaml:"mcp,omitempty" json:"mcp,omitempty"`
 	// WorkDir 工作目录（运行时设置，不从配置文件读取）
 	// Linux默认: /etc/tlcpchan
 	// Windows默认: 程序所在目录
