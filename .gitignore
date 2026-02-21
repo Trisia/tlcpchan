@@ -86,3 +86,6 @@ docs/apidoc
 
 
 target/
+
+venv
+.venv

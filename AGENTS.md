@@ -47,6 +47,7 @@ go build -o tlcpchan-cli   # 构建命令行工具
 ## 特殊约定
 
 - 当需要使用chrome-dev-tools 时，总是以 --no-sandbox 启动google-chrome 
+- 若工作与Windows环境中注意：文件路径分隔符，命令不要级联执行`&&` 分条逐条执行
 
 ## 项目概述
 
