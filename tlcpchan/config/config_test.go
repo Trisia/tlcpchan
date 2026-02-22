@@ -160,3 +160,161 @@ func testLoadAndSave(t *testing.T) {
 		t.Error("配置文件中未找到更新后的地址")
 	}
 }
+
+func TestParseCipherSuite(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		isTLCP  bool
+		want    uint16
+		wantErr bool
+	}{
+		{
+			name:    "TLCP ECC_SM4_CBC_SM3",
+			input:   "ECC_SM4_CBC_SM3",
+			isTLCP:  true,
+			want:    0xE013,
+			wantErr: false,
+		},
+		{
+			name:    "TLCP ECC_SM4_GCM_SM3",
+			input:   "ECC_SM4_GCM_SM3",
+			isTLCP:  true,
+			want:    0xE053,
+			wantErr: false,
+		},
+		{
+			name:    "TLCP ECDHE_SM4_CBC_SM3",
+			input:   "ECDHE_SM4_CBC_SM3",
+			isTLCP:  true,
+			want:    0xE011,
+			wantErr: false,
+		},
+		{
+			name:    "TLCP ECDHE_SM4_GCM_SM3",
+			input:   "ECDHE_SM4_GCM_SM3",
+			isTLCP:  true,
+			want:    0xE051,
+			wantErr: false,
+		},
+		{
+			name:    "TLCP hex value",
+			input:   "0xE013",
+			isTLCP:  true,
+			want:    0xE013,
+			wantErr: false,
+		},
+		{
+			name:    "TLCP decimal value",
+			input:   "57427",
+			isTLCP:  true,
+			want:    0xE053,
+			wantErr: false,
+		},
+		{
+			name:    "TLS AES_128_GCM_SHA256",
+			input:   "TLS_AES_128_GCM_SHA256",
+			isTLCP:  false,
+			want:    0x1301,
+			wantErr: false,
+		},
+		{
+			name:    "unknown cipher suite",
+			input:   "UNKNOWN_SUITE",
+			isTLCP:  true,
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			isTLCP:  true,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCipherSuite(tt.input, tt.isTLCP)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ParseCipherSuite(%q, %v) 期望错误，但未返回错误", tt.input, tt.isTLCP)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ParseCipherSuite(%q, %v) 意外错误: %v", tt.input, tt.isTLCP, err)
+				}
+				if got != tt.want {
+					t.Errorf("ParseCipherSuite(%q, %v) = 0x%04X, 期望 0x%04X", tt.input, tt.isTLCP, got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestParseCipherSuites(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		isTLCP  bool
+		want    []uint16
+		wantErr bool
+	}{
+		{
+			name:    "empty slice",
+			input:   []string{},
+			isTLCP:  true,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "TLCP multiple suites",
+			input:   []string{"ECC_SM4_GCM_SM3", "ECDHE_SM4_GCM_SM3"},
+			isTLCP:  true,
+			want:    []uint16{0xE053, 0xE051},
+			wantErr: false,
+		},
+		{
+			name:    "TLCP with hex values",
+			input:   []string{"0xE013", "0xE051"},
+			isTLCP:  true,
+			want:    []uint16{0xE013, 0xE051},
+			wantErr: false,
+		},
+		{
+			name:    "TLS multiple suites",
+			input:   []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+			isTLCP:  false,
+			want:    []uint16{0x1301, 0x1302},
+			wantErr: false,
+		},
+		{
+			name:    "contains unknown suite",
+			input:   []string{"ECC_SM4_GCM_SM3", "UNKNOWN_SUITE"},
+			isTLCP:  true,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCipherSuites(tt.input, tt.isTLCP)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ParseCipherSuites(%v, %v) 期望错误，但未返回错误", tt.input, tt.isTLCP)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ParseCipherSuites(%v, %v) 意外错误: %v", tt.input, tt.isTLCP, err)
+				}
+				if len(got) != len(tt.want) {
+					t.Errorf("ParseCipherSuites(%v, %v) 长度不匹配: 得到 %d, 期望 %d", tt.input, tt.isTLCP, len(got), len(tt.want))
+				}
+				for i := range got {
+					if got[i] != tt.want[i] {
+						t.Errorf("ParseCipherSuites(%v, %v)[%d] = 0x%04X, 期望 0x%04X", tt.input, tt.isTLCP, i, got[i], tt.want[i])
+					}
+				}
+			}
+		})
+	}
+}
