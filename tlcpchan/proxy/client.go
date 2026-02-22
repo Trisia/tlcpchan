@@ -44,12 +44,12 @@ func NewClientProxy(cfg *config.InstanceConfig,
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
-	adapter, err := NewTLCPAdapter(cfg, keyStoreMgr, rootCertMgr)
+	adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr)
 	if err != nil {
 		return nil, fmt.Errorf("创建协议适配器失败: %w", err)
 	}
 
-	return &ClientProxy{
+	proxy := &ClientProxy{
 		cfg:             cfg,
 		adapter:         adapter,
 		handler:         NewConnHandler(),
@@ -60,7 +60,13 @@ func NewClientProxy(cfg *config.InstanceConfig,
 		shutdownChan:    make(chan struct{}),
 		protocolCache:   make(map[string]protocolCacheEntry),
 		cacheTTL:        5 * time.Minute,
-	}, nil
+	}
+
+	if err := adapter.ReloadConfig(cfg); err != nil {
+		return nil, fmt.Errorf("初始化配置失败: %w", err)
+	}
+
+	return proxy, nil
 }
 
 func (p *ClientProxy) Adapter() *TLCPAdapter {
@@ -132,7 +138,7 @@ func (p *ClientProxy) handleConnection(clientConn net.Conn) {
 		protocol = p.detectAndCacheProtocol()
 	}
 
-	targetConn, err := p.adapter.DialWithProtocol("tcp", p.cfg.Target, protocol)
+	targetConn, err := p.adapter.DialWithProtocol("tcp", p.cfg.Target, protocol, p.cfg)
 	if err != nil {
 		p.logger.Error("连接目标服务失败 %s: %v", p.cfg.Target, err)
 		p.stats.IncrementErrors()
@@ -173,7 +179,7 @@ func (p *ClientProxy) getProtocol() ProtocolType {
 }
 
 func (p *ClientProxy) detectAndCacheProtocol() ProtocolType {
-	conn, err := p.adapter.DialTLCP("tcp", p.cfg.Target)
+	conn, err := p.adapter.DialTLCP("tcp", p.cfg.Target, p.cfg)
 	if err == nil {
 		conn.Close()
 		p.cacheMu.Lock()
