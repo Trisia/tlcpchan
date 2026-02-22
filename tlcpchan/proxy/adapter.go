@@ -3,17 +3,29 @@ package proxy
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"time"
 
+	"gitee.com/Trisia/gotlcp/pa"
 	"gitee.com/Trisia/gotlcp/tlcp"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
 	"github.com/Trisia/tlcpchan/security/keystore"
 )
+
+func detectProtocol(data []byte) ProtocolType {
+	if len(data) < 5 {
+		return ProtocolTLS
+	}
+
+	if data[0] == 0x16 && data[1] == 0x01 {
+		return ProtocolTLCP
+	}
+
+	return ProtocolTLS
+}
 
 func needEncKeypair(suites []uint16) bool {
 	for _, suite := range suites {
@@ -79,50 +91,28 @@ func ParseProtocolType(s string) ProtocolType {
 }
 
 type TLCPAdapter struct {
-	mu              sync.RWMutex
-	protocol        ProtocolType
-	tlcpConfig      *tlcp.Config
-	tlsConfig       *tls.Config
-	rootCertPool    security.RootCertPool
-	tlcpKeyStore    security.KeyStore
-	tlsKeyStore     security.KeyStore
-	cfg             *config.InstanceConfig
-	keyStoreManager *security.KeyStoreManager
-	rootCertManager *security.RootCertManager
-	logger          *logger.Logger
+	mu                    sync.RWMutex
+	protocol              ProtocolType
+	tlcpConfig            *tlcp.Config
+	tlsConfig             *tls.Config
+	tlcpKeyStore          security.KeyStore
+	tlsKeyStore           security.KeyStore
+	keyStoreManager       *security.KeyStoreManager
+	rootCertManager       *security.RootCertManager
+	logger                *logger.Logger
+	healthCheckTLCPConfig *tlcp.Config
+	healthCheckTLSConfig  *tls.Config
 }
 
-func NewTLCPAdapter(cfg *config.InstanceConfig,
+func NewTLCPAdapter(
 	keyStoreMgr *security.KeyStoreManager,
-	rootCertMgr *security.RootCertManager) (*TLCPAdapter, error) {
-	adapter := &TLCPAdapter{
-		protocol:        ParseProtocolType(cfg.Protocol),
-		cfg:             cfg,
+	rootCertMgr *security.RootCertManager,
+) (*TLCPAdapter, error) {
+	return &TLCPAdapter{
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
 		logger:          logger.Default(),
-	}
-
-	if cfg.Type == TypeServer || cfg.Type == TypeHTTPServer {
-		if err := adapter.initServerConfig(cfg); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := adapter.initClientConfig(cfg); err != nil {
-			return nil, err
-		}
-	}
-
-	return adapter, nil
-}
-
-func (a *TLCPAdapter) updateConfig(tlcpCfg *tlcp.Config, tlsCfg *tls.Config, rootCertPool security.RootCertPool) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	a.tlcpConfig = tlcpCfg
-	a.tlsConfig = tlsCfg
-	a.rootCertPool = rootCertPool
+	}, nil
 }
 
 func (a *TLCPAdapter) getTLCPConfig() *tlcp.Config {
@@ -142,216 +132,11 @@ func (a *TLCPAdapter) loadKeyStoreFromConfig(ksConfig *config.KeyStoreConfig, su
 		return nil, nil
 	}
 
-	// 直接通过名称加载
 	if string(ksConfig.Type) == string(keystore.LoaderTypeNamed) {
 		return a.keyStoreManager.LoadFromConfig(ksConfig.Params["name"])
 	}
 
-	// 对于其他类型，使用 LoadAndRegister 方法加载并注册
 	return a.keyStoreManager.LoadAndRegister(ksConfig.Name, suggestedName, string(ksConfig.Type), ksConfig.Params)
-}
-
-func (a *TLCPAdapter) initServerConfig(cfg *config.InstanceConfig) error {
-	var tlcpConfig *tlcp.Config
-	var tlsConfig *tls.Config
-	var rootCertPool security.RootCertPool
-
-	tlcpAuth := cfg.TLCP.Auth
-	if tlcpAuth == "" {
-		tlcpAuth = string(config.AuthNone)
-	}
-	tlsAuth := cfg.TLS.Auth
-	if tlsAuth == "" {
-		tlsAuth = string(config.AuthNone)
-	}
-
-	if tlcpAuth == string(config.AuthOneWay) || tlcpAuth == string(config.AuthMutual) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil && ks != nil {
-			a.tlcpKeyStore = ks
-		}
-	}
-
-	if tlsAuth == string(config.AuthOneWay) || tlsAuth == string(config.AuthMutual) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil && ks != nil {
-			a.tlsKeyStore = ks
-		}
-	}
-
-	if len(cfg.ClientCA) > 0 {
-		rootCertPool = a.rootCertManager.GetPool()
-	}
-
-	if a.tlcpKeyStore != nil {
-		tlcpConfig = &tlcp.Config{}
-		tlcpConfig.GetConfigForClient = func(chi *tlcp.ClientHelloInfo) (*tlcp.Config, error) {
-			cfgCopy := a.buildTLCPServerConfig(rootCertPool, tlcpAuth)
-			return cfgCopy, nil
-		}
-	}
-
-	if a.tlsKeyStore != nil {
-		tlsConfig = &tls.Config{}
-		tlsConfig.GetConfigForClient = func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
-			cfgCopy := a.buildTLSServerConfig(rootCertPool, tlsAuth)
-			return cfgCopy, nil
-		}
-	}
-
-	a.updateConfig(tlcpConfig, tlsConfig, rootCertPool)
-
-	return nil
-}
-
-func (a *TLCPAdapter) buildTLCPServerConfig(rootCertPool security.RootCertPool, auth string) *tlcp.Config {
-	cfg := &tlcp.Config{}
-
-	if a.tlcpKeyStore != nil {
-		cfg.GetCertificate = func(chi *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
-			return a.tlcpKeyStore.TLCPCertificate()
-		}
-	}
-
-	if auth == string(config.AuthMutual) && rootCertPool != nil {
-		cfg.ClientCAs = rootCertPool.GetSMCertPool()
-		cfg.ClientAuth = tlcp.RequireAndVerifyClientCert
-	} else if auth == string(config.AuthOneWay) {
-		cfg.ClientAuth = tlcp.NoClientCert
-	}
-
-	a.applyTLCPSettingsToConfig(cfg, &a.cfg.TLCP)
-	return cfg
-}
-
-func (a *TLCPAdapter) buildTLSServerConfig(rootCertPool security.RootCertPool, auth string) *tls.Config {
-	cfg := &tls.Config{}
-
-	if a.tlsKeyStore != nil {
-		cfg.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return a.tlsKeyStore.TLSCertificate()
-		}
-	}
-
-	if auth == string(config.AuthMutual) && rootCertPool != nil {
-		cfg.ClientCAs = rootCertPool.GetCertPool()
-		cfg.ClientAuth = tls.RequireAndVerifyClientCert
-	} else if auth == string(config.AuthOneWay) {
-		cfg.ClientAuth = tls.NoClientCert
-	}
-
-	a.applyTLSSettingsToConfig(cfg, &a.cfg.TLS)
-	return cfg
-}
-
-func (a *TLCPAdapter) initClientConfig(cfg *config.InstanceConfig) error {
-	var tlcpConfig *tlcp.Config
-	var tlsConfig *tls.Config
-	var rootCertPool security.RootCertPool
-
-	tlcpAuth := cfg.TLCP.Auth
-	if tlcpAuth == "" {
-		tlcpAuth = string(config.AuthNone)
-	}
-	tlsAuth := cfg.TLS.Auth
-	if tlsAuth == "" {
-		tlsAuth = string(config.AuthNone)
-	}
-
-	tlcpConfig = &tlcp.Config{
-		InsecureSkipVerify: cfg.TLCP.InsecureSkipVerify,
-	}
-
-	if cfg.SNI != "" {
-		tlcpConfig.ServerName = cfg.SNI
-	}
-
-	if tlcpAuth == string(config.AuthMutual) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil && ks != nil {
-			a.tlcpKeyStore = ks
-			tlcpConfig.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
-				return a.tlcpKeyStore.TLCPCertificate()
-			}
-		}
-	}
-
-	tlsConfig = &tls.Config{
-		InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
-	}
-
-	if cfg.SNI != "" {
-		tlsConfig.ServerName = cfg.SNI
-	}
-
-	if tlsAuth == string(config.AuthMutual) {
-		if ks, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil && ks != nil {
-			a.tlsKeyStore = ks
-			tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				return a.tlsKeyStore.TLSCertificate()
-			}
-		}
-	}
-
-	if len(cfg.ServerCA) > 0 {
-		rootCertPool = a.rootCertManager.GetPool()
-		tlcpConfig.RootCAs = rootCertPool.GetSMCertPool()
-		tlsConfig.RootCAs = rootCertPool.GetCertPool()
-	}
-
-	a.applyTLCPSettingsToConfig(tlcpConfig, &cfg.TLCP)
-	a.applyTLSSettingsToConfig(tlsConfig, &cfg.TLS)
-
-	a.updateConfig(tlcpConfig, tlsConfig, rootCertPool)
-
-	return nil
-}
-
-func (a *TLCPAdapter) applyTLCPSettingsToConfig(cfg *tlcp.Config, tlsCfg *config.TLCPConfig) {
-	if cfg == nil {
-		return
-	}
-
-	if len(tlsCfg.CipherSuites) > 0 {
-		suites, _ := config.ParseCipherSuites(tlsCfg.CipherSuites, true)
-		cfg.CipherSuites = suites
-	}
-
-	if tlsCfg.MinVersion != "" {
-		v, _ := config.ParseTLSVersion(tlsCfg.MinVersion, true)
-		cfg.MinVersion = v
-	}
-
-	if tlsCfg.MaxVersion != "" {
-		v, _ := config.ParseTLSVersion(tlsCfg.MaxVersion, true)
-		cfg.MaxVersion = v
-	}
-
-	if tlsCfg.SessionCache {
-		cfg.SessionCache = tlcp.NewLRUSessionCache(100)
-	}
-}
-
-func (a *TLCPAdapter) applyTLSSettingsToConfig(cfg *tls.Config, tlsCfg *config.TLSConfig) {
-	if cfg == nil {
-		return
-	}
-
-	if len(tlsCfg.CipherSuites) > 0 {
-		suites, _ := config.ParseCipherSuites(tlsCfg.CipherSuites, false)
-		cfg.CipherSuites = suites
-	}
-
-	if tlsCfg.MinVersion != "" {
-		v, _ := config.ParseTLSVersion(tlsCfg.MinVersion, false)
-		cfg.MinVersion = v
-	}
-
-	if tlsCfg.MaxVersion != "" {
-		v, _ := config.ParseTLSVersion(tlsCfg.MaxVersion, false)
-		cfg.MaxVersion = v
-	}
-
-	if tlsCfg.SessionCache {
-		cfg.ClientSessionCache = tls.NewLRUClientSessionCache(100)
-	}
 }
 
 func (a *TLCPAdapter) TLCPListener(l net.Listener) net.Listener {
@@ -363,8 +148,7 @@ func (a *TLCPAdapter) TLSListener(l net.Listener) net.Listener {
 }
 
 func (a *TLCPAdapter) AutoListener(l net.Listener) net.Listener {
-	timeout := a.getTimeoutConfig().Handshake
-	return NewAutoProtocolListener(l, a.getTLCPConfig(), a.getTLSConfig(), timeout)
+	return pa.NewListener(l, a.getTLCPConfig(), a.getTLSConfig())
 }
 
 func (a *TLCPAdapter) WrapServerListener(l net.Listener) net.Listener {
@@ -381,51 +165,53 @@ func (a *TLCPAdapter) WrapServerListener(l net.Listener) net.Listener {
 	}
 }
 
-func (a *TLCPAdapter) getTimeoutConfig() *config.TimeoutConfig {
-	if a.cfg.Timeout != nil {
-		return a.cfg.Timeout
+func (a *TLCPAdapter) getTimeoutConfig(cfg *config.InstanceConfig) *config.TimeoutConfig {
+	if cfg.Timeout != nil {
+		return cfg.Timeout
 	}
 	return config.DefaultTimeout()
 }
 
-func (a *TLCPAdapter) DialTLCP(network, addr string) (net.Conn, error) {
-	timeout := a.getTimeoutConfig().Dial
+func (a *TLCPAdapter) DialTLCP(network, addr string, cfg *config.InstanceConfig) (net.Conn, error) {
+	timeout := a.getTimeoutConfig(cfg).Dial
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
 	return tlcp.DialWithDialer(dialer, network, addr, a.getTLCPConfig())
 }
 
-func (a *TLCPAdapter) DialTLS(network, addr string) (net.Conn, error) {
-	timeout := a.getTimeoutConfig().Dial
+func (a *TLCPAdapter) DialTLS(network, addr string, cfg *config.InstanceConfig) (net.Conn, error) {
+	timeout := a.getTimeoutConfig(cfg).Dial
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
 	return tls.DialWithDialer(dialer, network, addr, a.getTLSConfig())
 }
 
-func (a *TLCPAdapter) DialWithProtocol(network, addr string, protocol ProtocolType) (net.Conn, error) {
+func (a *TLCPAdapter) DialWithProtocol(network, addr string, protocol ProtocolType, cfg *config.InstanceConfig) (net.Conn, error) {
 	switch protocol {
 	case ProtocolTLCP:
-		return a.DialTLCP(network, addr)
+		return a.DialTLCP(network, addr, cfg)
 	case ProtocolTLS:
-		return a.DialTLS(network, addr)
+		return a.DialTLS(network, addr, cfg)
 	default:
-		return a.autoDial(network, addr)
+		return a.autoDial(network, addr, cfg)
 	}
 }
 
-func (a *TLCPAdapter) autoDial(network, addr string) (net.Conn, error) {
-	conn, err := a.DialTLCP(network, addr)
+func (a *TLCPAdapter) autoDial(network, addr string, cfg *config.InstanceConfig) (net.Conn, error) {
+	conn, err := a.DialTLCP(network, addr, cfg)
 	if err == nil {
 		return conn, nil
 	}
 
 	a.logger.Debug("TLCP连接失败，尝试TLS: %v", err)
-	return a.DialTLS(network, addr)
+	return a.DialTLS(network, addr, cfg)
 }
 
 func (a *TLCPAdapter) Protocol() ProtocolType {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return a.protocol
 }
 
@@ -439,17 +225,16 @@ func (a *TLCPAdapter) TLSConfig() *tls.Config {
 
 func (a *TLCPAdapter) ReloadConfig(cfg *config.InstanceConfig) error {
 	a.mu.Lock()
-	oldCfg := a.cfg
-	a.cfg = cfg
+	a.protocol = ParseProtocolType(cfg.Protocol)
 	a.mu.Unlock()
 
 	if cfg.Type == TypeServer || cfg.Type == TypeHTTPServer {
-		return a.reloadServerConfig(cfg, oldCfg)
+		return a.reloadServerConfig(cfg)
 	}
-	return a.reloadClientConfig(cfg, oldCfg)
+	return a.reloadClientConfig(cfg)
 }
 
-func (a *TLCPAdapter) reloadServerConfig(cfg, oldCfg *config.InstanceConfig) error {
+func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 	var tlcpConfig *tlcp.Config
 	var tlsConfig *tls.Config
 	var rootCertPool security.RootCertPool
@@ -485,25 +270,81 @@ func (a *TLCPAdapter) reloadServerConfig(cfg, oldCfg *config.InstanceConfig) err
 
 	if a.tlcpKeyStore != nil {
 		tlcpConfig = &tlcp.Config{}
-		tlcpConfig.GetConfigForClient = func(chi *tlcp.ClientHelloInfo) (*tlcp.Config, error) {
-			cfgCopy := a.buildTLCPServerConfig(rootCertPool, tlcpAuth)
-			return cfgCopy, nil
+		tlcpConfig.GetCertificate = func(chi *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
+			return a.tlcpKeyStore.TLCPCertificate()
+		}
+
+		if tlcpAuth == string(config.AuthMutual) && rootCertPool != nil {
+			tlcpConfig.ClientCAs = rootCertPool.GetSMCertPool()
+			tlcpConfig.ClientAuth = tlcp.RequireAndVerifyClientCert
+		} else if tlcpAuth == string(config.AuthOneWay) {
+			tlcpConfig.ClientAuth = tlcp.NoClientCert
+		}
+
+		if len(cfg.TLCP.CipherSuites) > 0 {
+			suites, _ := config.ParseCipherSuites(cfg.TLCP.CipherSuites, true)
+			tlcpConfig.CipherSuites = suites
+		}
+
+		if cfg.TLCP.MinVersion != "" {
+			v, _ := config.ParseTLSVersion(cfg.TLCP.MinVersion, true)
+			tlcpConfig.MinVersion = v
+		}
+
+		if cfg.TLCP.MaxVersion != "" {
+			v, _ := config.ParseTLSVersion(cfg.TLCP.MaxVersion, true)
+			tlcpConfig.MaxVersion = v
+		}
+
+		if cfg.TLCP.SessionCache {
+			tlcpConfig.SessionCache = tlcp.NewLRUSessionCache(100)
 		}
 	}
 
 	if a.tlsKeyStore != nil {
 		tlsConfig = &tls.Config{}
-		tlsConfig.GetConfigForClient = func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
-			cfgCopy := a.buildTLSServerConfig(rootCertPool, tlsAuth)
-			return cfgCopy, nil
+		tlsConfig.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return a.tlsKeyStore.TLSCertificate()
+		}
+
+		if tlsAuth == string(config.AuthMutual) && rootCertPool != nil {
+			tlsConfig.ClientCAs = rootCertPool.GetCertPool()
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		} else if tlsAuth == string(config.AuthOneWay) {
+			tlsConfig.ClientAuth = tls.NoClientCert
+		}
+
+		if len(cfg.TLS.CipherSuites) > 0 {
+			suites, _ := config.ParseCipherSuites(cfg.TLS.CipherSuites, false)
+			tlsConfig.CipherSuites = suites
+		}
+
+		if cfg.TLS.MinVersion != "" {
+			v, _ := config.ParseTLSVersion(cfg.TLS.MinVersion, false)
+			tlsConfig.MinVersion = v
+		}
+
+		if cfg.TLS.MaxVersion != "" {
+			v, _ := config.ParseTLSVersion(cfg.TLS.MaxVersion, false)
+			tlsConfig.MaxVersion = v
+		}
+
+		if cfg.TLS.SessionCache {
+			tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(100)
 		}
 	}
 
-	a.updateConfig(tlcpConfig, tlsConfig, rootCertPool)
+	a.mu.Lock()
+	a.tlcpConfig = tlcpConfig
+	a.tlsConfig = tlsConfig
+	a.healthCheckTLCPConfig = tlcpConfig
+	a.healthCheckTLSConfig = tlsConfig
+	a.mu.Unlock()
+
 	return nil
 }
 
-func (a *TLCPAdapter) reloadClientConfig(cfg, oldCfg *config.InstanceConfig) error {
+func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 	var tlcpConfig *tlcp.Config
 	var tlsConfig *tls.Config
 	var rootCertPool security.RootCertPool
@@ -551,7 +392,25 @@ func (a *TLCPAdapter) reloadClientConfig(cfg, oldCfg *config.InstanceConfig) err
 	if rootCertPool != nil {
 		tlcpConfig.RootCAs = rootCertPool.GetSMCertPool()
 	}
-	a.applyTLCPSettingsToConfig(tlcpConfig, &cfg.TLCP)
+
+	if len(cfg.TLCP.CipherSuites) > 0 {
+		suites, _ := config.ParseCipherSuites(cfg.TLCP.CipherSuites, true)
+		tlcpConfig.CipherSuites = suites
+	}
+
+	if cfg.TLCP.MinVersion != "" {
+		v, _ := config.ParseTLSVersion(cfg.TLCP.MinVersion, true)
+		tlcpConfig.MinVersion = v
+	}
+
+	if cfg.TLCP.MaxVersion != "" {
+		v, _ := config.ParseTLSVersion(cfg.TLCP.MaxVersion, true)
+		tlcpConfig.MaxVersion = v
+	}
+
+	if cfg.TLCP.SessionCache {
+		tlcpConfig.SessionCache = tlcp.NewLRUSessionCache(100)
+	}
 
 	tlsConfig = &tls.Config{
 		InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
@@ -567,173 +426,34 @@ func (a *TLCPAdapter) reloadClientConfig(cfg, oldCfg *config.InstanceConfig) err
 	if rootCertPool != nil {
 		tlsConfig.RootCAs = rootCertPool.GetCertPool()
 	}
-	a.applyTLSSettingsToConfig(tlsConfig, &cfg.TLS)
 
-	a.updateConfig(tlcpConfig, tlsConfig, rootCertPool)
+	if len(cfg.TLS.CipherSuites) > 0 {
+		suites, _ := config.ParseCipherSuites(cfg.TLS.CipherSuites, false)
+		tlsConfig.CipherSuites = suites
+	}
+
+	if cfg.TLS.MinVersion != "" {
+		v, _ := config.ParseTLSVersion(cfg.TLS.MinVersion, false)
+		tlsConfig.MinVersion = v
+	}
+
+	if cfg.TLS.MaxVersion != "" {
+		v, _ := config.ParseTLSVersion(cfg.TLS.MaxVersion, false)
+		tlsConfig.MaxVersion = v
+	}
+
+	if cfg.TLS.SessionCache {
+		tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(100)
+	}
+
+	a.mu.Lock()
+	a.tlcpConfig = tlcpConfig
+	a.tlsConfig = tlsConfig
+	a.healthCheckTLCPConfig = tlcpConfig
+	a.healthCheckTLSConfig = tlsConfig
+	a.mu.Unlock()
+
 	return nil
-}
-
-type AutoProtocolListener struct {
-	net.Listener
-	tlcpConfig       *tlcp.Config
-	tlsConfig        *tls.Config
-	handshakeTimeout time.Duration
-}
-
-func NewAutoProtocolListener(l net.Listener, tlcpCfg *tlcp.Config, tlsCfg *tls.Config, handshakeTimeout time.Duration) *AutoProtocolListener {
-	return &AutoProtocolListener{
-		Listener:         l,
-		tlcpConfig:       tlcpCfg,
-		tlsConfig:        tlsCfg,
-		handshakeTimeout: handshakeTimeout,
-	}
-}
-
-func (l *AutoProtocolListener) Accept() (net.Conn, error) {
-	conn, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-
-	return newAutoProtocolConn(conn, l.tlcpConfig, l.tlsConfig, l.handshakeTimeout), nil
-}
-
-type autoProtocolConn struct {
-	net.Conn
-	tlcpConfig       *tlcp.Config
-	tlsConfig        *tls.Config
-	handshakeTimeout time.Duration
-	recordHeader     []byte
-	handshaked       bool
-	conn             net.Conn
-	major, minor     uint8
-	mu               sync.Mutex
-}
-
-func newAutoProtocolConn(conn net.Conn, tlcpCfg *tlcp.Config, tlsCfg *tls.Config, handshakeTimeout time.Duration) *autoProtocolConn {
-	return &autoProtocolConn{
-		Conn:             conn,
-		tlcpConfig:       tlcpCfg,
-		tlsConfig:        tlsCfg,
-		handshakeTimeout: handshakeTimeout,
-	}
-}
-
-func (c *autoProtocolConn) Read(b []byte) (n int, err error) {
-	if len(c.recordHeader) == 0 {
-		return c.Conn.Read(b)
-	}
-
-	if len(b) >= len(c.recordHeader) {
-		n = copy(b, c.recordHeader)
-		c.recordHeader = nil
-		if len(b) > n {
-			var n1 = 0
-			n1, err = c.Conn.Read(b[n:])
-			n += n1
-		}
-		return n, err
-	} else {
-		p := c.recordHeader[:len(b)]
-		n = len(b)
-		copy(b, p)
-		c.recordHeader = c.recordHeader[len(b):]
-		if len(c.recordHeader) == 0 {
-			c.recordHeader = nil
-		}
-		return n, nil
-	}
-}
-
-func (c *autoProtocolConn) Handshake() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.handshaked {
-		return nil
-	}
-
-	timeout := c.handshakeTimeout
-	if timeout == 0 {
-		timeout = 15 * time.Second
-	}
-	c.Conn.SetReadDeadline(time.Now().Add(timeout))
-	err := c.readFirstHeader()
-	c.Conn.SetReadDeadline(time.Time{})
-
-	if err != nil {
-		return err
-	}
-
-	protocol := detectProtocolByVersion(c.major, c.minor)
-
-	if protocol == ProtocolTLCP && c.tlcpConfig != nil {
-		tlcpConn := tlcp.Server(c, c.tlcpConfig)
-		if err := tlcpConn.Handshake(); err != nil {
-			return err
-		}
-		c.conn = tlcpConn
-	} else if c.tlsConfig != nil {
-		tlsConn := tls.Server(c, c.tlsConfig)
-		if err := tlsConn.Handshake(); err != nil {
-			return err
-		}
-		c.conn = tlsConn
-	}
-
-	c.handshaked = true
-	return nil
-}
-
-func (c *autoProtocolConn) readFirstHeader() error {
-	c.recordHeader = make([]byte, 5)
-	_, err := io.ReadFull(c.Conn, c.recordHeader)
-	c.major, c.minor = c.recordHeader[1], c.recordHeader[2]
-	return err
-}
-
-func (c *autoProtocolConn) Write(b []byte) (n int, err error) {
-	c.mu.Lock()
-	handshaked := c.handshaked
-	conn := c.conn
-	c.mu.Unlock()
-
-	if handshaked && conn != nil {
-		return conn.Write(b)
-	}
-	return c.Conn.Write(b)
-}
-
-func (c *autoProtocolConn) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.conn != nil {
-		return c.conn.Close()
-	}
-	return c.Conn.Close()
-}
-
-func detectProtocolByVersion(major, minor uint8) ProtocolType {
-	version := uint16(major)<<8 | uint16(minor)
-
-	if version == 0x0101 {
-		return ProtocolTLCP
-	}
-	if version == 0x0301 || version == 0x0302 || version == 0x0303 || version == 0x0304 {
-		return ProtocolTLS
-	}
-
-	return ProtocolTLS
-}
-
-func detectProtocol(data []byte) ProtocolType {
-	if len(data) < 5 {
-		return ProtocolTLS
-	}
-
-	major, minor := data[1], data[2]
-	return detectProtocolByVersion(major, minor)
 }
 
 type HealthCheckResult struct {
@@ -743,14 +463,13 @@ type HealthCheckResult struct {
 	Error    string `json:"error,omitempty"`
 }
 
-func (a *TLCPAdapter) CheckHealth(protocol ProtocolType, timeout time.Duration) *HealthCheckResult {
+func (a *TLCPAdapter) CheckHealth(protocol ProtocolType, timeout time.Duration, targetAddr string) *HealthCheckResult {
 	start := time.Now()
 	result := &HealthCheckResult{
 		Protocol: protocol.String(),
 		Success:  false,
 	}
 
-	targetAddr := a.cfg.Target
 	if targetAddr == "" {
 		result.Error = "目标地址未配置"
 		return result
@@ -790,107 +509,43 @@ func (a *TLCPAdapter) CheckHealth(protocol ProtocolType, timeout time.Duration) 
 }
 
 func (a *TLCPAdapter) checkTLCPHealth(dialer *net.Dialer, targetAddr string) (net.Conn, error) {
-	cfg := a.buildHealthCheckTLCPConfig()
-	return tlcp.DialWithDialer(dialer, "tcp", targetAddr, cfg)
+	a.mu.RLock()
+	baseConfig := a.healthCheckTLCPConfig
+	keyStore := a.tlcpKeyStore
+	a.mu.RUnlock()
+
+	if baseConfig == nil {
+		return nil, fmt.Errorf("TLCP配置未初始化")
+	}
+
+	healthConfig := baseConfig.Clone()
+
+	if keyStore != nil {
+		healthConfig.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
+			return keyStore.TLCPCertificate()
+		}
+	}
+
+	return tlcp.DialWithDialer(dialer, "tcp", targetAddr, healthConfig)
 }
 
 func (a *TLCPAdapter) checkTLSHealth(dialer *net.Dialer, targetAddr string) (net.Conn, error) {
-	cfg := a.buildHealthCheckTLSConfig()
-	return tls.DialWithDialer(dialer, "tcp", targetAddr, cfg)
-}
+	a.mu.RLock()
+	baseConfig := a.healthCheckTLSConfig
+	keyStore := a.tlsKeyStore
+	a.mu.RUnlock()
 
-func (a *TLCPAdapter) buildHealthCheckTLCPConfig() *tlcp.Config {
-	cfg := &tlcp.Config{
-		InsecureSkipVerify: a.cfg.TLCP.InsecureSkipVerify,
+	if baseConfig == nil {
+		return nil, fmt.Errorf("TLS配置未初始化")
 	}
 
-	if a.cfg.SNI != "" {
-		cfg.ServerName = a.cfg.SNI
-	}
+	healthConfig := baseConfig.Clone()
 
-	tlcpAuth := a.cfg.TLCP.Auth
-	if tlcpAuth == "" {
-		tlcpAuth = string(config.AuthNone)
-	}
-
-	if tlcpAuth == string(config.AuthMutual) {
-		var ks security.KeyStore
-		var err error
-
-		if a.tlcpKeyStore != nil {
-			ks = a.tlcpKeyStore
-		} else if a.cfg.TLCP.Keystore != nil {
-			ks, err = a.loadKeyStoreFromConfig(a.cfg.TLCP.Keystore, a.cfg.Name+"-tlcp")
-		}
-
-		if ks == nil && a.tlsKeyStore != nil {
-			ks = a.tlsKeyStore
-		}
-
-		if ks != nil && err == nil {
-			cfg.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
-				return ks.TLCPCertificate()
-			}
+	if keyStore != nil {
+		healthConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return keyStore.TLSCertificate()
 		}
 	}
 
-	if len(a.cfg.ServerCA) > 0 {
-		if a.rootCertPool != nil {
-			cfg.RootCAs = a.rootCertPool.GetSMCertPool()
-		} else {
-			pool := a.rootCertManager.GetPool()
-			cfg.RootCAs = pool.GetSMCertPool()
-		}
-	}
-
-	a.applyTLCPSettingsToConfig(cfg, &a.cfg.TLCP)
-	return cfg
-}
-
-func (a *TLCPAdapter) buildHealthCheckTLSConfig() *tls.Config {
-	cfg := &tls.Config{
-		InsecureSkipVerify: a.cfg.TLS.InsecureSkipVerify,
-	}
-
-	if a.cfg.SNI != "" {
-		cfg.ServerName = a.cfg.SNI
-	}
-
-	tlsAuth := a.cfg.TLS.Auth
-	if tlsAuth == "" {
-		tlsAuth = string(config.AuthNone)
-	}
-
-	if tlsAuth == string(config.AuthMutual) {
-		var ks security.KeyStore
-		var err error
-
-		if a.tlsKeyStore != nil {
-			ks = a.tlsKeyStore
-		} else if a.cfg.TLS.Keystore != nil {
-			ks, err = a.loadKeyStoreFromConfig(a.cfg.TLS.Keystore, a.cfg.Name+"-tls")
-		}
-
-		if ks == nil && a.tlcpKeyStore != nil {
-			ks = a.tlcpKeyStore
-		}
-
-		if ks != nil && err == nil {
-			cfg.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				return ks.TLSCertificate()
-			}
-		}
-	}
-
-	if len(a.cfg.ServerCA) > 0 {
-		if a.rootCertPool != nil {
-			cfg.RootCAs = a.rootCertPool.GetCertPool()
-		} else {
-			pool := a.rootCertManager.GetPool()
-			cfg.RootCAs = pool.GetCertPool()
-		}
-	}
-
-	a.applyTLSSettingsToConfig(cfg, &a.cfg.TLS)
-	return cfg
+	return tls.DialWithDialer(dialer, "tcp", targetAddr, healthConfig)
 }

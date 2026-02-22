@@ -368,17 +368,29 @@ func (i *httpClientInstance) Stats() *stats.Stats {
 }
 
 func (i *serverInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
-	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+	i.mu.RLock()
+	targetAddr := i.cfg.Target
+	i.mu.RUnlock()
+	return i.proxy.Adapter().CheckHealth(protocol, timeout, targetAddr)
 }
 
 func (i *clientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
-	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+	i.mu.RLock()
+	targetAddr := i.cfg.Target
+	i.mu.RUnlock()
+	return i.proxy.Adapter().CheckHealth(protocol, timeout, targetAddr)
 }
 
 func (i *httpServerInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
-	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+	i.mu.RLock()
+	targetAddr := i.cfg.Target
+	i.mu.RUnlock()
+	return i.proxy.Adapter().CheckHealth(protocol, timeout, targetAddr)
 }
 
 func (i *httpClientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
-	return i.proxy.Adapter().CheckHealth(protocol, timeout)
+	i.mu.RLock()
+	targetAddr := i.cfg.Target
+	i.mu.RUnlock()
+	return i.proxy.Adapter().CheckHealth(protocol, timeout, targetAddr)
 }

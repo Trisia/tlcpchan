@@ -31,12 +31,12 @@ type ServerProxy struct {
 func NewServerProxy(cfg *config.InstanceConfig,
 	keyStoreMgr *security.KeyStoreManager,
 	rootCertMgr *security.RootCertManager) (*ServerProxy, error) {
-	adapter, err := NewTLCPAdapter(cfg, keyStoreMgr, rootCertMgr)
+	adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr)
 	if err != nil {
 		return nil, fmt.Errorf("创建协议适配器失败: %w", err)
 	}
 
-	return &ServerProxy{
+	proxy := &ServerProxy{
 		cfg:             cfg,
 		adapter:         adapter,
 		handler:         NewConnHandler(),
@@ -45,7 +45,13 @@ func NewServerProxy(cfg *config.InstanceConfig,
 		stats:           stats.DefaultCollector(),
 		logger:          logger.Default(),
 		shutdownChan:    make(chan struct{}),
-	}, nil
+	}
+
+	if err := adapter.ReloadConfig(cfg); err != nil {
+		return nil, fmt.Errorf("初始化配置失败: %w", err)
+	}
+
+	return proxy, nil
 }
 
 func (p *ServerProxy) Adapter() *TLCPAdapter {
@@ -117,14 +123,6 @@ func (p *ServerProxy) handleConnection(clientConn net.Conn) {
 	}()
 
 	start := time.Now()
-
-	if autoConn, ok := clientConn.(*autoProtocolConn); ok {
-		if err := autoConn.Handshake(); err != nil {
-			p.logger.Error("协议握手失败: %v", err)
-			p.stats.IncrementErrors()
-			return
-		}
-	}
 
 	timeout := 10 * time.Second
 	if p.cfg.Timeout != nil {
