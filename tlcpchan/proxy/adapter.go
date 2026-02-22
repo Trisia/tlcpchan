@@ -16,7 +16,8 @@ import (
 
 func needEncKeypair(suites []uint16) bool {
 	for _, suite := range suites {
-		if suite == tlcp.ECC_SM4_CBC_SM3 || suite == tlcp.ECDHE_SM4_CBC_SM3 {
+		if suite == 0xC011 || suite == 0xC012 || suite == 0xC013 ||
+			suite == 0xC014 || suite == 0xC019 || suite == 0xC01A {
 			return true
 		}
 	}
@@ -601,9 +602,10 @@ type autoProtocolConn struct {
 	tlcpConfig       *tlcp.Config
 	tlsConfig        *tls.Config
 	handshakeTimeout time.Duration
-	peeked           []byte
+	recordHeader     []byte
 	handshaked       bool
 	conn             net.Conn
+	major, minor     uint8
 	mu               sync.Mutex
 }
 
@@ -617,24 +619,29 @@ func newAutoProtocolConn(conn net.Conn, tlcpCfg *tlcp.Config, tlsCfg *tls.Config
 }
 
 func (c *autoProtocolConn) Read(b []byte) (n int, err error) {
-	c.mu.Lock()
-	if c.handshaked {
-		c.mu.Unlock()
-		if c.conn != nil {
-			return c.conn.Read(b)
-		}
+	if len(c.recordHeader) == 0 {
 		return c.Conn.Read(b)
 	}
 
-	if len(c.peeked) > 0 {
-		n = copy(b, c.peeked)
-		c.peeked = c.peeked[n:]
-		c.mu.Unlock()
+	if len(b) >= len(c.recordHeader) {
+		n = copy(b, c.recordHeader)
+		c.recordHeader = nil
+		if len(b) > n {
+			var n1 = 0
+			n1, err = c.Conn.Read(b[n:])
+			n += n1
+		}
+		return n, err
+	} else {
+		p := c.recordHeader[:len(b)]
+		n = len(b)
+		copy(b, p)
+		c.recordHeader = c.recordHeader[len(b):]
+		if len(c.recordHeader) == 0 {
+			c.recordHeader = nil
+		}
 		return n, nil
 	}
-
-	c.mu.Unlock()
-	return c.Conn.Read(b)
 }
 
 func (c *autoProtocolConn) Handshake() error {
@@ -645,22 +652,19 @@ func (c *autoProtocolConn) Handshake() error {
 		return nil
 	}
 
-	peekBuf := make([]byte, 6)
 	timeout := c.handshakeTimeout
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
 	c.Conn.SetReadDeadline(time.Now().Add(timeout))
-	n, err := ioReadFull(c.Conn, peekBuf)
+	err := c.readFirstHeader()
 	c.Conn.SetReadDeadline(time.Time{})
 
 	if err != nil {
 		return err
 	}
 
-	c.peeked = peekBuf[:n]
-
-	protocol := detectProtocol(peekBuf[:n])
+	protocol := detectProtocolByVersion(c.major, c.minor)
 
 	if protocol == ProtocolTLCP && c.tlcpConfig != nil {
 		tlcpConn := tlcp.Server(c.Conn, c.tlcpConfig)
@@ -678,6 +682,13 @@ func (c *autoProtocolConn) Handshake() error {
 
 	c.handshaked = true
 	return nil
+}
+
+func (c *autoProtocolConn) readFirstHeader() error {
+	c.recordHeader = make([]byte, 5)
+	_, err := ioReadFull(c.Conn, c.recordHeader)
+	c.major, c.minor = c.recordHeader[1], c.recordHeader[2]
+	return err
 }
 
 func (c *autoProtocolConn) Write(b []byte) (n int, err error) {
@@ -713,25 +724,28 @@ func ioReadFull(r net.Conn, buf []byte) (n int, err error) {
 	return n, nil
 }
 
+func detectProtocolByVersion(major, minor uint8) ProtocolType {
+	version := uint16(major)<<8 | uint16(minor)
+
+	if version == 0x0101 {
+		return ProtocolTLCP
+	}
+	if version == 0x0301 || version == 0x0302 || version == 0x0303 || version == 0x0304 {
+		return ProtocolTLS
+	}
+
+	return ProtocolTLS
+}
+
 func detectProtocol(data []byte) ProtocolType {
 	if len(data) < 5 {
 		return ProtocolTLS
 	}
 
-	recordType := data[0]
-	version := uint16(data[3])<<8 | uint16(data[4])
-
-	if recordType == 22 {
-		if version == 0x0101 {
-			return ProtocolTLCP
-		}
-		if version == 0x0301 || version == 0x0302 || version == 0x0303 || version == 0x0304 {
-			return ProtocolTLS
-		}
-	}
-
-	return ProtocolTLS
+	major, minor := data[1], data[2]
+	return detectProtocolByVersion(major, minor)
 }
+
 
 type HealthCheckResult struct {
 	Protocol string `json:"protocol"`

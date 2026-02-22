@@ -9,12 +9,15 @@
 
 ### 1. 架构概述
 
-本方案实现了基于国密硬件密钥存储接口的 KeyStore，支持 SKF（密码设备接口规范）和 SDF（密码设备功能接口）两种标准，使用 Go 语言开发，完全避免了 CGO 依赖。
+本方案实现了基于国密硬件密钥存储接口的 KeyStore，支持 SKF（密码设备接口规范）和 SDF（密码设备功能接口）两种标准，使用 Go 语言。
+
+需要通过go编译参数决定是否编译该模块，默认不编译，由于可能涉及到cgo在多平台编译时需要使用gcc的交叉编译器，这需要使用特殊的编译脚本。
+
 
 ### 2. 设计原则
 
 - **跨平台支持**：通过 build tags 实现 Linux、Windows 平台的动态库加载
-- **动态加载**：使用系统 dlopen / LoadLibrary 接口，禁止引入任何 CGO 绑定
+- **动态加载**：使用系统 dlopen / LoadLibrary 动态加载。
 - **包隔离**：SKF 和 SDF 接口完全独立实现，便于维护
 - **模拟支持**：提供完整的 Mock 实现，便于测试和开发
 - **安全性**：密钥在硬件中存储，不导出到内存
@@ -66,25 +69,6 @@ security/keystore/
 **实现方式**：
 - Linux/macOS：使用系统 libc 的 dlopen、dlsym、dlclose 函数
 - Windows：使用 kernel32 的 LoadLibrary、GetProcAddress、FreeLibrary 函数
-
-**设计要点**：
-```go
-// 通用接口
-type Library interface {
-	Close() error
-	Sym(name string) (uintptr, error)
-}
-
-// 平台特定实现
-func OpenLibrary(path string) (Library, error) {
-	// 每个平台实现不同
-}
-```
-
-**架构**：
-- 使用 build tags 实现平台隔离
-- 内部符号查找
-- 错误处理
 
 #### 4.2 SKF 接口
 

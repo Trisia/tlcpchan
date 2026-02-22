@@ -101,7 +101,7 @@ func TestDetectProtocol(t *testing.T) {
 		data []byte
 		want ProtocolType
 	}{
-		{"TLCP握手", []byte{0x16, 0x03, 0x01, 0x01, 0x01, 0x00}, ProtocolTLCP},
+		{"TLCP握手", []byte{0x16, 0x01, 0x01, 0x01, 0x01, 0x00}, ProtocolTLCP},
 		{"TLS 1.0握手", []byte{0x16, 0x03, 0x01, 0x03, 0x01, 0x00}, ProtocolTLS},
 		{"TLS 1.2握手", []byte{0x16, 0x03, 0x01, 0x03, 0x03, 0x00}, ProtocolTLS},
 		{"数据太短", []byte{0x16, 0x03}, ProtocolTLS},
@@ -111,29 +111,6 @@ func TestDetectProtocol(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := detectProtocol(tt.data); got != tt.want {
 				t.Errorf("detectProtocol() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsECDHECipherSuite(t *testing.T) {
-	tests := []struct {
-		name   string
-		suites []uint16
-		want   bool
-	}{
-		{"空列表", []uint16{}, false},
-		{"非ECDHE", []uint16{0xC011}, false},
-		{"ECDHE_SM4_CBC_SM3", []uint16{0xC013}, true},
-		{"ECDHE_SM4_GCM_SM3", []uint16{0xC014}, true},
-		{"ECDHE_SM4_CCM_SM3", []uint16{0xC01A}, true},
-		{"混合包含ECDHE", []uint16{0xC011, 0xC013}, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isECDHECipherSuite(tt.suites); got != tt.want {
-				t.Errorf("isECDHECipherSuite() = %v, want %v", got, tt.want)
 			}
 		})
 	}
