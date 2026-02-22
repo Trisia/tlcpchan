@@ -184,7 +184,6 @@ export interface VersionInfo {
 export interface Config {
   server: {
     api: { address: string }
-    ui: { enabled: boolean; address: string; path: string }
     log?: {
       level: string
       file: string
