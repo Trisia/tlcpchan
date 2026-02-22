@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -686,7 +687,7 @@ func (c *autoProtocolConn) Handshake() error {
 
 func (c *autoProtocolConn) readFirstHeader() error {
 	c.recordHeader = make([]byte, 5)
-	_, err := ioReadFull(c.Conn, c.recordHeader)
+	_, err := io.ReadFull(c.Conn, c.recordHeader)
 	c.major, c.minor = c.recordHeader[1], c.recordHeader[2]
 	return err
 }
@@ -713,16 +714,6 @@ func (c *autoProtocolConn) Close() error {
 	return c.Conn.Close()
 }
 
-func ioReadFull(r net.Conn, buf []byte) (n int, err error) {
-	for n < len(buf) {
-		nn, err := r.Read(buf[n:])
-		n += nn
-		if err != nil {
-			return n, err
-		}
-	}
-	return n, nil
-}
 
 func detectProtocolByVersion(major, minor uint8) ProtocolType {
 	version := uint16(major)<<8 | uint16(minor)
