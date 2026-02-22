@@ -1,6 +1,8 @@
 package rootcert
 
 import (
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -11,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -206,12 +209,62 @@ func (m *Manager) parseCert(data []byte, filename string) (*RootCert, error) {
 	}
 
 	return &RootCert{
-		Filename: filename,
-		Cert:     cert,
-		NotAfter: cert.NotAfter,
-		Subject:  cert.Subject.String(),
-		Issuer:   cert.Issuer.String(),
+		Filename:     filename,
+		Cert:         cert,
+		NotBefore:    cert.NotBefore,
+		NotAfter:     cert.NotAfter,
+		Subject:      cert.Subject.String(),
+		Issuer:       cert.Issuer.String(),
+		KeyType:      getKeyType(cert),
+		SerialNumber: hex.EncodeToString(cert.SerialNumber.Bytes()),
+		Version:      cert.Version,
+		IsCA:         cert.IsCA,
+		KeyUsage:     getKeyUsage(cert),
 	}, nil
+}
+
+// getKeyType 获取密钥类型
+func getKeyType(cert *x509.Certificate) string {
+	pubKey := cert.PublicKey
+
+	if sm2.IsSM2PublicKey(pubKey) {
+		return "SM2"
+	}
+
+	switch k := pubKey.(type) {
+	case *rsa.PublicKey:
+		return fmt.Sprintf("RSA-%d", k.N.BitLen())
+	case *ecdsa.PublicKey:
+		curveBits := k.Curve.Params().BitSize
+		return fmt.Sprintf("ECDSA-P%d", curveBits)
+	default:
+		return "Unknown"
+	}
+}
+
+// getKeyUsage 获取密钥用途
+func getKeyUsage(cert *x509.Certificate) []string {
+	var usages []string
+
+	usageMap := map[x509.KeyUsage]string{
+		x509.KeyUsageDigitalSignature:  "Digital Signature",
+		x509.KeyUsageContentCommitment: "Content Commitment",
+		x509.KeyUsageKeyEncipherment:   "Key Encipherment",
+		x509.KeyUsageDataEncipherment:  "Data Encipherment",
+		x509.KeyUsageKeyAgreement:      "Key Agreement",
+		x509.KeyUsageCertSign:          "Cert Sign",
+		x509.KeyUsageCRLSign:           "CRL Sign",
+		x509.KeyUsageEncipherOnly:      "Encipher Only",
+		x509.KeyUsageDecipherOnly:      "Decipher Only",
+	}
+
+	for k, v := range usageMap {
+		if cert.KeyUsage&k != 0 {
+			usages = append(usages, v)
+		}
+	}
+
+	return usages
 }
 
 func decodeBase64(data []byte) ([]byte, error) {

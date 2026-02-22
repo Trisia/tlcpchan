@@ -454,13 +454,20 @@ func (c *Client) ExportKeyStoreCSR(name string, req ExportCSRRequest) ([]byte, s
 }
 
 type RootCertInfo struct {
-	Filename string `json:"filename"`
-	Subject  string `json:"subject"`
-	Issuer   string `json:"issuer"`
-	NotAfter string `json:"notAfter"`
+	Filename     string   `json:"filename"`
+	Subject      string   `json:"subject"`
+	Issuer       string   `json:"issuer"`
+	NotBefore    string   `json:"notBefore"`
+	NotAfter     string   `json:"notAfter"`
+	KeyType      string   `json:"keyType"`
+	SerialNumber string   `json:"serialNumber"`
+	Version      int      `json:"version"`
+	IsCA         bool     `json:"isCA"`
+	KeyUsage     []string `json:"keyUsage"`
 }
 
 type GenerateRootCARequest struct {
+	Type            string `json:"type,omitempty"`
 	CommonName      string `json:"commonName"`
 	Country         string `json:"country,omitempty"`
 	StateOrProvince string `json:"stateOrProvince,omitempty"`

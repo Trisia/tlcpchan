@@ -24,12 +24,26 @@ func rootCertList(args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "文件名\t主题\t颁发者\t过期时间")
+	fmt.Fprintln(w, "文件名\t密钥类型\t主题\t颁发者\t生效时间\t过期时间\t版本\tCA")
 	for _, cert := range certs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", cert.Filename, cert.Subject, cert.Issuer, cert.NotAfter)
+		caStatus := "否"
+		if cert.IsCA {
+			caStatus = "是"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\tv%d\t%s\n",
+			cert.Filename, cert.KeyType, cert.Subject, cert.Issuer,
+			truncateTime(cert.NotBefore), truncateTime(cert.NotAfter),
+			cert.Version, caStatus)
 	}
 	w.Flush()
 	return nil
+}
+
+func truncateTime(timeStr string) string {
+	if len(timeStr) > 19 {
+		return timeStr[:19]
+	}
+	return timeStr
 }
 
 func rootCertShow(args []string) error {
@@ -49,7 +63,13 @@ func rootCertShow(args []string) error {
 	fmt.Printf("文件名: %s\n", cert.Filename)
 	fmt.Printf("主题: %s\n", cert.Subject)
 	fmt.Printf("颁发者: %s\n", cert.Issuer)
+	fmt.Printf("生效时间: %s\n", cert.NotBefore)
 	fmt.Printf("过期时间: %s\n", cert.NotAfter)
+	fmt.Printf("密钥类型: %s\n", cert.KeyType)
+	fmt.Printf("序列号: %s\n", cert.SerialNumber)
+	fmt.Printf("版本: v%d\n", cert.Version)
+	fmt.Printf("是否为CA: %v\n", cert.IsCA)
+	fmt.Printf("密钥用途: %v\n", cert.KeyUsage)
 	return nil
 }
 
@@ -92,6 +112,7 @@ func rootCertAdd(args []string) error {
 
 func rootCertGenerate(args []string) error {
 	fs := flagSet("generate")
+	certType := fs.String("type", "tlcp", "证书类型 (tlcp/tls)")
 	commonName := fs.String("cn", "tlcpchan-root-ca", "证书通用名称 (CN)")
 	country := fs.String("c", "", "国家 (C, 2字母代码)")
 	stateOrProvince := fs.String("st", "", "省/州 (ST)")
@@ -106,6 +127,7 @@ func rootCertGenerate(args []string) error {
 	}
 
 	req := client.GenerateRootCARequest{
+		Type:            *certType,
 		CommonName:      *commonName,
 		Country:         *country,
 		StateOrProvince: *stateOrProvince,

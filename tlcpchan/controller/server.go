@@ -76,11 +76,13 @@ func NewServer(opts ServerOptions) *Server {
 	configCtrl := NewConfigController(opts.ConfigPath)
 	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController()
+	logsCtrl := NewLogsController(opts.Config)
 
 	instanceCtrl.RegisterRoutes(router)
 	configCtrl.RegisterRoutes(router)
 	securityCtrl.RegisterRoutes(router)
 	systemCtrl.RegisterRoutes(router)
+	logsCtrl.RegisterRoutes(router)
 
 	staticDir := opts.StaticDir
 	if staticDir == "" {

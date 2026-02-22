@@ -3,11 +3,8 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>日志查看</span>
-          <div>
-            <el-select v-model="selectedInstance" placeholder="选择实例" style="width: 200px; margin-right: 12px" @change="fetchLogs">
-              <el-option v-for="i in instances" :key="i.name" :label="i.name" :value="i.name" />
-            </el-select>
+          <span>工作日志</span>
+          <div class="header-actions">
             <el-select v-model="logLevel" placeholder="日志级别" style="width: 100px; margin-right: 12px" @change="fetchLogs">
               <el-option label="全部" value="" />
               <el-option label="DEBUG" value="debug" />
@@ -15,19 +12,35 @@
               <el-option label="WARN" value="warn" />
               <el-option label="ERROR" value="error" />
             </el-select>
-            <el-button type="primary" @click="fetchLogs">
+            <el-button type="primary" @click="fetchLogs" :loading="loading">
               <el-icon><Refresh /></el-icon>
               刷新
+            </el-button>
+            <el-button type="success" @click="downloadCurrent">
+              <el-icon><Download /></el-icon>
+              下载当前
+            </el-button>
+            <el-button type="warning" @click="downloadAll">
+              <el-icon><FolderOpened /></el-icon>
+              下载全部
+            </el-button>
+            <el-button @click="toggleAutoRefresh" :type="autoRefresh ? 'success' : 'default'">
+              <el-icon><Timer /></el-icon>
+              {{ autoRefresh ? '停止刷新' : '自动刷新' }}
             </el-button>
           </div>
         </div>
       </template>
 
+      <div class="log-stats" v-if="logStats">
+        <span>文件: {{ logStats.file }}</span>
+        <span>总行数: {{ logStats.total }}</span>
+        <span>显示: {{ logStats.returned }}行</span>
+      </div>
+
       <div class="log-container" v-loading="loading">
         <div v-for="(log, i) in logs" :key="i" class="log-line">
-          <span class="log-time">{{ formatTime(log.time) }}</span>
-          <span :class="['log-level', log.level]">{{ log.level.toUpperCase() }}</span>
-          <span class="log-message">{{ log.message }}</span>
+          <span class="log-message">{{ log }}</span>
         </div>
         <el-empty v-if="logs.length === 0" description="暂无日志" />
       </div>
@@ -36,49 +49,85 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { instanceApi } from '@/api'
-import type { Instance } from '@/types'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { logsApi } from '@/api'
+import { ElMessage } from 'element-plus'
 
-const instances = ref<Instance[]>([])
-const selectedInstance = ref('')
+const logs = ref<string[]>([])
 const logLevel = ref('')
-const logs = ref<Array<{ time: string; level: string; message: string }>>([])
 const loading = ref(false)
+const autoRefresh = ref(false)
+const logStats = ref<{ file: string; total: number; returned: number } | null>(null)
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
-  await loadInstances()
-  const first = instances.value[0]
-  if (first) {
-    selectedInstance.value = first.name
-    fetchLogs()
-  }
+  await fetchLogs()
 })
 
-async function loadInstances() {
-  try {
-    instances.value = await instanceApi.list()
-  } catch (error) {
-    console.error('加载实例失败:', error)
-  }
-}
+onUnmounted(() => {
+  stopAutoRefresh()
+})
 
 async function fetchLogs() {
-  if (!selectedInstance.value) return
   loading.value = true
   try {
-    const params: any = { lines: 500 }
-    if (logLevel.value) params.level = logLevel.value
-    logs.value = await instanceApi.logs(selectedInstance.value, params)
-  } catch (err) {
-    console.error('获取日志失败', err)
+    const result = await logsApi.content({ lines: 500, level: logLevel.value })
+    logs.value = result.lines || []
+    logStats.value = {
+      file: result.file || '',
+      total: result.total || 0,
+      returned: result.returned || 0
+    }
+  } catch (err: any) {
+    ElMessage.error('获取日志失败: ' + (err.response?.data || err.message))
   } finally {
     loading.value = false
   }
 }
 
-function formatTime(timeStr: string): string {
-  return new Date(timeStr).toLocaleString('zh-CN')
+async function downloadCurrent() {
+  try {
+    const fileName = logStats.value?.file || 'tlcpchan.log'
+    await logsApi.download(fileName)
+    ElMessage.success('下载成功')
+  } catch (err: any) {
+    ElMessage.error('下载失败: ' + (err.response?.data || err.message))
+  }
+}
+
+async function downloadAll() {
+  try {
+    await logsApi.downloadAll()
+    ElMessage.success('下载成功')
+  } catch (err: any) {
+    ElMessage.error('下载失败: ' + (err.response?.data || err.message))
+  }
+}
+
+function toggleAutoRefresh() {
+  if (autoRefresh.value) {
+    stopAutoRefresh()
+    ElMessage.info('已停止自动刷新')
+  } else {
+    startAutoRefresh()
+    ElMessage.success('已开启自动刷新（每5秒）')
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh()
+  autoRefresh.value = true
+  refreshTimer = setInterval(() => {
+    fetchLogs()
+  }, 5000)
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+  autoRefresh.value = false
 }
 </script>
 
@@ -88,6 +137,25 @@ function formatTime(timeStr: string): string {
   justify-content: space-between;
   align-items: center;
 }
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.log-stats {
+  padding: 12px 16px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.log-stats span {
+  margin-right: 24px;
+}
+
 .log-container {
   max-height: 600px;
   overflow-y: auto;
@@ -97,35 +165,14 @@ function formatTime(timeStr: string): string {
   font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
   font-size: 13px;
 }
+
 .log-line {
   line-height: 1.8;
   color: #bfcbd9;
+  word-break: break-all;
 }
-.log-time {
-  color: #909399;
-  margin-right: 12px;
-}
-.log-level {
-  margin-right: 12px;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.log-level.debug {
-  background: #606266;
-  color: #fff;
-}
-.log-level.info {
-  background: #409eff;
-  color: #fff;
-}
-.log-level.warn {
-  background: #e6a23c;
-  color: #fff;
-}
-.log-level.error {
-  background: #f56c6c;
-  color: #fff;
+
+.log-message {
+  white-space: pre-wrap;
 }
 </style>

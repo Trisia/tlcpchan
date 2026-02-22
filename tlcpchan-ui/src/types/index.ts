@@ -110,10 +110,17 @@ export interface RootCertInfo {
   filename: string
   subject: string
   issuer: string
+  notBefore: string
   notAfter: string
+  keyType: string
+  serialNumber: string
+  version: number
+  isCA: boolean
+  keyUsage: string[]
 }
 
 export interface GenerateRootCARequest {
+  type?: string
   commonName: string
   country?: string
   stateOrProvince?: string

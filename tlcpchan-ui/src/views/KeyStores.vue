@@ -6,11 +6,15 @@
           <span>密钥管理</span>
           <div>
             <el-button type="success" @click="showGenerateDialog = true">
-              <el-icon><MagicStick /></el-icon>
+              <el-icon>
+                <MagicStick />
+              </el-icon>
               生成密钥
             </el-button>
             <el-button type="primary" @click="showCreateDialog = true">
-              <el-icon><Plus /></el-icon>
+              <el-icon>
+                <Plus />
+              </el-icon>
               创建密钥
             </el-button>
           </div>
@@ -21,26 +25,33 @@
         <el-table-column prop="name" label="名称" />
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.type === CertType.TLCP ? 'primary' : 'success'">{{ row.type.toUpperCase() }}</el-tag>
+            <el-tag size="small" :type="row.type === CertType.TLCP ? 'primary' : 'success'">{{ row.type.toUpperCase()
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="签名证书/密钥" width="180">
           <template #default="{ row }">
+            <span style="display: inline-block;margin-right: 5px;">
+              <el-tag v-if="row.params['sign-cert']" size="small" type="success">有证书</el-tag>
+              <el-tag v-else size="small" type="info">无证书</el-tag>
+            </span>
             <span>
-              <el-tag v-if="row.hasSignCert" size="small" type="success">证</el-tag>
-              <el-tag v-else size="small" type="info">证</el-tag>
-              <el-tag v-if="row.hasSignKey" size="small" type="success">钥</el-tag>
-              <el-tag v-else size="small" type="info">钥</el-tag>
+              <el-tag v-if="row.params['sign-key']" size="small" type="success">有密钥</el-tag>
+              <el-tag v-else size="small" type="info">无密钥</el-tag>
             </span>
           </template>
         </el-table-column>
         <el-table-column v-if="hasTLCP" label="加密证书/密钥" width="180">
           <template #default="{ row }">
             <span v-if="row.type === CertType.TLCP">
-              <el-tag v-if="row.hasEncCert" size="small" type="success">证</el-tag>
-              <el-tag v-else size="small" type="info">证</el-tag>
-              <el-tag v-if="row.hasEncKey" size="small" type="success">钥</el-tag>
-              <el-tag v-else size="small" type="info">钥</el-tag>
+              <span style="display: inline-block;margin-right: 5px;">
+                <el-tag v-if="row.params['enc-cert']" size="small" type="success">有证书</el-tag>
+                <el-tag v-else size="small" type="info">无证书</el-tag>
+              </span>
+              <span>
+                <el-tag v-if="row.params['enc-key']" size="small" type="success">有密钥</el-tag>
+                <el-tag v-else size="small" type="info">无密钥</el-tag>
+              </span>
             </span>
             <span v-else>-</span>
           </template>
@@ -73,42 +84,22 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="签名证书" required>
-          <el-upload
-            v-model:file-list="signCertFiles"
-            :limit="1"
-            :auto-upload="false"
-            accept=".crt,.pem"
-          >
+          <el-upload v-model:file-list="signCertFiles" :limit="1" :auto-upload="false" accept=".crt,.pem">
             <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
         <el-form-item label="签名密钥" required>
-          <el-upload
-            v-model:file-list="signKeyFiles"
-            :limit="1"
-            :auto-upload="false"
-            accept=".key,.pem"
-          >
+          <el-upload v-model:file-list="signKeyFiles" :limit="1" :auto-upload="false" accept=".key,.pem">
             <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
         <el-form-item v-if="createForm.type === CertType.TLCP" label="加密证书" required>
-          <el-upload
-            v-model:file-list="encCertFiles"
-            :limit="1"
-            :auto-upload="false"
-            accept=".crt,.pem"
-          >
+          <el-upload v-model:file-list="encCertFiles" :limit="1" :auto-upload="false" accept=".crt,.pem">
             <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
         <el-form-item v-if="createForm.type === CertType.TLCP" label="加密密钥" required>
-          <el-upload
-            v-model:file-list="encKeyFiles"
-            :limit="1"
-            :auto-upload="false"
-            accept=".key,.pem"
-          >
+          <el-upload v-model:file-list="encKeyFiles" :limit="1" :auto-upload="false" accept=".key,.pem">
             <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
@@ -218,24 +209,12 @@
 
         <el-divider content-position="left">主题备用名称 (SAN)</el-divider>
         <el-form-item label="DNS 名称">
-          <el-select
-            v-model="generateForm.certConfig.dnsNames"
-            multiple
-            filterable
-            allow-create
-            placeholder="添加 DNS 名称，如 example.com"
-            style="width: 100%"
-          />
+          <el-select v-model="generateForm.certConfig.dnsNames" multiple filterable allow-create
+            placeholder="添加 DNS 名称，如 example.com" style="width: 100%" />
         </el-form-item>
         <el-form-item label="IP 地址">
-          <el-select
-            v-model="generateForm.certConfig.ipAddresses"
-            multiple
-            filterable
-            allow-create
-            placeholder="添加 IP 地址，如 192.168.1.1"
-            style="width: 100%"
-          />
+          <el-select v-model="generateForm.certConfig.ipAddresses" multiple filterable allow-create
+            placeholder="添加 IP 地址，如 192.168.1.1" style="width: 100%" />
         </el-form-item>
 
         <el-form-item label="受保护">
@@ -251,22 +230,12 @@
     <el-dialog v-model="showUpdateCertDialog" title="更新证书" width="500px">
       <el-form label-width="120px">
         <el-form-item label="签名证书">
-          <el-upload
-            v-model:file-list="updateSignCertFiles"
-            :limit="1"
-            :auto-upload="false"
-            accept=".crt,.pem"
-          >
+          <el-upload v-model:file-list="updateSignCertFiles" :limit="1" :auto-upload="false" accept=".crt,.pem">
             <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
         <el-form-item v-if="selectedKeyStore?.type === CertType.TLCP" label="加密证书">
-          <el-upload
-            v-model:file-list="updateEncCertFiles"
-            :limit="1"
-            :auto-upload="false"
-            accept=".crt,.pem"
-          >
+          <el-upload v-model:file-list="updateEncCertFiles" :limit="1" :auto-upload="false" accept=".crt,.pem">
             <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
@@ -331,24 +300,12 @@
 
         <el-divider content-position="left">主题备用名称 (SAN)</el-divider>
         <el-form-item label="DNS 名称">
-          <el-select
-            v-model="exportCSRForm.csrParams.dnsNames"
-            multiple
-            filterable
-            allow-create
-            placeholder="添加 DNS 名称，如 example.com"
-            style="width: 100%"
-          />
+          <el-select v-model="exportCSRForm.csrParams.dnsNames" multiple filterable allow-create
+            placeholder="添加 DNS 名称，如 example.com" style="width: 100%" />
         </el-form-item>
         <el-form-item label="IP 地址">
-          <el-select
-            v-model="exportCSRForm.csrParams.ipAddresses"
-            multiple
-            filterable
-            allow-create
-            placeholder="添加 IP 地址，如 192.168.1.1"
-            style="width: 100%"
-          />
+          <el-select v-model="exportCSRForm.csrParams.ipAddresses" multiple filterable allow-create
+            placeholder="添加 IP 地址，如 192.168.1.1" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -594,7 +551,7 @@ function remove(name: string) {
         console.error('删除失败', err)
       }
     })
-    .catch(() => {})
+    .catch(() => { })
 }
 
 function resetCreateForm() {

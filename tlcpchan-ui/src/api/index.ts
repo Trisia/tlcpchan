@@ -116,8 +116,9 @@ export const rootCertApi = {
     return res.data
   },
 
-  add: async (file: File) => {
+  add: async (filename: string, file: File) => {
     const formData = new FormData()
+    formData.append('filename', filename)
     formData.append('cert', file)
     const res = await http.post('/security/rootcerts', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -224,6 +225,57 @@ export const systemApi = {
   },
 }
 
+export const logsApi = {
+  list: async () => {
+    const res = await http.get('/system/logs')
+    return res.data
+  },
+
+  content: async (params?: { file?: string; lines?: number; level?: string }) => {
+    const res = await http.get('/system/logs/content', { params })
+    return res.data
+  },
+
+  download: async (filename: string) => {
+    const res = await http.get(`/system/logs/download/${filename}`, {
+      responseType: 'blob'
+    })
+    
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
+  downloadAll: async () => {
+    const res = await http.get('/system/logs/download-all', {
+      responseType: 'blob'
+    })
+    
+    const contentDisposition = res.headers['content-disposition']
+    let filename = 'tlcpchan-logs.zip'
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/)
+      if (match) {
+        filename = match[1]
+      }
+    }
+    
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+}
+
 export const configApi = {
   get: async () => {
     const res = await http.get('/config')
@@ -252,6 +304,7 @@ export default {
   trustedApi,
   instanceApi,
   systemApi,
+  logsApi,
   configApi,
   http,
 }
