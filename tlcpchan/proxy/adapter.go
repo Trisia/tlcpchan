@@ -539,6 +539,7 @@ func (a *TLCPAdapter) checkTLCPHealth(dialer *net.Dialer, targetAddr string) (ne
 	}
 
 	healthConfig := baseConfig.Clone()
+	healthConfig.InsecureSkipVerify = true
 
 	return tlcp.DialWithDialer(dialer, "tcp", targetAddr, healthConfig)
 }
@@ -550,6 +551,7 @@ func (a *TLCPAdapter) checkTLSHealth(dialer *net.Dialer, targetAddr string) (net
 	}
 
 	healthConfig := baseConfig.Clone()
+	healthConfig.InsecureSkipVerify = true
 
 	return tls.DialWithDialer(dialer, "tcp", targetAddr, healthConfig)
 }
