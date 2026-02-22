@@ -53,8 +53,8 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button type="success" size="small" link @click="showExportCSRDialog(row)">导出 CSR</el-button>
-            <el-button type="primary" size="small" link @click="showUpdateCertDialog(row)">更新证书</el-button>
+            <el-button type="success" size="small" link @click="openExportCSRDialog(row)">导出 CSR</el-button>
+            <el-button type="primary" size="small" link @click="openUpdateCertDialog(row)">更新证书</el-button>
             <el-button type="danger" size="small" link @click="remove(row.name)">删除</el-button>
           </template>
         </el-table-column>
@@ -448,14 +448,14 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString('zh-CN')
 }
 
-function showUpdateCertDialog(row: any) {
+function openUpdateCertDialog(row: any) {
   selectedKeyStore.value = row
   updateSignCertFiles.value = []
   updateEncCertFiles.value = []
   showUpdateCertDialog.value = true
 }
 
-function showExportCSRDialog(row: any) {
+function openExportCSRDialog(row: any) {
   selectedKeyStore.value = row
   exportCSRForm.value = {
     keyType: 'sign',
@@ -600,7 +600,7 @@ function remove(name: string) {
 function resetCreateForm() {
   createForm.value = {
     name: '',
-    type: CertType.TLCP,
+    type: CertType.TLCP as 'tlcp' | 'tls',
   }
   signCertFiles.value = []
   signKeyFiles.value = []
@@ -611,7 +611,7 @@ function resetCreateForm() {
 function resetGenerateForm() {
   generateForm.value = {
     name: '',
-    type: CertType.TLCP,
+    type: CertType.TLCP as 'tlcp' | 'tls',
     protected: false,
     certConfig: {
       commonName: '',

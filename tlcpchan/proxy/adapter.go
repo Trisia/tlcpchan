@@ -617,6 +617,7 @@ func newAutoProtocolConn(conn net.Conn, tlcpCfg *tlcp.Config, tlsCfg *tls.Config
 		tlsConfig:        tlsCfg,
 		handshakeTimeout: handshakeTimeout,
 	}
+
 }
 
 func (c *autoProtocolConn) Read(b []byte) (n int, err error) {
