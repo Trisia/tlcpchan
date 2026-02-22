@@ -10,7 +10,6 @@ import (
 )
 
 type SystemInfo struct {
-	GoVersion    string `json:"goVersion"`
 	OS           string `json:"os"`
 	Arch         string `json:"arch"`
 	NumCPU       int    `json:"numCpu"`
@@ -28,8 +27,7 @@ type HealthStatus struct {
 }
 
 type VersionInfo struct {
-	Version   string `json:"version"`
-	GoVersion string `json:"goVersion"`
+	Version string `json:"version"`
 }
 
 var startTime = time.Now()
@@ -52,21 +50,19 @@ func NewSystemController() *SystemController {
  *
  * @apiDescription 获取系统运行时信息
  *
- * @apiSuccess {String} goVersion Go版本
  * @apiSuccess {String} os 操作系统
  * @apiSuccess {String} arch 架构
  * @apiSuccess {Number} numCpu CPU核心数
  * @apiSuccess {Number} numGoroutine Goroutine数量
  * @apiSuccess {Number} memAllocMb 已分配内存（MB）
  * @apiSuccess {Number} memTotalMb 总分配内存（MB）
- * @apiSuccess {Number} memSysMb 系统内存（MB）
+ * @apiSuccess {Number}) memSysMb 系统内存（MB）
  * @apiSuccess {String} startTime 启动时间
  * @apiSuccess {String} uptime 运行时长
  *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
- *       "goVersion": "go1.21.0",
  *       "os": "linux",
  *       "arch": "amd64",
  *       "numCpu": 8,
@@ -83,7 +79,6 @@ func (c *SystemController) Info(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	info := SystemInfo{
-		GoVersion:    runtime.Version(),
 		OS:           runtime.GOOS,
 		Arch:         runtime.GOARCH,
 		NumCPU:       runtime.NumCPU(),
@@ -132,19 +127,16 @@ func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
  * @apiDescription 获取系统版本信息
  *
  * @apiSuccess {String} version 版本号
- * @apiSuccess {String} goVersion Go版本
  *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
- *       "version": "1.0.0",
- *       "goVersion": "go1.21.0"
+ *       "version": "1.0.0"
  *     }
  */
 func (c *SystemController) Version(w http.ResponseWriter, r *http.Request) {
 	Success(w, VersionInfo{
-		Version:   version.Version,
-		GoVersion: runtime.Version(),
+		Version: version.Version,
 	})
 }
 
@@ -152,4 +144,6 @@ func (c *SystemController) RegisterRoutes(router *Router) {
 	router.GET("/api/system/info", c.Info)
 	router.GET("/api/system/health", c.Health)
 	router.GET("/api/system/version", c.Version)
+	router.GET("/api/version", c.Version)
+	router.GET("/version", c.Version)
 }

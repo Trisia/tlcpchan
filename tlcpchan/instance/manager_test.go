@@ -1,0 +1,117 @@
+package instance
+
+import (
+	"testing"
+
+	"github.com/Trisia/tlcpchan/config"
+	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/security"
+	"github.com/Trisia/tlcpchan/security/rootcert"
+)
+
+func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
+	log, _ := logger.New(logger.LogConfig{Level: "info", Enabled: false})
+	ksMgr := security.NewKeyStoreManager()
+	rcMgr := rootcert.NewManager("")
+	mgr := NewManager(log, ksMgr, rcMgr)
+
+	tests := []struct {
+		name         string
+		cfg          *config.InstanceConfig
+		expectedTLCP string
+		expectedTLS  string
+	}{
+		{
+			name: "空认证模式应默认为单向认证",
+			cfg: &config.InstanceConfig{
+				Name:     "test-1",
+				Type:     "server",
+				Protocol: "auto",
+				Listen:   ":8443",
+				Target:   "127.0.0.1:8080",
+				TLCP:     config.TLCPConfig{},
+				TLS:      config.TLSConfig{},
+			},
+			expectedTLCP: "one-way",
+			expectedTLS:  "one-way",
+		},
+		{
+			name: "已设置认证模式应保持不变",
+			cfg: &config.InstanceConfig{
+				Name:     "test-2",
+				Type:     "server",
+				Protocol: "auto",
+				Listen:   ":8444",
+				Target:   "127.0.0.1:8081",
+				TLCP: config.TLCPConfig{
+					Auth: "mutual",
+				},
+				TLS: config.TLSConfig{
+					Auth: "none",
+				},
+			},
+			expectedTLCP: "mutual",
+			expectedTLS:  "none",
+		},
+		{
+			name: "部分设置",
+			cfg: &config.InstanceConfig{
+				Name:     "test-3",
+				Type:     "client",
+				Protocol: "tlcp",
+				Listen:   ":8445",
+				Target:   "127.0.0.1:8082",
+				TLCP: config.TLCPConfig{
+					Auth: "none",
+				},
+				TLS: config.TLSConfig{},
+			},
+			expectedTLCP: "none",
+			expectedTLS:  "one-way",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inst, err := mgr.Create(tt.cfg)
+			if err != nil {
+				t.Fatalf("创建实例失败: %v", err)
+			}
+			defer mgr.Delete(tt.cfg.Name)
+
+			cfg := inst.Config()
+			if cfg.TLCP.Auth != tt.expectedTLCP {
+				t.Errorf("TLCP 认证模式错误: 期望 %s, 实际 %s", tt.expectedTLCP, cfg.TLCP.Auth)
+			}
+			if cfg.TLS.Auth != tt.expectedTLS {
+				t.Errorf("TLS 认证模式错误: 期望 %s, 实际 %s", tt.expectedTLS, cfg.TLS.Auth)
+			}
+		})
+	}
+}
+
+func TestInstanceManagerCreateDuplicate(t *testing.T) {
+	log, _ := logger.New(logger.LogConfig{Level: "info", Enabled: false})
+	ksMgr := security.NewKeyStoreManager()
+	rcMgr := rootcert.NewManager("")
+	mgr := NewManager(log, ksMgr, rcMgr)
+
+	cfg := &config.InstanceConfig{
+		Name:     "duplicate-test",
+		Type:     "server",
+		Protocol: "auto",
+		Listen:   ":8446",
+		Target:   "127.0.0.1:8083",
+	}
+
+	_, err := mgr.Create(cfg)
+	if err != nil {
+		t.Fatalf("第一次创建失败: %v", err)
+	}
+	defer mgr.Delete(cfg.Name)
+
+	_, err = mgr.Create(cfg)
+	if err == nil {
+		t.Error("期望创建重复实例失败，但成功了")
+	}
+}

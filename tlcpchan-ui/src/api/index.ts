@@ -1,8 +1,6 @@
 import axios from 'axios'
 import type {
-  KeyStoreInfo,
   GenerateKeyStoreRequest,
-  RootCertInfo,
   GenerateRootCARequest,
 } from '@/types'
 
@@ -14,7 +12,7 @@ export const API_CONFIG = {
   },
 }
 
-const http = axios.create({
+export const http = axios.create({
   baseURL: API_CONFIG.baseURL,
   timeout: API_CONFIG.timeout,
   headers: API_CONFIG.headers,
@@ -255,4 +253,5 @@ export default {
   instanceApi,
   systemApi,
   configApi,
+  http,
 }

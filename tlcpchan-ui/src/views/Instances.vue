@@ -80,7 +80,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="选择密钥">
-          <el-select v-model="selectedKeystoreName" placeholder="请选择密钥（可选）" clearable>
+          <el-select v-model="selectedKeystoreName" placeholder="请选择密钥（可选）" clearable @change="onKeystoreChange">
             <el-option
               v-for="ks in keystores"
               :key="ks.name"
@@ -97,6 +97,74 @@
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="form.enabled" />
+        </el-form-item>
+        
+        <el-divider content-position="left">TLCP 高级配置</el-divider>
+        <el-form-item label="最低版本">
+          <el-select v-model="form.tlcp.minVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
+            <el-option label="1.1" value="1.1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="最高版本">
+          <el-select v-model="form.tlcp.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
+            <el-option label="1.1" value="1.1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="密码套件">
+          <el-select v-model="form.tlcp.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tls'">
+            <el-option v-for="cs in TLCP_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="椭圆曲线">
+          <el-select v-model="form.tlcp.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tls' || selectedKeystoreType === 'RSA'">
+            <el-option v-for="c in TLCP_CURVES" :key="c" :label="c" :value="c" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="会话票据">
+          <el-switch v-model="form.tlcp.sessionTickets" :disabled="form.protocol === 'tls'" />
+        </El-form-item>
+        <el-form-item label="会话缓存">
+          <el-switch v-model="form.tlcp.sessionCache" :disabled="form.protocol === 'tls'" />
+        </el-form-item>
+        <el-form-item label="跳过证书验证">
+          <el-switch v-model="form.tlcp.insecureSkipVerify" :disabled="form.protocol === 'tls'" />
+        </el-form-item>
+
+        <el-divider content-position="left">TLS 高级配置</el-divider>
+        <el-form-item label="最低版本">
+          <el-select v-model="form.tls.minVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+            <el-option label="1.0" value="1.0" />
+            <el-option label="1.1" value="1.1" />
+            <el-option label="1.2" value="1.2" />
+            <el-option label="1.3" value="1.3" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="最高版本">
+          <el-select v-model="form.tls.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+            <el-option label="1.0" value="1.0" />
+            <el-option label="1.1" value="1.1" />
+            <el-option label="1.2" value="1.2" />
+            <el-option label="1.3" value="1.3" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="密码套件">
+          <el-select v-model="form.tls.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+            <el-option v-for="cs in TLS_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="椭圆曲线">
+          <el-select v-model="form.tls.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+            <el-option v-for="c in TLS_CURVES" :key="c" :label="c" :value="c" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="会话票据">
+          <el-switch v-model="form.tls.sessionTickets" :disabled="form.protocol === 'tlcp'" />
+        </el-form-item>
+        <el-form-item label="会话缓存">
+          <el-switch v-model="form.tls.sessionCache" :disabled="form.protocol === 'tlcp'" />
+        </el-form-item>
+        <el-form-item label="跳过证书验证">
+          <el-switch v-model="form.tls.insecureSkipVerify" :disabled="form.protocol === 'tlcp'" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -120,20 +188,65 @@ const instances = ref<Instance[]>([])
 const showCreateDialog = ref(false)
 const keystores = ref<any[]>([])
 const selectedKeystoreName = ref('')
+const selectedKeystoreType = ref('')
 
 // 按钮级别的加载状态
 const instanceActions = ref<Record<string, boolean>>({})
 const createLoading = ref(false)
 const refreshLoading = ref(false)
 
+const TLCP_CIPHER_SUITES = [
+  'ECC_SM4_CBC_SM3',
+  'ECC_SM4_GCM_SM3',
+  'ECC_SM4_CCM_SM3',
+  'ECDHE_SM4_CBC_SM3',
+  'ECDHE_SM4_GCM_SM3',
+  'ECDHE_SM4_CCM_SM3'
+]
+
+const TLS_CIPHER_SUITES = [
+  'TLS_RSA_WITH_AES_128_GCM_SHA256',
+  'TLS_RSA_WITH_AES_256_GCM_SHA384',
+  'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256',
+  'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384',
+  'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256',
+  'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384',
+  'TLS_AES_128_GCM_SHA256',
+  'TLS_AES_256_GCM_SHA384',
+  'TLS_CHACHA20_POLY1305_SHA256'
+]
+
+const TLCP_CURVES = ['SM2']
+const TLS_CURVES = ['P256', 'P38', 'P521', 'X25519']
+const TLCP_VERSIONS = ['1.1']
+const TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3']
+
 const form = ref<Partial<InstanceConfig>>({
   name: '',
   type: 'server',
   protocol: 'auto',
-  auth: 'none',
+  auth: 'one-way',
   listen: ':443',
   target: '127.0.0.1:8080',
   enabled: true,
+  tlcp: {
+    minVersion: '1.1',
+    maxVersion: '1.1',
+    cipherSuites: [],
+    curvePreferences: [],
+    sessionTickets: false,
+    sessionCache: false,
+    insecureSkipVerify: false
+  },
+  tls: {
+    minVersion: '1.2',
+    maxVersion: '1.3',
+    cipherSuites: [],
+    curvePreferences: [],
+    sessionTickets: false,
+    sessionCache: false,
+    insecureSkipVerify: false
+  }
 })
 
 onMounted(() => {
@@ -179,6 +292,15 @@ function statusType(status: Instance['status']): '' | 'success' | 'warning' | 'd
 function statusText(status: Instance['status']): string {
   const map: Record<string, string> = { running: '运行中', stopped: '已停止', error: '错误', created: '已创建' }
   return map[status] || status
+}
+
+function onKeystoreChange(name: string) {
+  if (name) {
+    const ks = keystores.value.find(k => k.name === name)
+    selectedKeystoreType.value = ks?.type || ''
+  } else {
+    selectedKeystoreType.value = ''
+  }
 }
 
 function viewDetail(name: string) {
@@ -266,6 +388,13 @@ async function create() {
 
   const data: any = { ...form.value }
 
+  if (data.tlcp) {
+    data.tlcp.auth = form.value.auth
+  }
+  if (data.tls) {
+    data.tls.auth = form.value.auth
+  }
+
   if (selectedKeystoreName.value) {
     const ksData = { name: selectedKeystoreName.value }
     if (form.value.protocol === 'tlcp' || form.value.protocol === 'auto') {
@@ -284,6 +413,24 @@ async function create() {
     ElMessage.success('实例创建成功')
     form.value.name = ''
     selectedKeystoreName.value = ''
+    form.value.tlcp = {
+      minVersion: '1.1',
+      maxVersion: '1.1',
+      cipherSuites: [],
+      curvePreferences: [],
+      sessionTickets: false,
+      sessionCache: false,
+      insecureSkipVerify: false
+    }
+    form.value.tls = {
+      minVersion: '1.2',
+      maxVersion: '1.3',
+      cipherSuites: [],
+      curvePreferences: [],
+      sessionTickets: false,
+      sessionCache: false,
+      insecureSkipVerify: false
+    }
   } catch (err) {
     console.error('创建失败:', err)
     ElMessage.error('创建失败')

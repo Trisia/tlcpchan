@@ -13,7 +13,7 @@
               <el-icon size="28"><Connection /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ health?.instances?.total || 0 }}</div>
+              <div class="stat-value">{{ instances.length }}</div>
               <div class="stat-label">实例总数</div>
             </div>
           </div>
@@ -26,7 +26,7 @@
               <el-icon size="28"><CircleCheck /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ health?.instances?.running || 0 }}</div>
+              <div class="stat-value">{{ runningCount }}</div>
               <div class="stat-label">运行中</div>
             </div>
           </div>
@@ -36,11 +36,11 @@
         <el-card shadow="hover" class="stat-card-wrapper">
           <div class="stat-card">
             <div class="stat-icon" style="background: #e6a23c">
-              <el-icon size="28"><Key /></el-icon>
+              <el-icon size="28"><DataLine /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ health?.certificates?.total || 0 }}</div>
-              <div class="stat-label">证书总数</div>
+              <div class="stat-value">{{ formatBytes(totalBytesReceived) }}</div>
+              <div class="stat-label">总接收</div>
             </div>
           </div>
         </el-card>
@@ -52,7 +52,7 @@
               <el-icon size="28"><Timer /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ formatUptime(info?.uptime || 0) }}</div>
+              <div class="stat-value">{{ formatUptime(info?.uptime) }}</div>
               <div class="stat-label">运行时长</div>
             </div>
           </div>
@@ -107,7 +107,7 @@
             <span>系统信息</span>
           </template>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
+            <el-descriptions-item label="版本">{{ health?.version || '-' }}</el-descriptions-item>
             <el-descriptions-item label="系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
             <el-descriptions-item label="CPU核心数">{{ info?.numCpu }}</el-descriptions-item>
             <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
@@ -144,14 +144,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { systemApi, instanceApi } from '@/api'
-import type { Instance, SystemInfo, HealthStatus } from '@/types'
+import type { Instance, SystemInfo, InstanceStats, HealthStatus } from '@/types'
+import { DataLine } from '@element-plus/icons-vue'
 
 const instances = ref<Instance[]>([])
+const instanceStats = ref<Record<string, InstanceStats>>({})
 const info = ref<SystemInfo | null>(null)
 const health = ref<HealthStatus | null>(null)
 const instanceLoading = ref(false)
+
+const runningCount = computed(() => instances.value.filter(i => i.status === 'running').length)
+const totalBytesReceived = computed(() => Object.values(instanceStats.value).reduce((sum, s) => sum + s.bytesReceived, 0))
 
 onMounted(async () => {
   await Promise.all([fetchInstances(), fetchInfo(), fetchHealth()])
@@ -161,8 +166,29 @@ async function fetchInstances() {
   instanceLoading.value = true
   try {
     instances.value = await instanceApi.list()
+    await fetchInstanceStats()
   } finally {
     instanceLoading.value = false
+  }
+}
+
+async function fetchInstanceStats() {
+  const statsPromises = instances.value.map(async (inst) => {
+    try {
+      const stats = await instanceApi.stats(inst.name)
+      return { name: inst.name, stats }
+    } catch (error) {
+      console.error(`获取实例 ${inst.name} 统计失败:`, error)
+      return null
+    }
+  })
+
+  const results = await Promise.all(statsPromises)
+  instanceStats.value = {}
+  for (const result of results) {
+    if (result) {
+      instanceStats.value[result.name] = result.stats
+    }
   }
 }
 
@@ -182,16 +208,17 @@ async function fetchHealth() {
   }
 }
 
-function formatUptime(uptimeStr: string | number): string {
-  if (typeof uptimeStr === 'number') {
-    const seconds = uptimeStr
-    const days = Math.floor(seconds / 86400)
-    const hours = Math.floor((seconds % 86400) / 3600)
-    if (days > 0) return `${days}天 ${hours}小时`
-    if (hours > 0) return `${hours}小时`
-    return `${Math.floor(seconds / 60)}分钟`
-  }
-  return uptimeStr || '-'
+function formatUptime(uptimeStr?: string): string {
+  if (!uptimeStr) return '-'
+  return uptimeStr
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
 }
 
 function statusType(status: Instance['status']): '' | 'success' | 'warning' | 'danger' | 'info' {
@@ -211,13 +238,11 @@ function statusText(status: Instance['status']): string {
 
 async function start(name: string) {
   await instanceApi.start(name)
-  await fetchHealth()
   await fetchInstances()
 }
 
 async function stop(name: string) {
   await instanceApi.stop(name)
-  await fetchHealth()
   await fetchInstances()
 }
 </script>

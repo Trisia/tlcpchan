@@ -4,128 +4,175 @@
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span>系统信息</span>
+            <span>API 配置</span>
           </template>
-           <el-descriptions :column="1" border>
-             <el-descriptions-item label="版本">{{ info?.version }}</el-descriptions-item>
-             <el-descriptions-item label="操作系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
-             <el-descriptions-item label="启动时间">{{ formatTime(info?.startTime) }}</el-descriptions-item>
-             <el-descriptions-item label="运行时长">{{ formatUptime(info?.uptime || 0) }}</el-descriptions-item>
-             <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
-             <el-descriptions-item label="内存使用">{{ info?.memAllocMb }} MB / {{ info?.memSysMb }} MB</el-descriptions-item>
-           </el-descriptions>
+          <el-form label-width="120px">
+            <el-form-item label="监听地址">
+              <el-input v-model="config.server.api.address" placeholder=":20080" />
+            </el-form-item>
+          </el-form>
         </el-card>
       </el-col>
 
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span>健康状态</span>
+            <span>MCP 配置</span>
           </template>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="状态">
-              <el-tag :type="health?.status === 'healthy' ? 'success' : 'danger'">{{ health?.status }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="实例总数">{{ health?.instances?.total }}</el-descriptions-item>
-            <el-descriptions-item label="运行中">{{ health?.instances?.running }}</el-descriptions-item>
-            <el-descriptions-item label="已停止">{{ health?.instances?.stopped }}</el-descriptions-item>
-            <el-descriptions-item label="证书总数">{{ health?.certificates?.total }}</el-descriptions-item>
-            <el-descriptions-item label="已过期">
-              <span :class="{ 'text-danger': health?.certificates?.expired }">{{ health?.certificates?.expired }}</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="即将过期">
-              <span :class="{ 'text-warning': health?.certificates?.expiringSoon }">{{ health?.certificates?.expiringSoon }}</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-
-        <el-card style="margin-top: 20px">
-          <template #header>
-            <span>操作</span>
-          </template>
-          <el-button type="primary" @click="reloadConfig">
-            <el-icon><Refresh /></el-icon>
-            重载配置
-          </el-button>
-          <el-button type="danger" @click="shutdown">
-            <el-icon><SwitchButton /></el-icon>
-            关闭服务
-          </el-button>
+          <el-form label-width="120px">
+            <el-form-item label="启用 MCP">
+              <el-switch v-model="config.mcp!.enabled" />
+            </el-form-item>
+            <el-form-item label="API 密钥" v-if="config.mcp!.enabled">
+              <el-input v-model="config.mcp!.apiKey" type="password" show-password placeholder="留空表示无需认证" />
+            </el-form-item>
+          </el-form>
         </el-card>
       </el-col>
     </el-row>
+
+    <el-card style="margin-top: 20px">
+      <template #header>
+        <span>日志配置</span>
+      </template>
+      <el-form label-width="140px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="启用日志">
+              <el-switch v-model="logConfig!.enabled" />
+            </el-form-item>
+            <el-form-item label="日志级别">
+              <el-select v-model="logConfig!.level">
+              <el-option value="debug" label="debug" />
+              <el-option value="info" label="info" />
+              <el-option value="warn" label="warn" />
+              <el-option value="error" label="error" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="日志文件路径">
+              <el-input v-model="logConfig!.file" placeholder="./logs/tlcpchan.log" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="最大文件大小 (MB)">
+              <el-input-number v-model="logConfig!.maxSize" :min="1" />
+            </el-form-item>
+            <el-form-item label="最大备份文件数">
+              <el-input-number v-model="logConfig!.maxBackups" :min="0" />
+            </el-form-item>
+            <el-form-item label="最大保留天数">
+              <el-input-number v-model="logConfig!.maxAge" :min="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="压缩旧日志">
+          <el-switch v-model="logConfig!.compress" />
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card style="margin-top: 20px">
+      <template #header>
+        <span>操作</span>
+      </template>
+      <el-button type="primary" @click="saveConfig" :loading="saving">
+        <el-icon><DocumentChecked /></el-icon>
+        保存配置
+      </el-button>
+      <el-button type="success" @click="reloadConfig" :loading="reloading">
+        <el-icon><Refresh /></el-icon>
+        重载配置
+      </el-button>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { systemApi, configApi } from '@/api'
-import type { SystemInfo, HealthStatus } from '@/types'
+import { ref, onMounted, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { configApi } from '@/api'
+import type { Config } from '@/types'
 
-
-const info = ref<SystemInfo | null>(null)
-const health = ref<HealthStatus | null>(null)
-
-onMounted(() => {
-  fetchInfo()
-  fetchHealth()
+const config = ref<Config>({
+  server: {
+    api: { address: ':20080' },
+    log: {
+      level: 'info',
+      file: './logs/tlcpchan.log',
+      maxSize: 100,
+      maxBackups: 5,
+      maxAge: 30,
+      compress: true,
+      enabled: true
+    }
+  },
+  mcp: {
+    enabled: false,
+    apiKey: ''
+  }
 })
 
-function formatTime(timeStr?: string): string {
-  if (!timeStr) return '-'
-  return new Date(timeStr).toLocaleString('zh-CN')
-}
+const saving = ref(false)
+const reloading = ref(false)
 
-function formatUptime(seconds: string | number): string {
-  const secNum = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds
-  const days = Math.floor(secNum / 86400)
-  const hours = Math.floor((secNum % 86400) / 3600)
-  const minutes = Math.floor((secNum % 3600) / 60)
-  if (days > 0) return `${days}天 ${hours}小时`
-  if (hours > 0) return `${hours}小时 ${minutes}分钟`
-  return `${minutes}分钟`
-}
+const logConfig = computed({
+  get: () => {
+    if (!config.value.server.log) {
+      config.value.server.log = {
+        level: 'info',
+        file: './logs/tlcpchan.log',
+        maxSize: 100,
+        maxBackups: 5,
+        maxAge: 30,
+        compress: true,
+        enabled: true
+      }
+    }
+    return config.value.server.log
+  },
+  set: (val) => {
+    config.value.server.log = val
+  }
+})
 
-async function fetchInfo() {
+onMounted(() => {
+  fetchConfig()
+})
+
+async function fetchConfig() {
   try {
-    info.value = await systemApi.info()
+    const data = await configApi.get()
+    config.value = data
   } catch (error) {
-    console.error('获取系统信息失败:', error)
+    console.error('获取配置失败:', error)
+    ElMessage.error('获取配置失败')
   }
 }
 
-async function fetchHealth() {
+async function saveConfig() {
   try {
-    health.value = await systemApi.health()
-  } catch (error) {
-    console.error('获取健康状态失败:', error)
+    saving.value = true
+    await configApi.update(config.value)
+    ElMessage.success('配置已保存')
+  } catch (error: any) {
+    console.error('保存配置失败:', error)
+    ElMessage.error(error.response?.data || '保存配置失败')
+  } finally {
+    saving.value = false
   }
 }
 
 async function reloadConfig() {
   try {
+    reloading.value = true
     await configApi.reload()
     ElMessage.success('配置已重载')
-  } catch (err) {
-    console.error('重载配置失败', err)
+    await fetchConfig()
+  } catch (error) {
+    console.error('重载配置失败:', error)
+    ElMessage.error('重载配置失败')
+  } finally {
+    reloading.value = false
   }
 }
-
-function shutdown() {
-  ElMessageBox.confirm('确定要关闭服务吗？此操作不可恢复。', '警告', { type: 'warning' })
-    .then(() => {
-      ElMessage.warning('关闭服务功能暂未实现')
-    })
-    .catch(() => {})
-}
 </script>
-
-<style scoped>
-.text-danger {
-  color: #f56c6c;
-}
-.text-warning {
-  color: #e6a23c;
-}
-</style>

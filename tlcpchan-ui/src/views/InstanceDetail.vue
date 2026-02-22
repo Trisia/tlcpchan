@@ -20,12 +20,12 @@
              <el-col :span="6">
                <el-statistic title="活跃连接" :value="stats?.activeConnections || 0" />
              </el-col>
-             <el-col :span="6">
-               <el-statistic title="接收字节" :value="formatBytes(stats?.bytesReceived || 0)" />
-             </el-col>
-             <el-col :span="6">
-               <el-statistic title="发送字节" :value="formatBytes(stats?.bytesSent || 0)" />
-             </el-col>
+              <el-col :span="6">
+                <el-statistic title="接收字节" :value="stats?.bytesReceived || 0" :formatter="formatBytes" />
+              </el-col>
+              <el-col :span="6">
+                <el-statistic title="发送字节" :value="stats?.bytesSent || 0" :formatter="formatBytes" />
+              </el-col>
            </el-row>
         </el-card>
 
