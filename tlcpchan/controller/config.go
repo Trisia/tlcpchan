@@ -32,10 +32,6 @@ func NewConfigController(configPath string) *ConfigController {
  * @apiSuccess {Object} config.server 服务端配置
  * @apiSuccess {Object} config.server.api API服务配置
  * @apiSuccess {String} config.server.api.address API服务监听地址，格式: "host:port" 或 ":port"
- * @apiSuccess {Object} config.server.ui Web界面配置
- * @apiSuccess {Boolean} config.server.ui.enabled 是否启用Web管理界面
- * @apiSuccess {String} config.server.ui.address Web界面监听地址
- * @apiSuccess {String} config.server.ui.path 静态文件目录路径
  * @apiSuccess {Object} [config.server.log] 日志配置
  * @apiSuccess {String} [config.server.log.level] 日志级别，可选值: "debug", "info", "warn", "error"
  * @apiSuccess {String} [config.server.log.file] 日志文件路径
@@ -103,18 +99,11 @@ func NewConfigController(configPath string) *ConfigController {
  * @apiSuccess {Number} [config.instances.timeout.write] 写入超时，默认: 30s
  * @apiSuccess {Number} [config.instances.timeout.handshake] TLS/TLCP握手超时，默认: 15s
  * @apiSuccess {Number} [config.instances.bufferSize] 缓冲区大小，单位字节，默认 4096
- *
- * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
  *       "server": {
  *         "api": {
- *           "address": ":30080"
- *         },
- *         "ui": {
- *           "enabled": true,
- *           "address": ":30000",
- *           "path": "./ui"
+ *           "address": ":20080"
  *         },
  *         "log": {
  *           "level": "info",
@@ -156,10 +145,6 @@ func (c *ConfigController) Get(w http.ResponseWriter, r *http.Request) {
  * @apiBody {Object} config.server 服务端配置
  * @apiBody {Object} config.server.api API服务配置
  * @apiBody {String} config.server.api.address API服务监听地址，格式: "host:port" 或 ":port"
- * @apiBody {Object} config.server.ui Web界面配置
- * @apiBody {Boolean} config.server.ui.enabled 是否启用Web管理界面
- * @apiBody {String} config.server.ui.address Web界面监听地址
- * @apiBody {String} config.server.ui.path 静态文件目录路径
  * @apiBody {Object} [config.server.log] 日志配置
  * @apiBody {String} [config.server.log.level] 日志级别，可选值: "debug", "info", "warn", "error"
  * @apiBody {String} [config.server.log.file] 日志文件路径
@@ -232,12 +217,7 @@ func (c *ConfigController) Get(w http.ResponseWriter, r *http.Request) {
  *     {
  *       "server": {
  *         "api": {
- *           "address": ":30080"
- *         },
- *         "ui": {
- *           "enabled": true,
- *           "address": ":30000",
- *           "path": "./ui"
+ *           "address": ":20080"
  *         },
  *         "log": {
  *           "level": "info",
@@ -270,12 +250,7 @@ func (c *ConfigController) Get(w http.ResponseWriter, r *http.Request) {
  *     {
  *       "server": {
  *         "api": {
- *           "address": ":30080"
- *         },
- *         "ui": {
- *           "enabled": true,
- *           "address": ":30000",
- *           "path": "./ui"
+ *           "address": ":20080"
  *         },
  *         "log": {
  *           "level": "info",
@@ -344,10 +319,6 @@ func (c *ConfigController) Update(w http.ResponseWriter, r *http.Request) {
  * @apiSuccess {Object} config.server 服务端配置
  * @apiSuccess {Object} config.server.api API服务配置
  * @apiSuccess {String} config.server.api.address API服务监听地址
- * @apiSuccess {Object} config.server.ui Web界面配置
- * @apiSuccess {Boolean} config.server.ui.enabled 是否启用Web管理界面
- * @apiSuccess {String} config.server.ui.address Web界面监听地址
- * @apiSuccess {String} config.server.ui.path 静态文件目录路径
  * @apiSuccess {Object} [config.server.log] 日志配置
  * @apiSuccess {Object[]} [config.keystores] 密钥存储配置列表
  * @apiSuccess {Object[]} config.instances 代理实例配置列表
@@ -364,12 +335,7 @@ func (c *ConfigController) Update(w http.ResponseWriter, r *http.Request) {
  *     {
  *       "server": {
  *         "api": {
- *           "address": ":30080"
- *         },
- *         "ui": {
- *           "enabled": true,
- *           "address": ":30000",
- *           "path": "./ui"
+ *           "address": ":20080"
  *         },
  *         "log": {
  *           "level": "info",
