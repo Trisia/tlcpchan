@@ -224,17 +224,13 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 	var rootCertPool security.RootCertPool
 
 	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
-		if a.tlcpKeyStore == nil || !a.tlcpKeyStore.Equals(newTLCPKS) {
-			a.tlcpKeyStore = newTLCPKS
-		}
+		a.tlcpKeyStore = newTLCPKS
 	} else {
 		a.tlcpKeyStore = nil
 	}
 
 	if newTLSKS, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil {
-		if a.tlsKeyStore == nil || !a.tlsKeyStore.Equals(newTLSKS) {
-			a.tlsKeyStore = newTLSKS
-		}
+		a.tlsKeyStore = newTLSKS
 	} else {
 		a.tlsKeyStore = nil
 	}
@@ -245,8 +241,20 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 
 	if a.tlcpKeyStore != nil {
 		tlcpConfig = &tlcp.Config{}
+		certs, err := a.tlcpKeyStore.TLCPCertificate()
+		if err != nil {
+			return err
+		}
+		if len(certs) == 0 {
+			return fmt.Errorf("TLCP证书不能为空")
+		}
 		tlcpConfig.GetCertificate = func(chi *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
-			return a.tlcpKeyStore.TLCPCertificate()
+			return certs[0], nil
+		}
+		if len(certs) > 1 {
+			tlcpConfig.GetKECertificate = func(chi *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
+				return certs[1], nil
+			}
 		}
 
 		clientAuthType, _ := config.ParseTLCPClientAuth(cfg.TLCP.ClientAuthType)
@@ -323,17 +331,13 @@ func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 	var rootCertPool security.RootCertPool
 
 	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
-		if a.tlcpKeyStore == nil || !a.tlcpKeyStore.Equals(newTLCPKS) {
-			a.tlcpKeyStore = newTLCPKS
-		}
+		a.tlcpKeyStore = newTLCPKS
 	} else {
 		a.tlcpKeyStore = nil
 	}
 
 	if newTLSKS, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil {
-		if a.tlsKeyStore == nil || !a.tlsKeyStore.Equals(newTLSKS) {
-			a.tlsKeyStore = newTLSKS
-		}
+		a.tlsKeyStore = newTLSKS
 	} else {
 		a.tlsKeyStore = nil
 	}
@@ -349,8 +353,20 @@ func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 		tlcpConfig.ServerName = cfg.SNI
 	}
 	if a.tlcpKeyStore != nil {
+		certs, err := a.tlcpKeyStore.TLCPCertificate()
+		if err != nil {
+			return err
+		}
+		if len(certs) == 0 {
+			return fmt.Errorf("TLCP证书不能为空")
+		}
 		tlcpConfig.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
-			return a.tlcpKeyStore.TLCPCertificate()
+			return certs[0], nil
+		}
+		if len(certs) > 1 {
+			tlcpConfig.GetClientKECertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
+				return certs[1], nil
+			}
 		}
 	}
 	if rootCertPool != nil {
@@ -485,8 +501,20 @@ func (a *TLCPAdapter) checkTLCPHealth(dialer *net.Dialer, targetAddr string) (ne
 	healthConfig := baseConfig.Clone()
 
 	if keyStore != nil {
+		certs, err := keyStore.TLCPCertificate()
+		if err != nil {
+			return nil, err
+		}
+		if len(certs) == 0 {
+			return nil, fmt.Errorf("TLCP证书不能为空")
+		}
 		healthConfig.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
-			return keyStore.TLCPCertificate()
+			return certs[0], nil
+		}
+		if len(certs) > 1 {
+			healthConfig.GetClientKECertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
+				return certs[1], nil
+			}
 		}
 	}
 

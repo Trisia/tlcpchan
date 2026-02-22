@@ -1,13 +1,11 @@
 package keystore
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net"
@@ -16,7 +14,6 @@ import (
 	"sync"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
-	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -33,18 +30,8 @@ type FileKeyStore struct {
 	encCertPath  string
 	encKeyPath   string
 	tlsCert      *tls.Certificate
-	tlcpCert     *tlcp.Certificate
-	sm3Hash      []byte
+	tlcpCerts    []*tlcp.Certificate
 	mu           sync.RWMutex
-}
-
-// fileKeyStoreJSON 用于序列化 FileKeyStore 配置的结构体
-type fileKeyStoreJSON struct {
-	KeyStoreType KeyStoreType `json:"keyStoreType"`
-	SignCertPath string       `json:"signCertPath"`
-	SignKeyPath  string       `json:"signKeyPath"`
-	EncCertPath  string       `json:"encCertPath"`
-	EncKeyPath   string       `json:"encKeyPath"`
 }
 
 func (f *FileKeyStore) Type() KeyStoreType {
@@ -71,31 +58,51 @@ func (f *FileKeyStore) TLSCertificate() (*tls.Certificate, error) {
 		return nil, fmt.Errorf("加载TLS证书失败: %w", err)
 	}
 	f.tlsCert = &cert
-	f.computeSM3Hash()
 	return f.tlsCert, nil
 }
 
-func (f *FileKeyStore) TLCPCertificate() (*tlcp.Certificate, error) {
+func (f *FileKeyStore) TLCPCertificate() ([]*tlcp.Certificate, error) {
 	f.mu.RLock()
-	if f.tlcpCert != nil {
+	if len(f.tlcpCerts) > 0 {
 		defer f.mu.RUnlock()
-		return f.tlcpCert, nil
+		return f.tlcpCerts, nil
 	}
 	f.mu.RUnlock()
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if f.tlcpCert != nil {
-		return f.tlcpCert, nil
+	if len(f.tlcpCerts) > 0 {
+		return f.tlcpCerts, nil
 	}
 
-	certPEM, err := os.ReadFile(f.signCertPath)
+	certs := make([]*tlcp.Certificate, 0, 2)
+
+	signCert, err := f.loadTLCPKeyPair(f.signCertPath, f.signKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("加载签名证书失败: %w", err)
+	}
+	certs = append(certs, signCert)
+
+	if f.encCertPath != "" && f.encKeyPath != "" {
+		encCert, err := f.loadTLCPKeyPair(f.encCertPath, f.encKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("加载加密证书失败: %w", err)
+		}
+		certs = append(certs, encCert)
+	}
+
+	f.tlcpCerts = certs
+	return f.tlcpCerts, nil
+}
+
+func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certificate, error) {
+	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, fmt.Errorf("读取证书文件失败: %w", err)
 	}
 
-	keyPEM, err := os.ReadFile(f.signKeyPath)
+	keyPEM, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("读取私钥文件失败: %w", err)
 	}
@@ -170,92 +177,15 @@ func (f *FileKeyStore) TLCPCertificate() (*tlcp.Certificate, error) {
 		PrivateKey:  privateKey,
 	}
 
-	f.tlcpCert = tlcpCert
-	f.computeSM3Hash()
-	return f.tlcpCert, nil
+	return tlcpCert, nil
 }
 
 func (f *FileKeyStore) Reload() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.tlsCert = nil
-	f.tlcpCert = nil
-	f.sm3Hash = nil
+	f.tlcpCerts = nil
 	return nil
-}
-
-func (f *FileKeyStore) Equals(other KeyStore) bool {
-	if other == nil {
-		return false
-	}
-	otherFileKS, ok := other.(*FileKeyStore)
-	if !ok {
-		return false
-	}
-	f.ensureHashComputed()
-	otherFileKS.ensureHashComputed()
-	f.mu.RLock()
-	otherFileKS.mu.RLock()
-	defer f.mu.RUnlock()
-	defer otherFileKS.mu.RUnlock()
-	return bytes.Equal(f.sm3Hash, otherFileKS.sm3Hash)
-}
-
-// computeSM3Hash 计算 FileKeyStore 的 SM3 Hash 值
-// Hash 构成：JSON 配置 + TLS 证书 DER（如果有） + TLCP 证书 DER（如果有）
-// 注意：此函数必须在持有 f.mu 写锁的情况下调用
-func (f *FileKeyStore) computeSM3Hash() {
-	jsonData := fileKeyStoreJSON{
-		KeyStoreType: f.keyStoreType,
-		SignCertPath: f.signCertPath,
-		SignKeyPath:  f.signKeyPath,
-		EncCertPath:  f.encCertPath,
-		EncKeyPath:   f.encKeyPath,
-	}
-
-	jsonBytes, err := json.Marshal(jsonData)
-	if err != nil {
-		f.sm3Hash = nil
-		return
-	}
-
-	hasher := sm3.New()
-	hasher.Write(jsonBytes)
-
-	if f.tlsCert != nil {
-		for _, der := range f.tlsCert.Certificate {
-			hasher.Write(der)
-		}
-	}
-
-	if f.tlcpCert != nil {
-		for _, der := range f.tlcpCert.Certificate {
-			hasher.Write(der)
-		}
-	}
-
-	f.sm3Hash = hasher.Sum(nil)
-}
-
-func (f *FileKeyStore) ensureHashComputed() {
-	f.mu.RLock()
-	hashEmpty := len(f.sm3Hash) == 0
-	f.mu.RUnlock()
-	if hashEmpty {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		if len(f.sm3Hash) == 0 {
-			if f.tlsCert == nil {
-				_, _ = f.TLSCertificate()
-			}
-			if f.tlcpCert == nil {
-				_, _ = f.TLCPCertificate()
-			}
-			if f.tlsCert != nil || f.tlcpCert != nil {
-				f.computeSM3Hash()
-			}
-		}
-	}
 }
 
 // FileLoader 文件加载器实现
@@ -340,7 +270,7 @@ func (n *NamedKeyStore) Type() KeyStoreType {
 	return n.delegate.Type()
 }
 
-func (n *NamedKeyStore) TLCPCertificate() (*tlcp.Certificate, error) {
+func (n *NamedKeyStore) TLCPCertificate() ([]*tlcp.Certificate, error) {
 	return n.delegate.TLCPCertificate()
 }
 
@@ -350,10 +280,6 @@ func (n *NamedKeyStore) TLSCertificate() (*tls.Certificate, error) {
 
 func (n *NamedKeyStore) Reload() error {
 	return n.delegate.Reload()
-}
-
-func (n *NamedKeyStore) Equals(other KeyStore) bool {
-	return n.delegate.Equals(other)
 }
 
 func (n *NamedKeyStore) GenerateCSR(keyType KeyType, params CSRParams) ([]byte, error) {

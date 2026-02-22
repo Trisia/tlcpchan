@@ -39,10 +39,9 @@ type CSRParams struct {
 // KeyStore 抽象 keystore 接口
 type KeyStore interface {
 	Type() KeyStoreType
-	TLCPCertificate() (*tlcp.Certificate, error)
+	TLCPCertificate() ([]*tlcp.Certificate, error)
 	TLSCertificate() (*tls.Certificate, error)
 	Reload() error
-	Equals(other KeyStore) bool
 	GenerateCSR(keyType KeyType, params CSRParams) ([]byte, error)
 }
 
