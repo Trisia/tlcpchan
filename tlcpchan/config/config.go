@@ -115,8 +115,6 @@ type KeyStoreConfig struct {
 type ServerConfig struct {
 	// API API服务配置
 	API APIConfig `yaml:"api" json:"api"`
-	// UI Web界面配置
-	UI UIConfig `yaml:"ui" json:"ui"`
 	// Log 日志配置，nil表示使用默认配置
 	Log *LogConfig `yaml:"log,omitempty" json:"log,omitempty"`
 }
@@ -128,17 +126,6 @@ type APIConfig struct {
 	// 示例: ":8080" 表示监听所有网卡的8080端口
 	// 示例: "127.0.0.1:8080" 表示仅监听本地回环地址
 	Address string `yaml:"address" json:"address"`
-}
-
-// UIConfig Web界面配置
-type UIConfig struct {
-	// Enabled 是否启用Web管理界面
-	Enabled bool `yaml:"enabled" json:"enabled"`
-	// Address Web界面监听地址，格式同APIConfig.Address
-	Address string `yaml:"address" json:"address"`
-	// Path 静态文件目录路径，存放前端构建产物
-	// 示例: "./ui"
-	Path string `yaml:"path" json:"path"`
 }
 
 // LogConfig 日志配置
@@ -332,17 +319,12 @@ func DefaultTimeout() *TimeoutConfig {
 
 // Default 返回默认配置
 // 返回:
-//   - *Config: 默认配置实例，API监听:30080，UI监听:30000
+//   - *Config: 默认配置实例，API监听:20080
 func Default() *Config {
 	return &Config{
 		Server: ServerConfig{
 			API: APIConfig{
 				Address: ":20080",
-			},
-			UI: UIConfig{
-				Enabled: true,
-				Address: ":30000",
-				Path:    "./ui",
 			},
 			Log: &LogConfig{
 				Level:      "info",

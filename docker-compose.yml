@@ -10,7 +10,7 @@ services:
     container_name: tlcpchan
     restart: unless-stopped
     ports:
-      - "20080:20080"   # API 服务和 Web UI
+      - "20080:20080"   # API 服务
       - "20443:20443"   # 默认代理端口
     volumes:
       # 数据持久化（使用 /etc/tlcpchan）
