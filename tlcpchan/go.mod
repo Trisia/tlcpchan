@@ -1,6 +1,6 @@
 module github.com/Trisia/tlcpchan
 
-go 1.24.0
+go 1.26.0
 
 require (
 	gitee.com/Trisia/gotlcp v1.4.4

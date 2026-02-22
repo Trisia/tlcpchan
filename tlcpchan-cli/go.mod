@@ -1,3 +1,3 @@
 module github.com/Trisia/tlcpchan-cli
 
-go 1.24.11
+go 1.26.0
