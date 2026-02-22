@@ -47,7 +47,7 @@ go build -o tlcpchan-cli   # 构建命令行工具
 ## 特殊约定
 
 - 若opencode运行用户为root时，需要使用chrome-dev-tools 时，总是以 --no-sandbox 启动google-chrome 
-- 若工作与Windows环境中注意：文件路径分隔符，命令不要级联执行`&&` 分条逐条执行
+- Windows环境中如果有git-bash.exe 优先使用这个最为shell的执行器（默认路径`C:\Program Files\Git\git-bash.exe`）
 
 ## 项目概述
 
