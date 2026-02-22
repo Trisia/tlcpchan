@@ -69,6 +69,10 @@ func NewInstance(cfg *config.InstanceConfig,
 	keyStoreMgr *security.KeyStoreManager,
 	rootCertMgr *security.RootCertManager,
 	log *logger.Logger) (Instance, error) {
+	if err := config.Validate(&config.Config{Instances: []config.InstanceConfig{*cfg}}); err != nil {
+		return nil, fmt.Errorf("配置验证失败: %w", err)
+	}
+
 	base := &baseInstance{
 		cfg:             cfg,
 		instanceType:    ParseInstanceType(cfg.Type),

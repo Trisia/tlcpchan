@@ -27,18 +27,6 @@ const (
 	ProtocolTLS ProtocolType = "tls"
 )
 
-// AuthType 认证类型
-type AuthType string
-
-const (
-	// AuthNone 无认证
-	AuthNone AuthType = "none"
-	// AuthOneWay 单向认证（验证对端证书）
-	AuthOneWay AuthType = "one-way"
-	// AuthMutual 双向认证（双方互相验证证书）
-	AuthMutual AuthType = "mutual"
-)
-
 // ParseProtocolType 解析协议类型字符串
 // 参数:
 //   - s: 协议类型字符串，如 "auto", "tlcp", "tls"
@@ -55,25 +43,6 @@ func ParseProtocolType(s string) ProtocolType {
 		fallthrough
 	default:
 		return ProtocolAuto
-	}
-}
-
-// ParseAuthType 解析认证类型字符串
-// 参数:
-//   - s: 认证类型字符串，如 "none", "one-way", "mutual"
-//
-// 返回:
-//   - AuthType: 认证类型，无法识别时返回 AuthNone
-func ParseAuthType(s string) AuthType {
-	switch s {
-	case "one-way":
-		return AuthOneWay
-	case "mutual":
-		return AuthMutual
-	case "none":
-		fallthrough
-	default:
-		return AuthNone
 	}
 }
 
@@ -198,13 +167,13 @@ type InstanceConfig struct {
 
 // TLCPConfig TLCP协议配置（国密协议）
 type TLCPConfig struct {
-	// Auth 认证模式，可选值:
-	// - "none": 无认证
-	// - "one-way": 单向认证（验证对端证书）
-	// - "mutual": 双向认证（双方互相验证证书）
-	Auth string `yaml:"auth,omitempty" json:"auth,omitempty"`
-	// ClientAuth 客户端认证类型（兼容性字段，会转换为Auth）
-	ClientAuth string `yaml:"client-auth,omitempty" json:"-"`
+	// ClientAuthType 客户端认证类型，可选值:
+	// - "no-client-cert": 不要求客户端证书
+	// - "request-client-cert": 请求客户端证书（但不验证）
+	// - "require-any-client-cert": 要求客户端证书（但不验证）
+	// - "verify-client-cert-if-given": 如果提供了客户端证书则验证
+	// - "require-and-verify-client-cert": 要求并验证客户端证书
+	ClientAuthType string `yaml:"client-auth-type,omitempty" json:"clientAuthType,omitempty"`
 	// MinVersion 最低协议版本，可选值: "1.1"（TLCP仅有1.1版本）
 	MinVersion string `yaml:"min-version,omitempty" json:"minVersion,omitempty"`
 	// MaxVersion 最高协议版本，可选值: "1.1"
@@ -229,11 +198,13 @@ type TLCPConfig struct {
 
 // TLSConfig TLS协议配置
 type TLSConfig struct {
-	// Auth 认证模式，可选值:
-	// - "none": 无认证
-	// - "one-way": 单向认证（验证对端证书）
-	// - "mutual": 双向认证（双方互相验证证书）
-	Auth string `yaml:"auth,omitempty" json:"auth,omitempty"`
+	// ClientAuthType 客户端认证类型，可选值:
+	// - "no-client-cert": 不要求客户端证书
+	// - "request-client-cert": 请求客户端证书（但不验证）
+	// - "require-any-client-cert": 要求客户端证书（但不验证）
+	// - "verify-client-cert-if-given": 如果提供了客户端证书则验证
+	// - "require-and-verify-client-cert": 要求并验证客户端证书
+	ClientAuthType string `yaml:"client-auth-type,omitempty" json:"clientAuthType,omitempty"`
 	// MinVersion 最低协议版本，可选值: "1.0", "1.1", "1.2", "1.3"
 	MinVersion string `yaml:"min-version,omitempty" json:"minVersion,omitempty"`
 	// MaxVersion 最高协议版本，可选值: "1.0", "1.1", "1.2", "1.3"
@@ -468,18 +439,14 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("实例 %s: 无效的协议 %s", inst.Name, inst.Protocol)
 		}
 
-		// 验证TLCP Auth
-		if inst.TLCP.Auth == "" {
-			cfg.Instances[i].TLCP.Auth = string(AuthNone)
-		} else if inst.TLCP.Auth != string(AuthNone) && inst.TLCP.Auth != string(AuthOneWay) && inst.TLCP.Auth != string(AuthMutual) {
-			return fmt.Errorf("实例 %s: 无效的TLCP认证模式 %s", inst.Name, inst.TLCP.Auth)
+		// 验证TLCP ClientAuthType
+		if inst.TLCP.ClientAuthType == "" {
+			cfg.Instances[i].TLCP.ClientAuthType = "no-client-cert"
 		}
 
-		// 验证TLS Auth
-		if inst.TLS.Auth == "" {
-			cfg.Instances[i].TLS.Auth = string(AuthNone)
-		} else if inst.TLS.Auth != string(AuthNone) && inst.TLS.Auth != string(AuthOneWay) && inst.TLS.Auth != string(AuthMutual) {
-			return fmt.Errorf("实例 %s: 无效的TLS认证模式 %s", inst.Name, inst.TLS.Auth)
+		// 验证TLS ClientAuthType
+		if inst.TLS.ClientAuthType == "" {
+			cfg.Instances[i].TLS.ClientAuthType = "no-client-cert"
 		}
 
 		// 设置默认超时配置

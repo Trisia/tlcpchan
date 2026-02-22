@@ -61,16 +61,17 @@ type getResponse struct {
 
 // createParams 创建实例参数
 type createParams struct {
-	Name     string             `json:"name"`
-	Type     string             `json:"type"`
-	Protocol string             `json:"protocol"`
-	Listen   string             `json:"listen"`
-	Target   string             `json:"target"`
-	Enabled  *bool              `json:"enabled,omitempty"`
-	Auth     string             `json:"auth,omitempty"`
-	TLCP     *config.TLCPConfig `json:"tlcp,omitempty"`
-	TLS      *config.TLSConfig  `json:"tls,omitempty"`
-	ClientCA []string           `json:"client_ca,omitempty"`
+	Name               string             `json:"name"`
+	Type               string             `json:"type"`
+	Protocol           string             `json:"protocol"`
+	Listen             string             `json:"listen"`
+	Target             string             `json:"target"`
+	Enabled            *bool              `json:"enabled,omitempty"`
+	TLCPClientAuthType string             `veron:"tlcp_client_auth_type,omitempty"`
+	TLSClientAuthType  string             `veron:"tls_client_auth_type,omitempty"`
+	TLCP               *config.TLCPConfig `json:"tlcp,omitempty"`
+	TLS                *config.TLSConfig  `json:"tls,omitempty"`
+	ClientCA           []string           `json:"client_ca,omitempty"`
 }
 
 // createResponse 创建实例响应
@@ -251,14 +252,14 @@ func (t *InstanceLifecycleTool) create(params createParams) (*createResponse, er
 	}
 	if params.TLCP != nil {
 		cfg.TLCP = *params.TLCP
-		if params.Auth != "" {
-			cfg.TLCP.Auth = params.Auth
+		if params.TLCPClientAuthType != "" {
+			cfg.TLCP.ClientAuthType = params.TLCPClientAuthType
 		}
 	}
 	if params.TLS != nil {
 		cfg.TLS = *params.TLS
-		if params.Auth != "" {
-			cfg.TLS.Auth = params.Auth
+		if params.TLSClientAuthType != "" {
+			cfg.TLS.ClientAuthType = params.TLSClientAuthType
 		}
 	}
 	if params.ClientCA != nil {

@@ -58,7 +58,8 @@
           <el-descriptions :column="1" border size="small">
             <el-descriptions-item label="类型">{{ instance?.config.type }}</el-descriptions-item>
             <el-descriptions-item label="协议">{{ instance?.config.protocol }}</el-descriptions-item>
-            <el-descriptions-item label="认证模式">{{ authText(instance?.config.auth || 'none') }}</el-descriptions-item>
+            <el-descriptions-item label="TLCP认证">{{ instance?.config.tlcp?.clientAuthType || 'no-client-cert' }}</el-descriptions-item>
+            <el-descriptions-item label="TLS认证">{{ instance?.config.tls?.clientAuthType || 'no-client-cert' }}</el-descriptions-item>
             <el-descriptions-item label="监听地址">{{ instance?.config.listen }}</el-descriptions-item>
             <el-descriptions-item label="目标地址">{{ instance?.config.target }}</el-descriptions-item>
              <el-descriptions-item label="运行时长">{{ formatUptime(instance?.uptime || 0) }}</el-descriptions-item>
@@ -191,11 +192,6 @@ function statusType(status: Instance['status']): '' | 'success' | 'warning' | 'd
 function statusText(status: Instance['status']): string {
   const map: Record<string, string> = { running: '运行中', stopped: '已停止', error: '错误', created: '已创建' }
   return map[status] || status
-}
-
-function authText(auth: InstanceConfig['auth']): string {
-  const map: Record<string, string> = { none: '无', 'one-way': '单向', mutual: '双向' }
-  return auth ? map[auth] || auth : '无'
 }
 
 const actionLoading = ref<Record<string, boolean>>({})

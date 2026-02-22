@@ -37,22 +37,6 @@ func needEncKeypair(suites []uint16) bool {
 	return false
 }
 
-func ValidateClientConfig(cfg *config.InstanceConfig) error {
-	tlcpAuth := cfg.TLCP.Auth
-	if tlcpAuth == "" {
-		tlcpAuth = string(config.AuthNone)
-	}
-
-	if cfg.Protocol == string(config.ProtocolTLCP) || cfg.Protocol == string(config.ProtocolAuto) {
-		suites, _ := config.ParseCipherSuites(cfg.TLCP.CipherSuites, true)
-		if len(suites) > 0 && needEncKeypair(suites) && tlcpAuth != string(config.AuthMutual) {
-			return fmt.Errorf("[%v] 密码套件只能在双向身份认证下使用，当前认证模式: %s", suites, tlcpAuth)
-		}
-	}
-
-	return nil
-}
-
 type ProtocolType int
 
 const (
@@ -239,15 +223,6 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 	var tlsConfig *tls.Config
 	var rootCertPool security.RootCertPool
 
-	tlcpAuth := cfg.TLCP.Auth
-	if tlcpAuth == "" {
-		tlcpAuth = string(config.AuthNone)
-	}
-	tlsAuth := cfg.TLS.Auth
-	if tlsAuth == "" {
-		tlsAuth = string(config.AuthNone)
-	}
-
 	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
 		if a.tlcpKeyStore == nil || !a.tlcpKeyStore.Equals(newTLCPKS) {
 			a.tlcpKeyStore = newTLCPKS
@@ -274,12 +249,11 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 			return a.tlcpKeyStore.TLCPCertificate()
 		}
 
-		if tlcpAuth == string(config.AuthMutual) && rootCertPool != nil {
+		clientAuthType, _ := config.ParseTLCPClientAuth(cfg.TLCP.ClientAuthType)
+		if clientAuthType != tlcp.NoClientCert && rootCertPool != nil {
 			tlcpConfig.ClientCAs = rootCertPool.GetSMCertPool()
-			tlcpConfig.ClientAuth = tlcp.RequireAndVerifyClientCert
-		} else if tlcpAuth == string(config.AuthOneWay) {
-			tlcpConfig.ClientAuth = tlcp.NoClientCert
 		}
+		tlcpConfig.ClientAuth = clientAuthType
 
 		if len(cfg.TLCP.CipherSuites) > 0 {
 			suites, _ := config.ParseCipherSuites(cfg.TLCP.CipherSuites, true)
@@ -307,12 +281,11 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 			return a.tlsKeyStore.TLSCertificate()
 		}
 
-		if tlsAuth == string(config.AuthMutual) && rootCertPool != nil {
+		clientAuthType, _ := config.ParseTLSClientAuth(cfg.TLS.ClientAuthType)
+		if clientAuthType != tls.NoClientCert && rootCertPool != nil {
 			tlsConfig.ClientCAs = rootCertPool.GetCertPool()
-			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		} else if tlsAuth == string(config.AuthOneWay) {
-			tlsConfig.ClientAuth = tls.NoClientCert
 		}
+		tlsConfig.ClientAuth = clientAuthType
 
 		if len(cfg.TLS.CipherSuites) > 0 {
 			suites, _ := config.ParseCipherSuites(cfg.TLS.CipherSuites, false)
@@ -348,15 +321,6 @@ func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 	var tlcpConfig *tlcp.Config
 	var tlsConfig *tls.Config
 	var rootCertPool security.RootCertPool
-
-	tlcpAuth := cfg.TLCP.Auth
-	if tlcpAuth == "" {
-		tlcpAuth = string(config.AuthNone)
-	}
-	tlsAuth := cfg.TLS.Auth
-	if tlsAuth == "" {
-		tlsAuth = string(config.AuthNone)
-	}
 
 	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
 		if a.tlcpKeyStore == nil || !a.tlcpKeyStore.Equals(newTLCPKS) {

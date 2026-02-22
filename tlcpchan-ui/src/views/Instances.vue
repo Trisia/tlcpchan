@@ -23,9 +23,14 @@
             <el-tag size="small" :type="row.config.protocol === 'tlcp' ? 'primary' : 'success'">{{ row.config.protocol }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="config.auth" label="认证模式" width="100">
+        <el-table-column label="TLCP认证" width="150">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ authText(row.config.auth) }}</el-tag>
+            <el-tag size="small" type="info">{{ row.config.tlcp?.clientAuthType || 'no-client-cert' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="TLS认证" width="150">
+          <template #default="{ row }">
+            <el-tag size="small" type="success">{{ row.config.tls?.clientAuthType || 'no-client-cert' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="config.listen" label="监听地址" />
@@ -72,11 +77,22 @@
             <el-option label="TLS" value="tls" />
           </el-select>
         </el-form-item>
-        <el-form-item label="认证模式">
-          <el-select v-model="form.auth" placeholder="请选择认证模式">
-            <el-option label="无认证" value="none" />
-            <el-option label="单向认证" value="one-way" />
-            <el-option label="双向认证" value="mutual" />
+        <el-form-item label="TLCP客户端认证" :disabled="form.protocol === 'tls'">
+          <el-select v-model="form.tlcp!.clientAuthType" placeholder="请选择认证类型">
+            <el-option label="不要求证书" value="no-client-cert" />
+            <el-option label="请求证书" value="request-client-cert" />
+            <el-option label="要求证书" value="require-any-client-cert" />
+            <el-option label="验证已提供证书" value="verify-client-cert-if-given" />
+            <el-option label="要求并验证证书" value="require-and-verify-client-cert" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="TLS客户端认证" :disabled="form.protocol === 'tlcp'">
+          <el-select v-model="form.tls!.clientAuthType" placeholder="请选择认证类型">
+            <el-option label="不要求证书" value="no-client-cert" />
+            <el-option label="请求证书" value="request-client-cert" />
+            <el-option label="要求证书" value="require-any-client-cert" />
+            <el-option label="验证已提供证书" value="verify-client-cert-if-given" />
+            <el-option label="要求并验证证书" value="require-and-verify-client-cert" />
           </el-select>
         </el-form-item>
         <el-form-item label="选择密钥">
@@ -225,11 +241,11 @@ const form = ref<Partial<InstanceConfig>>({
   name: '',
   type: 'server',
   protocol: 'auto',
-  auth: 'one-way',
   listen: ':443',
   target: '127.0.0.1:8080',
   enabled: true,
   tlcp: {
+    clientAuthType: 'no-client-cert',
     minVersion: '1.1',
     maxVersion: '1.1',
     cipherSuites: [],
@@ -239,6 +255,7 @@ const form = ref<Partial<InstanceConfig>>({
     insecureSkipVerify: false
   },
   tls: {
+    clientAuthType: 'no-client-cert',
     minVersion: '1.2',
     maxVersion: '1.3',
     cipherSuites: [],
@@ -277,11 +294,6 @@ async function loadKeystores() {
 function typeText(type: Instance['config']['type']): string {
   const map: Record<string, string> = { server: '服务端', client: '客户端', 'http-server': 'HTTP服务端', 'http-client': 'HTTP客户端' }
   return map[type] || type
-}
-
-function authText(auth: Instance['config']['auth']): string {
-  const map: Record<string, string> = { none: '无', 'one-way': '单向', mutual: '双向' }
-  return auth ? (map[auth] || auth) : '无'
 }
 
 function statusType(status: Instance['status']): '' | 'success' | 'warning' | 'danger' | 'info' {

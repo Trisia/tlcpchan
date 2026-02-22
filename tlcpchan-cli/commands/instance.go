@@ -55,7 +55,8 @@ func instanceShow(args []string) error {
 	fmt.Printf("监听: %s\n", inst.Config.Listen)
 	fmt.Printf("目标: %s\n", inst.Config.Target)
 	fmt.Printf("协议: %s\n", inst.Config.Protocol)
-	fmt.Printf("认证: %s\n", inst.Config.Auth)
+	fmt.Printf("TLCP认证: %s\n", inst.Config.TLCP.ClientAuthType)
+	fmt.Printf("TLS认证: %s\n", inst.Config.TLS.ClientAuthType)
 	fmt.Printf("启用: %v\n", inst.Enabled)
 	return nil
 }
@@ -67,7 +68,8 @@ func instanceCreate(args []string) error {
 	listen := fs.String("listen", "", "监听地址（必需）")
 	target := fs.String("target", "", "目标地址（必需）")
 	protocol := fs.String("protocol", "auto", "协议（auto/tlcp/tls）")
-	auth := fs.String("auth", "one-way", "认证模式（none/one-way/mutual）")
+	tlcpClientAuthType := fs.String("tlcp-client-auth-type", "no-client-cert", "TLCP客户端认证类型")
+	tlsClientAuthType := fs.String("tls-client-auth-type", "no-client-cert", "TLS客户端认证类型")
 	keystoreName := fs.String("keystore-name", "", "keystore 名称")
 	enabled := fs.Bool("enabled", true, "是否启用")
 	sni := fs.String("sni", "", "SNI 名称")
@@ -125,7 +127,6 @@ func instanceCreate(args []string) error {
 		Listen:     *listen,
 		Target:     *target,
 		Protocol:   *protocol,
-		Auth:       *auth,
 		Enabled:    *enabled,
 		SNI:        *sni,
 		BufferSize: *bufferSize,
@@ -157,7 +158,7 @@ func instanceCreate(args []string) error {
 	if *keystoreName != "" {
 		if *protocol == "tlcp" || *protocol == "auto" {
 			cfg.TLCP = &client.TLCPConfig{
-				Auth: *auth,
+				ClientAuthType: *tlcpClientAuthType,
 				Keystore: &client.KeyStoreConfig{
 					Name: *keystoreName,
 				},
@@ -167,7 +168,7 @@ func instanceCreate(args []string) error {
 		}
 		if *protocol == "tls" || *protocol == "auto" {
 			cfg.TLS = &client.TLSConfig{
-				Auth: *auth,
+				ClientAuthType: *tlsClientAuthType,
 				Keystore: &client.KeyStoreConfig{
 					Name: *keystoreName,
 				},
@@ -192,7 +193,7 @@ func instanceCreate(args []string) error {
 					params["enc-key"] = *tlcpEncKey
 				}
 				cfg.TLCP = &client.TLCPConfig{
-					Auth: *auth,
+					ClientAuthType: *tlcpClientAuthType,
 					Keystore: &client.KeyStoreConfig{
 						Type:   "file",
 						Params: params,
@@ -210,7 +211,7 @@ func instanceCreate(args []string) error {
 					"sign-key":  *tlsSignKey,
 				}
 				cfg.TLS = &client.TLSConfig{
-					Auth: *auth,
+					ClientAuthType: *tlsClientAuthType,
 					Keystore: &client.KeyStoreConfig{
 						Type:   "file",
 						Params: params,
@@ -244,7 +245,8 @@ func instanceUpdate(args []string) error {
 	listen := fs.String("listen", "", "监听地址")
 	target := fs.String("target", "", "目标地址")
 	protocol := fs.String("protocol", "", "协议（auto/tlcp/tls）")
-	auth := fs.String("auth", "", "认证模式（none/one-way/mutual）")
+	tlcpClientAuthType := fs.String("tlcp-client-auth-type", "", "TLCP客户端认证类型")
+	tlsClientAuthType := fs.String("tls-client-auth-type", "", "TLS客户端认证类型")
 	keystoreName := fs.String("keystore-name", "", "keystore 名称")
 	enabled := fs.Bool("enabled", false, "是否启用")
 	sni := fs.String("sni", "", "SNI 名称")
@@ -311,8 +313,11 @@ func instanceUpdate(args []string) error {
 	if *protocol != "" {
 		cfg.Protocol = *protocol
 	}
-	if *auth != "" {
-		cfg.Auth = *auth
+	if *tlcpClientAuthType != "" {
+		cfg.TLCP.ClientAuthType = *tlcpClientAuthType
+	}
+	if *tlsClientAuthType != "" {
+		cfg.TLS.ClientAuthType = *tlsClientAuthType
 	}
 	if *sni != "" {
 		cfg.SNI = *sni
@@ -357,9 +362,6 @@ func instanceUpdate(args []string) error {
 			cfg.TLCP.Keystore = &client.KeyStoreConfig{
 				Name: *keystoreName,
 			}
-			if *auth != "" {
-				cfg.TLCP.Auth = *auth
-			}
 			populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
 				tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
 		}
@@ -369,9 +371,6 @@ func instanceUpdate(args []string) error {
 			}
 			cfg.TLS.Keystore = &client.KeyStoreConfig{
 				Name: *keystoreName,
-			}
-			if *auth != "" {
-				cfg.TLS.Auth = *auth
 			}
 			populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
 				tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
@@ -405,8 +404,8 @@ func instanceUpdate(args []string) error {
 					Type:   "file",
 					Params: params,
 				}
-				if *auth != "" {
-					cfg.TLCP.Auth = *auth
+				if *tlcpClientAuthType != "" {
+					cfg.TLCP.ClientAuthType = *tlcpClientAuthType
 				}
 				populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
 					tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
@@ -431,8 +430,8 @@ func instanceUpdate(args []string) error {
 					Type:   "file",
 					Params: params,
 				}
-				if *auth != "" {
-					cfg.TLS.Auth = *auth
+				if *tlsClientAuthType != "" {
+					cfg.TLS.ClientAuthType = *tlsClientAuthType
 				}
 				populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
 					tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)

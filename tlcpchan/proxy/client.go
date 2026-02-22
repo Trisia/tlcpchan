@@ -40,10 +40,6 @@ type ClientProxy struct {
 func NewClientProxy(cfg *config.InstanceConfig,
 	keyStoreMgr *security.KeyStoreManager,
 	rootCertMgr *security.RootCertManager) (*ClientProxy, error) {
-	if err := ValidateClientConfig(cfg); err != nil {
-		return nil, fmt.Errorf("配置验证失败: %w", err)
-	}
-
 	adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr)
 	if err != nil {
 		return nil, fmt.Errorf("创建协议适配器失败: %w", err)
