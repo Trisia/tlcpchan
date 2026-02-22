@@ -21,8 +21,8 @@ func TestClient_GetVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/api/v1/system/version" {
-					t.Errorf("请求路径应为 /api/v1/system/version, 实际为 %s", r.URL.Path)
+				if r.URL.Path != "/api/system/version" {
+					t.Errorf("请求路径应为 /api/system/version, 实际为 %s", r.URL.Path)
 				}
 
 				resp := map[string]string{
@@ -76,8 +76,8 @@ func TestClient_GetVersion_InvalidJSON(t *testing.T) {
 
 func TestClient_HealthCheck(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/system/health" {
-			t.Errorf("请求路径应为 /api/v1/system/health, 实际为 %s", r.URL.Path)
+		if r.URL.Path != "/api/system/health" {
+			t.Errorf("请求路径应为 /api/system/health, 实际为 %s", r.URL.Path)
 		}
 
 		resp := map[string]string{
