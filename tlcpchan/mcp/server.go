@@ -11,6 +11,7 @@ import (
 	"github.com/Trisia/tlcpchan/mcp/connection"
 	"github.com/Trisia/tlcpchan/mcp/protocol"
 	"github.com/Trisia/tlcpchan/mcp/tools"
+	"github.com/Trisia/tlcpchan/version"
 	"github.com/gorilla/websocket"
 )
 
@@ -120,7 +121,7 @@ func (s *Server) handleInitialize(req *protocol.Request) (*protocol.Response, er
 			Version string `json:"version"`
 		}{
 			Name:    "tlcpchan-mcp",
-			Version: "1.0.0",
+			Version: version.Version,
 		},
 	}
 

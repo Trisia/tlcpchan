@@ -14,7 +14,7 @@
 ### 2. 设计原则
 
 - **跨平台支持**：通过 build tags 实现 Linux、Windows 平台的动态库加载
-- **动态加载**：使用系统 dlopen / LoadLibrary 接口，不引入任何 CGO 绑定
+- **动态加载**：使用系统 dlopen / LoadLibrary 接口，禁止引入任何 CGO 绑定
 - **包隔离**：SKF 和 SDF 接口完全独立实现，便于维护
 - **模拟支持**：提供完整的 Mock 实现，便于测试和开发
 - **安全性**：密钥在硬件中存储，不导出到内存
@@ -90,11 +90,13 @@ func OpenLibrary(path string) (Library, error) {
 
 **功能**：实现密码设备接口规范
 
+SKF支持在容器内管理证书详见skf.h
+
 **核心功能**：
 - 设备管理（连接、断开、获取信息）
 - 应用管理（打开、关闭、创建应用）
 - 容器管理（打开、关闭、创建容器）
-- 密钥操作（生成、导出、导入证书）
+- 密钥操作（生成、导出公钥、导入证书、导出证书）
 - 签名/验证
 - PIN 管理
 
@@ -107,9 +109,6 @@ type Config struct {
 	AppName     string
 	ContainerName string
 	UserPIN     string
-	SignKeyBits uint32
-	EncKeyBits  uint32
-	CertDir     string
 }
 
 // 适配器
@@ -162,6 +161,8 @@ func newAPILoader(libPath string) (*apiLoader, error) {
 
 **功能**：实现密码设备功能接口规范
 
+SDF接口不支持管理证书，只能通过用户文件类操作函数实现，详见sdf.h
+
 **核心功能**：
 - 设备管理（打开、关闭）
 - 会话管理（打开、关闭会话）
@@ -176,8 +177,6 @@ type Config struct {
 	LibraryPath string
 	SignKeyIndex uint32
 	EncKeyIndex  uint32
-	KeyBits      uint32
-	CertDir     string
 }
 
 // 适配器
@@ -260,9 +259,6 @@ keystores:
       app-name: "tlcpchan"
       container-name: "tlcp-container"
       user-pin: "12345678"
-      sign-key-bits: "256"
-      enc-key-bits: "256"
-      cert-dir: "/etc/tlcpchan/keystores"
 ```
 
 #### SDF 配置
@@ -274,8 +270,6 @@ keystores:
       library-path: "/usr/local/lib/libsdf.so"
       sign-key-index: "1"
       enc-key-index: "2"
-      key-bits: "256"
-      cert-dir: "/etc/tlcpchan/keystores"
 ```
 
 ### 7. 使用说明

@@ -33,7 +33,6 @@ type Server struct {
 type ServerOptions struct {
 	Config          *config.Config
 	ConfigPath      string
-	Version         string
 	KeyStoreManager *security.KeyStoreManager
 	RootCertManager *security.RootCertManager
 	InstanceManager *instance.Manager
@@ -76,7 +75,7 @@ func NewServer(opts ServerOptions) *Server {
 	instanceCtrl := NewInstanceController(instMgr)
 	configCtrl := NewConfigController(opts.ConfigPath)
 	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
-	systemCtrl := NewSystemController(opts.Version)
+	systemCtrl := NewSystemController()
 
 	instanceCtrl.RegisterRoutes(router)
 	configCtrl.RegisterRoutes(router)

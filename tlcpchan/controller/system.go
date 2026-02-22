@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/version"
 )
 
 type SystemInfo struct {
@@ -34,14 +35,12 @@ type VersionInfo struct {
 var startTime = time.Now()
 
 type SystemController struct {
-	version string
-	log     *logger.Logger
+	log *logger.Logger
 }
 
-func NewSystemController(version string) *SystemController {
+func NewSystemController() *SystemController {
 	return &SystemController{
-		version: version,
-		log:     logger.Default(),
+		log: logger.Default(),
 	}
 }
 
@@ -120,7 +119,7 @@ func (c *SystemController) Info(w http.ResponseWriter, r *http.Request) {
 func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
 	Success(w, HealthStatus{
 		Status:  "healthy",
-		Version: c.version,
+		Version: version.Version,
 	})
 }
 
@@ -144,7 +143,7 @@ func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
  */
 func (c *SystemController) Version(w http.ResponseWriter, r *http.Request) {
 	Success(w, VersionInfo{
-		Version:   c.version,
+		Version:   version.Version,
 		GoVersion: runtime.Version(),
 	})
 }

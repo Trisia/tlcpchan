@@ -9,8 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RELEASE_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(dirname "$RELEASE_DIR")"
 
-# 从 tlcpchan/main.go 中解析版本号
-VERSION=$(grep -E 'version\s*=' "$PROJECT_ROOT/tlcpchan/main.go" | head -1 | sed -E 's/.*version\s*=\s*"([^"]+)".*/\1/')
+# 从 tlcpchan/version/version.go 中解析版本号
+VERSION=$(grep -E 'Version\s*=' "$PROJECT_ROOT/tlcpchan/version/version.go" | head -1 | sed -E 's/.*Version\s*=\s*"([^"]+)".*/\1/')
 
 log_info() {
     echo -e "\033[0;32m[INFO]\033[0m $1"

@@ -17,13 +17,13 @@ import (
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
 	"github.com/Trisia/tlcpchan/security/keystore"
+	"github.com/Trisia/tlcpchan/version"
 )
 
 var (
 	configFile  = flag.String("config", "", "配置文件路径")
 	workDirFlag = flag.String("workdir", "", "工作目录路径")
 	showVersion = flag.Bool("version", false, "显示版本信息")
-	version     = "1.0.0"
 )
 
 func init() {
@@ -62,7 +62,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("tlcpchan version %s\n", version)
+		fmt.Printf("tlcpchan version %s\n", version.Version)
 		os.Exit(0)
 	}
 
@@ -154,7 +154,6 @@ func main() {
 	opts := controller.ServerOptions{
 		Config:          cfg,
 		ConfigPath:      configPath,
-		Version:         version,
 		KeyStoreManager: keyStoreMgr,
 		RootCertManager: rootCertMgr,
 		InstanceManager: instMgr,
@@ -168,7 +167,7 @@ func main() {
 		}
 	}()
 
-	logger.Info("tlcpchan %s 启动完成", version)
+	logger.Info("tlcpchan %s 启动完成", version.Version)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

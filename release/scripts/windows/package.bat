@@ -14,21 +14,21 @@ set "RELEASE_DIR=%SCRIPT_DIR%.."
 for %%i in ("%RELEASE_DIR%") do set "RELEASE_DIR=%%~fi"
 for %%i in ("%RELEASE_DIR%\..") do set "PROJECT_ROOT=%%~fi"
 
-REM 从 tlcpchan/main.go 中解析版本号
-set "MAIN_GO=%PROJECT_ROOT%\tlcpchan\main.go"
-if exist "%MAIN_GO%" (
-    for /f "tokens=2 delims==" %%a in ('findstr /r "var.*version.*=" "%MAIN_GO%"') do (
+REM 从 tlcpchan/version/version.go 中解析版本号
+set "VERSION_FILE=%PROJECT_ROOT%\tlcpchan\version\version.go"
+if exist "%VERSION_FILE%" (
+    for /f "tokens=2 delims==" %%a in ('findstr /r "Version.*=" "%VERSION_FILE%"') do (
         set "VERSION=%%a"
     )
     set "VERSION=%VERSION:"=%"
     set "VERSION=%VERSION: =%"
 ) else (
-    echo [ERROR] main.go not found!
+    echo [ERROR] version.go not found!
     exit /b 1
 )
 
 if "%VERSION%"=="" (
-    echo [ERROR] Failed to parse version from main.go!
+    echo [ERROR] Failed to parse version from version.go!
     exit /b 1
 )
 
