@@ -668,13 +668,13 @@ func (c *autoProtocolConn) Handshake() error {
 	protocol := detectProtocolByVersion(c.major, c.minor)
 
 	if protocol == ProtocolTLCP && c.tlcpConfig != nil {
-		tlcpConn := tlcp.Server(c.Conn, c.tlcpConfig)
+		tlcpConn := tlcp.Server(c, c.tlcpConfig)
 		if err := tlcpConn.Handshake(); err != nil {
 			return err
 		}
 		c.conn = tlcpConn
 	} else if c.tlsConfig != nil {
-		tlsConn := tls.Server(c.Conn, c.tlsConfig)
+		tlsConn := tls.Server(c, c.tlsConfig)
 		if err := tlsConn.Handshake(); err != nil {
 			return err
 		}
@@ -714,7 +714,6 @@ func (c *autoProtocolConn) Close() error {
 	return c.Conn.Close()
 }
 
-
 func detectProtocolByVersion(major, minor uint8) ProtocolType {
 	version := uint16(major)<<8 | uint16(minor)
 
@@ -736,7 +735,6 @@ func detectProtocol(data []byte) ProtocolType {
 	major, minor := data[1], data[2]
 	return detectProtocolByVersion(major, minor)
 }
-
 
 type HealthCheckResult struct {
 	Protocol string `json:"protocol"`
