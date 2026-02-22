@@ -415,6 +415,191 @@ HTTP客户端 ──[HTTP/HTTPS]──> HTTP代理 ──[HTTP/HTTPS]──> 目
 5. 根据配置修改响应头
 6. 返回给客户端
 
+#### 3.1.4 双层Config架构设计
+
+
+**解决方案：双层Config架构**
+
+通过引入双层配置结构，解决配置热重载问题：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TLCPAdapter 配置结构                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              外层 Config (Outer Config)              │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ outerTLCPConfig (stable reference)           │  │   │
+│  │  │   - 稳定持有，listener 可以安全持有          │  │   │
+│  │  │   - 通过 GetConfigForClient 回调动态获取      │  │   │
+│  │  │   - 仅在首次 reload 时创建                   │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ outerTLSConfig (stable reference)            │  │   │
+│  │  │   - 稳定持有，listener 可以安全持有          │  │   │
+│  │  │   - 通过 GetConfigForClient 回调动态获取      │  │   │
+│  │  │   - 仅在首次 reload 时创建                   │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                           │                                   │
+│                           │ GetConfigForClient                │
+│                           │ 回调                              │
+│                           ▼                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │        原子指针 (Atomic Pointers)                    │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ atomicTLCPConfig (atomic.Value)                │  │   │
+│  │  │   - 并发安全读取                               │  │   │
+│  │  │   - 每次 reload 后替换                         │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ atomicTLSConfig (atomic.Value)                 │  │   │
+│  │  │   - 并发安全读取                               │  │   │
+│  │  │   - 每次 reload 后替换                         │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                           │                                   │
+│                           ▼                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              内层 Config (Inner Config)              │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ tlcpConfig (actual configuration)            │  │   │
+│  │  │   - 包含实际配置数据                          │  │   │
+│  │  │   - 每次 reload 时重新构建                   │  │   │
+│  │  │   - 证书直接设置到 Certificates 字段          │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ tlsConfig (actual configuration)             │  │   │
+          │  │   - 包含实际配置数据                          │  │   │
+│  │  │   - 每次 reload 时重新构建                   │  │   │
+│  │  │   - 证书直接设置到 Certificates 字段          │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**核心数据结构：**
+
+```go
+type TLCPAdapter struct {
+
+    // 内层 Config (reload 时替换)
+    tlcpConfig       *tlcp.Config
+    tlsConfig        *tls.Config
+    
+    // 外层 Config (listener 稳定持有)
+    outerTLCPConfig  *tlcp.Config
+    outerTLSConfig   *tls.Config
+    
+    // 原子指针 (并发安全读取)
+    atomicTLCPConfig atomic.Value  // 存储 *tlcp.Config
+    atomicTLSConfig  atomic.Value  // 存储 *tls.Config
+   
+}
+```
+
+**配置更新流程（Server 类型）：**
+
+```
+ReloadConfig() 调用
+    │
+    ▼
+1. 完全构建内层 Config (无锁)
+    - 加载证书
+    - 创建 Config 对象
+    - 设置所有配置项
+    - 证书直接设置到 Certificates 字段
+    │
+    ▼
+2. 在锁保护下更新所有引用
+    a.mu.Lock()
+    │
+    ├─> 更新内部引用
+    │    a.tlcpConfig = tlcpConfig
+    │    a.tlsConfig = tlsConfig
+    │
+    ├─> 首次 reload 时创建外层 Config
+    │    if a.outerTLCPConfig == nil && tlcpConfig != nil {
+    │        a.outerTLCPConfig = &tlcp.Config{
+    │            GetConfigForClient: func(...) (*tlcp.Config, error) {
+    │                return a.atomicTLCPConfig.Load().(*tlcp.Config), nil
+    │            },
+    │        }
+    │    }
+    │
+    └─> 最后才原子替换 (关键!)
+         a.atomicTLCPConfig.Store(tlcpConfig)
+         a.atomicTLSConfig.Store(tlsConfig)
+         
+    a.mu.Unlock()
+    │
+    ▼
+3. 新连接使用最新配置
+```
+
+**配置读取路径：**
+
+| 场景 | 配置读取路径 | 说明 |
+|------|------------|------|
+| **Server Listener 接受新连接** | 外层 Config → GetConfigForClient → atomic.Value → `*tlcp.Config` | Listener 持有外层 Config，通过回调动态获取最新的内层 Config |
+| **Client Dial** | 直接从 atomic.Value 读取 `*tlcp.Config` | Client 不创建 listener，直接使用原子指针读取最新配置 |
+| **健康检查** | 从 atomic.Value 读取，然后 Clone | 每次检查都 Clone 新的配置对象，不保存引用 |
+
+**关键设计原则：**
+
+1. **先构建，再替换**
+   - 内层 Config 必须完全构建好后才能原子替换
+   - 确保其他线程读取到的是完整配置
+
+2. **外层 Config 稳定持有**
+   - 外层 Config 只创建一次
+   - Listener 可以安全持有，无需担心配置变更
+   - 通过 GetConfigForClient 回调动态获取最新配置
+
+3. **原子操作保证并发安全**
+   - 使用 `atomic.Value` 存储内层 Config 指针
+   - 提供无锁的并发读取能力
+   - 配置更新时原子的 Store 新配置
+
+4. **证书直接设置**
+   - 改用 `Certificates` 字段直接设置证书
+   - 移除 `GetCertificate` 回调
+   - 简化配置热重载逻辑
+
+**热重载前后对比：**
+
+**重载前（旧设计）：**
+```
+创建 listener 时
+  listener 持有 config 指针 ─────┐
+                                 │
+ReloadConfig() 调用              │
+  替换 tlcpConfig/tlsConfig      │
+  但 listener 仍持有旧指针 ──────┼──> 问题：无法感知配置更新
+                                 │
+新连接                          │
+  使用 listener 持有的旧配置 ───┘
+```
+
+**重载后（双层设计）：**
+```
+首次 reload 时
+  创建外层 Config (stable)
+  listener 持有外层 Config ─────────────┐
+  外层 Config.SetGetConfigForClient ─────┤
+                                        │
+后续 reload                             │
+  构建新内层 Config                     │
+  atomic.Value.Store(新内层Config) ─────┘
+
+新连接
+  外层 Config.GetConfigForClient()
+    -> atomic.Value.Load()
+    -> 返回最新的内层 Config ✅
+```
+
 ### 3.2 安全参数管理模块
 
 安全参数（Keystore、根证书）的详细配置和管理方法请参考 [security.md](./security.md)。
