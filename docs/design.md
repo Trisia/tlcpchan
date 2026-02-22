@@ -704,8 +704,6 @@ type Manager struct {
 - `Get(name)` - 获取 keystore 元信息
 - `GetKeyStore(name)` - 获取 keystore 实例
 - `List()` - 列出所有 keystore
-- `Reload(name)` - 重新加载指定 keystore
-- `ReloadAll()` - 重新加载所有 keystore
 
 **受保护 Keystore 机制：**
 - 实例配置直接创建的 keystore 会被标记为 `protected: true`
@@ -715,7 +713,6 @@ type Manager struct {
 **内存管理与持久化分离：**
 - Keystore Manager 仅负责内存中的 keystore 管理
 - 持久化由控制器层通过 `config.Config.KeyStores` 负责
-- 配置变更后需要调用 `Reload()` 生效
 
 #### 3.2.4 根证书管理
 

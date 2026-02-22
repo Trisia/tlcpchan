@@ -41,7 +41,6 @@ type KeyStore interface {
 	Type() KeyStoreType
 	TLCPCertificate() ([]*tlcp.Certificate, error)
 	TLSCertificate() (*tls.Certificate, error)
-	Reload() error
 	GenerateCSR(keyType KeyType, params CSRParams) ([]byte, error)
 }
 

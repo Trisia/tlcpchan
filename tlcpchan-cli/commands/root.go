@@ -102,7 +102,6 @@ func getCommands() map[string]Command {
 				"generate":   {Name: "generate", Description: "生成 keystore（含证书）", Usage: "generate [选项]", Run: keyStoreGenerate},
 				"export-csr": {Name: "export-csr", Description: "导出证书请求(CSR)", Usage: "export-csr <name> [选项]", Run: keyStoreExportCSR},
 				"delete":     {Name: "delete", Description: "删除 keystore", Usage: "delete <name>", Run: keyStoreDelete},
-				"reload":     {Name: "reload", Description: "重载 keystore", Usage: "reload <name>", Run: keyStoreReload},
 			},
 		},
 		"rootcert": {

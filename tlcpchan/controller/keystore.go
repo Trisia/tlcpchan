@@ -429,33 +429,6 @@ func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Reque
 }
 
 /**
- * @api {post} /api/security/keystores/:name/reload 重载 keystore
- * @apiName ReloadKeyStore
- * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
- *
- * @apiDescription 重新加载指定的密钥库（keystore），从数据源重新读取证书和密钥
- *
- * @apiParam {String} name keystore 名称（路径参数），唯一标识符
- *
- * @apiSuccessExample {json} Success-Response:
- *     HTTP/1.1 200 OK
- *     null
- *
- * @apiErrorExample {text} Error-Response:
- *     HTTP/1.1 500 Internal Server Error
- *     重载失败: 具体错误信息
- */
-func (c *SecurityController) ReloadKeyStore(w http.ResponseWriter, r *http.Request) {
-	name := PathParam(r, "name")
-	if err := c.keyStoreMgr.Reload(name); err != nil {
-		InternalError(w, "重载失败: "+err.Error())
-		return
-	}
-	Success(w, nil)
-}
-
-/**
  * @api {post} /api/security/keystores/generate 生成 keystore（含证书）
  * @apiName GenerateKeyStore
  * @apiGroup Security-KeyStore

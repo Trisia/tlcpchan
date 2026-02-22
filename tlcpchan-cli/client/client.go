@@ -389,11 +389,6 @@ func (c *Client) DeleteKeyStore(name string) error {
 	return c.Delete("/api/security/keystores/" + url.PathEscape(name))
 }
 
-func (c *Client) ReloadKeyStore(name string) error {
-	_, err := c.Post("/api/security/keystores/"+url.PathEscape(name)+"/reload", nil)
-	return err
-}
-
 type ExportCSRRequest struct {
 	KeyType   string `json:"keyType"`
 	CSRParams struct {

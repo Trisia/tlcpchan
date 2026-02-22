@@ -180,14 +180,6 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 	return tlcpCert, nil
 }
 
-func (f *FileKeyStore) Reload() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.tlsCert = nil
-	f.tlcpCerts = nil
-	return nil
-}
-
 // FileLoader 文件加载器实现
 type FileLoader struct {
 	baseDir string
@@ -276,10 +268,6 @@ func (n *NamedKeyStore) TLCPCertificate() ([]*tlcp.Certificate, error) {
 
 func (n *NamedKeyStore) TLSCertificate() (*tls.Certificate, error) {
 	return n.delegate.TLSCertificate()
-}
-
-func (n *NamedKeyStore) Reload() error {
-	return n.delegate.Reload()
 }
 
 func (n *NamedKeyStore) GenerateCSR(keyType KeyType, params CSRParams) ([]byte, error) {

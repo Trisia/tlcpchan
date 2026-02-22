@@ -39,7 +39,6 @@ func (c *SecurityController) RegisterRoutes(r *Router) {
 	r.POST("/api/security/keystores/generate", c.GenerateKeyStore)
 	r.GET("/api/security/keystores/:name", c.GetKeyStore)
 	r.DELETE("/api/security/keystores/:name", c.DeleteKeyStore)
-	r.POST("/api/security/keystores/:name/reload", c.ReloadKeyStore)
 	r.POST("/api/security/keystores/:name/export-csr", c.ExportCSR)
 
 	r.GET("/api/security/rootcerts", c.ListRootCerts)

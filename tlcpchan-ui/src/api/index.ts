@@ -53,10 +53,6 @@ export const keyStoreApi = {
     await http.delete(`/security/keystores/${name}`)
   },
 
-  reload: async (name: string) => {
-    await http.post(`/security/keystores/${name}/reload`)
-  },
-
   exportCSR: async (name: string, data: {
     keyType: 'sign' | 'enc'
     csrParams: {

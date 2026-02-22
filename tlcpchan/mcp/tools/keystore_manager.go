@@ -24,14 +24,13 @@ func NewKeyStoreManagerTool(keyStoreMgr *security.KeyStoreManager, cfg *config.C
 	return &KeyStoreManagerTool{
 		BaseTool: NewBaseTool(
 			"keystore_manager",
-			"管理TLCP/TLS密钥存储库的完整生命周期，包括创建、生成、删除、重载等操作",
+			"管理TLCP/TLS密钥存储库的完整生命周期，包括创建、生成、删除等操作",
 			[]string{
 				"list",
 				"get",
 				"create",
 				"generate",
 				"delete",
-				"reload",
 			},
 		),
 		keyStoreMgr: keyStoreMgr,
@@ -67,14 +66,6 @@ func (t *KeyStoreManagerTool) Execute(ctx context.Context, method string, params
 			return nil, fmt.Errorf("解析参数失败: %w", err)
 		}
 		return t.delete(ctx, req.Name)
-	case "reload":
-		var req struct {
-			Name string `json:"name"`
-		}
-		if err := json.Unmarshal(params, &req); err != nil {
-			return nil, fmt.Errorf("解析参数失败: %w", err)
-		}
-		return t.reload(ctx, req.Name)
 	default:
 		return nil, fmt.Errorf("未知方法: %s", method)
 	}
@@ -267,13 +258,5 @@ func (t *KeyStoreManagerTool) delete(ctx context.Context, name string) (interfac
 		return nil, fmt.Errorf("保存配置失败: %w", err)
 	}
 
-	return nil, nil
-}
-
-// reload 重载keystore
-func (t *KeyStoreManagerTool) reload(ctx context.Context, name string) (interface{}, error) {
-	if err := t.keyStoreMgr.Reload(name); err != nil {
-		return nil, fmt.Errorf("重载失败: %w", err)
-	}
 	return nil, nil
 }

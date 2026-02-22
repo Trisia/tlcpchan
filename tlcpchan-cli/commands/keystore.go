@@ -242,27 +242,6 @@ func keyStoreDelete(args []string) error {
 	return nil
 }
 
-func keyStoreReload(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("请指定 keystore 名称")
-	}
-
-	if err := cli.ReloadKeyStore(args[0]); err != nil {
-		return err
-	}
-
-	if isJSONOutput() {
-		return printJSON(map[string]interface{}{
-			"success": true,
-			"message": "keystore 已重载",
-			"name":    args[0],
-		})
-	}
-
-	fmt.Printf("keystore %s 已重载\n", args[0])
-	return nil
-}
-
 func keyStoreExportCSR(args []string) error {
 	fs := flagSet("export-csr")
 	keyType := fs.String("key-type", "sign", "密钥类型 (sign/enc)")

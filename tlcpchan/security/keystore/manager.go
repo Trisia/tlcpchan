@@ -242,56 +242,6 @@ func (m *Manager) List() []*KeyStoreInfo {
 	return result
 }
 
-// Reload 重新加载指定的 keystore
-// 参数：
-//   - name: keystore 名称
-//
-// 返回：
-//   - error: 重载失败返回错误
-//
-// 注意：该方法会清空缓存，下次访问时重新加载证书
-func (m *Manager) Reload(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	info, exists := m.keyStoreInfo[name]
-	if !exists {
-		return fmt.Errorf("keystore %s 不存在", name)
-	}
-
-	if ks, exists := m.keyStores[name]; exists {
-		if err := ks.Reload(); err != nil {
-			return err
-		}
-	}
-
-	delete(m.keyStores, name)
-	info.UpdatedAt = time.Now()
-
-	return nil
-}
-
-// ReloadAll 重新加载所有 keystore
-// 返回：
-//   - []error: 重载失败的错误列表
-func (m *Manager) ReloadAll() []error {
-	m.mu.RLock()
-	names := make([]string, 0, len(m.keyStoreInfo))
-	for name := range m.keyStoreInfo {
-		names = append(names, name)
-	}
-	m.mu.RUnlock()
-
-	var errs []error
-	for _, name := range names {
-		if err := m.Reload(name); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	return errs
-}
-
 // LoadFromConfig 从简化配置加载 keystore
 // 参数：
 //   - config: 配置，可以是:
