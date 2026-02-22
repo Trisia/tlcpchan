@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gitee.com/Trisia/gotlcp/pa"
@@ -75,17 +76,19 @@ func ParseProtocolType(s string) ProtocolType {
 }
 
 type TLCPAdapter struct {
-	mu                    sync.RWMutex
-	protocol              ProtocolType
-	tlcpConfig            *tlcp.Config
-	tlsConfig             *tls.Config
-	tlcpKeyStore          security.KeyStore
-	tlsKeyStore           security.KeyStore
-	keyStoreManager       *security.KeyStoreManager
-	rootCertManager       *security.RootCertManager
-	logger                *logger.Logger
-	healthCheckTLCPConfig *tlcp.Config
-	healthCheckTLSConfig  *tls.Config
+	mu               sync.RWMutex
+	protocol         ProtocolType
+	tlcpConfig       *tlcp.Config
+	tlsConfig        *tls.Config
+	outerTLCPConfig  *tlcp.Config
+	outerTLSConfig   *tls.Config
+	atomicTLCPConfig atomic.Value
+	atomicTLSConfig  atomic.Value
+	tlcpKeyStore     security.KeyStore
+	tlsKeyStore      security.KeyStore
+	keyStoreManager  *security.KeyStoreManager
+	rootCertManager  *security.RootCertManager
+	logger           *logger.Logger
 }
 
 func NewTLCPAdapter(
@@ -124,15 +127,15 @@ func (a *TLCPAdapter) loadKeyStoreFromConfig(ksConfig *config.KeyStoreConfig, su
 }
 
 func (a *TLCPAdapter) TLCPListener(l net.Listener) net.Listener {
-	return tlcp.NewListener(l, a.getTLCPConfig())
+	return tlcp.NewListener(l, a.outerTLCPConfig)
 }
 
 func (a *TLCPAdapter) TLSListener(l net.Listener) net.Listener {
-	return tls.NewListener(l, a.getTLSConfig())
+	return tls.NewListener(l, a.outerTLSConfig)
 }
 
 func (a *TLCPAdapter) AutoListener(l net.Listener) net.Listener {
-	return pa.NewListener(l, a.getTLCPConfig(), a.getTLSConfig())
+	return pa.NewListener(l, a.outerTLCPConfig, a.outerTLSConfig)
 }
 
 func (a *TLCPAdapter) WrapServerListener(l net.Listener) net.Listener {
@@ -161,7 +164,8 @@ func (a *TLCPAdapter) DialTLCP(network, addr string, cfg *config.InstanceConfig)
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
-	return tlcp.DialWithDialer(dialer, network, addr, a.getTLCPConfig())
+	tlcpConfig := a.atomicTLCPConfig.Load().(*tlcp.Config)
+	return tlcp.DialWithDialer(dialer, network, addr, tlcpConfig)
 }
 
 func (a *TLCPAdapter) DialTLS(network, addr string, cfg *config.InstanceConfig) (net.Conn, error) {
@@ -169,7 +173,8 @@ func (a *TLCPAdapter) DialTLS(network, addr string, cfg *config.InstanceConfig) 
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
-	return tls.DialWithDialer(dialer, network, addr, a.getTLSConfig())
+	tlsConfig := a.atomicTLSConfig.Load().(*tls.Config)
+	return tls.DialWithDialer(dialer, network, addr, tlsConfig)
 }
 
 func (a *TLCPAdapter) DialWithProtocol(network, addr string, protocol ProtocolType, cfg *config.InstanceConfig) (net.Conn, error) {
@@ -248,15 +253,10 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 		if len(certs) == 0 {
 			return fmt.Errorf("TLCP证书不能为空")
 		}
-		tlcpConfig.GetCertificate = func(chi *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
-			return certs[0], nil
+		tlcpConfig.Certificates = make([]tlcp.Certificate, len(certs))
+		for i, cert := range certs {
+			tlcpConfig.Certificates[i] = *cert
 		}
-		if len(certs) > 1 {
-			tlcpConfig.GetKECertificate = func(chi *tlcp.ClientHelloInfo) (*tlcp.Certificate, error) {
-				return certs[1], nil
-			}
-		}
-
 		clientAuthType, _ := config.ParseTLCPClientAuth(cfg.TLCP.ClientAuthType)
 		if clientAuthType != tlcp.NoClientCert && rootCertPool != nil {
 			tlcpConfig.ClientCAs = rootCertPool.GetSMCertPool()
@@ -285,9 +285,11 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 
 	if a.tlsKeyStore != nil {
 		tlsConfig = &tls.Config{}
-		tlsConfig.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return a.tlsKeyStore.TLSCertificate()
+		cert, err := a.tlsKeyStore.TLSCertificate()
+		if err != nil {
+			return err
 		}
+		tlsConfig.Certificates = []tls.Certificate{*cert}
 
 		clientAuthType, _ := config.ParseTLSClientAuth(cfg.TLS.ClientAuthType)
 		if clientAuthType != tls.NoClientCert && rootCertPool != nil {
@@ -316,10 +318,29 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 	}
 
 	a.mu.Lock()
+
 	a.tlcpConfig = tlcpConfig
 	a.tlsConfig = tlsConfig
-	a.healthCheckTLCPConfig = tlcpConfig
-	a.healthCheckTLSConfig = tlsConfig
+
+	if a.outerTLCPConfig == nil && tlcpConfig != nil {
+		a.outerTLCPConfig = &tlcp.Config{
+			GetConfigForClient: func(hello *tlcp.ClientHelloInfo) (*tlcp.Config, error) {
+				return a.atomicTLCPConfig.Load().(*tlcp.Config), nil
+			},
+		}
+	}
+
+	if a.outerTLSConfig == nil && tlsConfig != nil {
+		a.outerTLSConfig = &tls.Config{
+			GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+				return a.atomicTLSConfig.Load().(*tls.Config), nil
+			},
+		}
+	}
+
+	a.atomicTLCPConfig.Store(tlcpConfig)
+	a.atomicTLSConfig.Store(tlsConfig)
+
 	a.mu.Unlock()
 
 	return nil
@@ -348,6 +369,25 @@ func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 
 	tlcpConfig = &tlcp.Config{
 		InsecureSkipVerify: cfg.TLCP.InsecureSkipVerify,
+	}
+	if cfg.SNI != "" {
+		tlcpConfig.ServerName = cfg.SNI
+	}
+	if a.tlcpKeyStore != nil {
+		certs, err := a.tlcpKeyStore.TLCPCertificate()
+		if err != nil {
+			return err
+		}
+		if len(certs) == 0 {
+			return fmt.Errorf("TLCP证书不能为空")
+		}
+		tlcpConfig.Certificates = make([]tlcp.Certificate, len(certs))
+		for i, cert := range certs {
+			tlcpConfig.Certificates[i] = *cert
+		}
+	}
+	if rootCertPool != nil {
+		tlcpConfig.RootCAs = rootCertPool.GetSMCertPool()
 	}
 	if cfg.SNI != "" {
 		tlcpConfig.ServerName = cfg.SNI
@@ -399,9 +439,11 @@ func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 		tlsConfig.ServerName = cfg.SNI
 	}
 	if a.tlsKeyStore != nil {
-		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return a.tlsKeyStore.TLSCertificate()
+		cert, err := a.tlsKeyStore.TLSCertificate()
+		if err != nil {
+			return err
 		}
+		tlsConfig.Certificates = []tls.Certificate{*cert}
 	}
 	if rootCertPool != nil {
 		tlsConfig.RootCAs = rootCertPool.GetCertPool()
@@ -427,10 +469,13 @@ func (a *TLCPAdapter) reloadClientConfig(cfg *config.InstanceConfig) error {
 	}
 
 	a.mu.Lock()
+
 	a.tlcpConfig = tlcpConfig
 	a.tlsConfig = tlsConfig
-	a.healthCheckTLCPConfig = tlcpConfig
-	a.healthCheckTLSConfig = tlsConfig
+
+	a.atomicTLCPConfig.Store(tlcpConfig)
+	a.atomicTLSConfig.Store(tlsConfig)
+
 	a.mu.Unlock()
 
 	return nil
@@ -489,55 +534,23 @@ func (a *TLCPAdapter) CheckHealth(protocol ProtocolType, timeout time.Duration, 
 }
 
 func (a *TLCPAdapter) checkTLCPHealth(dialer *net.Dialer, targetAddr string) (net.Conn, error) {
-	a.mu.RLock()
-	baseConfig := a.healthCheckTLCPConfig
-	keyStore := a.tlcpKeyStore
-	a.mu.RUnlock()
-
+	baseConfig := a.atomicTLCPConfig.Load().(*tlcp.Config)
 	if baseConfig == nil {
 		return nil, fmt.Errorf("TLCP配置未初始化")
 	}
 
 	healthConfig := baseConfig.Clone()
 
-	if keyStore != nil {
-		certs, err := keyStore.TLCPCertificate()
-		if err != nil {
-			return nil, err
-		}
-		if len(certs) == 0 {
-			return nil, fmt.Errorf("TLCP证书不能为空")
-		}
-		healthConfig.GetClientCertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
-			return certs[0], nil
-		}
-		if len(certs) > 1 {
-			healthConfig.GetClientKECertificate = func(*tlcp.CertificateRequestInfo) (*tlcp.Certificate, error) {
-				return certs[1], nil
-			}
-		}
-	}
-
 	return tlcp.DialWithDialer(dialer, "tcp", targetAddr, healthConfig)
 }
 
 func (a *TLCPAdapter) checkTLSHealth(dialer *net.Dialer, targetAddr string) (net.Conn, error) {
-	a.mu.RLock()
-	baseConfig := a.healthCheckTLSConfig
-	keyStore := a.tlsKeyStore
-	a.mu.RUnlock()
-
+	baseConfig := a.atomicTLSConfig.Load().(*tls.Config)
 	if baseConfig == nil {
 		return nil, fmt.Errorf("TLS配置未初始化")
 	}
 
 	healthConfig := baseConfig.Clone()
-
-	if keyStore != nil {
-		healthConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return keyStore.TLSCertificate()
-		}
-	}
 
 	return tls.DialWithDialer(dialer, "tcp", targetAddr, healthConfig)
 }
