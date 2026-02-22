@@ -257,11 +257,11 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 		for i, cert := range certs {
 			tlcpConfig.Certificates[i] = *cert
 		}
-		clientAuthType, _ := config.ParseTLCPClientAuth(cfg.TLCP.ClientAuthType)
-		if clientAuthType != tlcp.NoClientCert && rootCertPool != nil {
+
+		tlcpConfig.ClientAuth, _ = config.ParseTLCPClientAuth(cfg.TLCP.ClientAuthType)
+		if rootCertPool != nil {
 			tlcpConfig.ClientCAs = rootCertPool.GetSMCertPool()
 		}
-		tlcpConfig.ClientAuth = clientAuthType
 
 		if len(cfg.TLCP.CipherSuites) > 0 {
 			suites, _ := config.ParseCipherSuites(cfg.TLCP.CipherSuites, true)
@@ -291,11 +291,10 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 		}
 		tlsConfig.Certificates = []tls.Certificate{*cert}
 
-		clientAuthType, _ := config.ParseTLSClientAuth(cfg.TLS.ClientAuthType)
-		if clientAuthType != tls.NoClientCert && rootCertPool != nil {
+		tlsConfig.ClientAuth, _ = config.ParseTLSClientAuth(cfg.TLS.ClientAuthType)
+		if rootCertPool != nil {
 			tlsConfig.ClientCAs = rootCertPool.GetCertPool()
 		}
-		tlsConfig.ClientAuth = clientAuthType
 
 		if len(cfg.TLS.CipherSuites) > 0 {
 			suites, _ := config.ParseCipherSuites(cfg.TLS.CipherSuites, false)
