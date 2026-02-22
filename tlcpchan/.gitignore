@@ -21,3 +21,6 @@ target
 # vendor/
 
 tlcpchan
+.tlcpchan-initialized
+rootcerts
+keystores
