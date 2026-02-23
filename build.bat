@@ -2,7 +2,7 @@
 rmdir /s /q target 2>nul
 mkdir target
 cd tlcpchan
-go build -o ../target/tlcpchan.exe ./cmd/tlcpchan
+go build -o ../target/tlcpchan.exe 
 cd ..
 cd tlcpchan-cli
 go build -o ../target/tlcpchan-cli.exe
