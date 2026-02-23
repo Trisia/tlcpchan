@@ -20,10 +20,7 @@
             <span>MCP 配置</span>
           </template>
           <el-form label-width="120px">
-            <el-form-item label="启用 MCP">
-              <el-switch v-model="config.mcp!.enabled" />
-            </el-form-item>
-            <el-form-item label="API 密钥" v-if="config.mcp!.enabled">
+            <el-form-item label="API 密钥">
               <el-input v-model="config.mcp!.apiKey" type="password" show-password placeholder="留空表示无需认证" />
             </el-form-item>
           </el-form>
@@ -43,10 +40,10 @@
             </el-form-item>
             <el-form-item label="日志级别">
               <el-select v-model="logConfig!.level">
-              <el-option value="debug" label="debug" />
-              <el-option value="info" label="info" />
-              <el-option value="warn" label="warn" />
-              <el-option value="error" label="error" />
+                <el-option value="debug" label="debug" />
+                <el-option value="info" label="info" />
+                <el-option value="warn" label="warn" />
+                <el-option value="error" label="error" />
               </el-select>
             </el-form-item>
             <el-form-item label="日志文件路径">
@@ -76,11 +73,15 @@
         <span>操作</span>
       </template>
       <el-button type="primary" @click="saveConfig" :loading="saving">
-        <el-icon><DocumentChecked /></el-icon>
+        <el-icon>
+          <DocumentChecked />
+        </el-icon>
         保存配置
       </el-button>
       <el-button type="success" @click="reloadConfig" :loading="reloading">
-        <el-icon><Refresh /></el-icon>
+        <el-icon>
+          <Refresh />
+        </el-icon>
         重载配置
       </el-button>
     </el-card>
@@ -107,7 +108,6 @@ const config = ref<Config>({
     }
   },
   mcp: {
-    enabled: false,
     apiKey: ''
   },
   keystores: [],

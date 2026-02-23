@@ -350,6 +350,7 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	c.log.Info("创建 keystore: %s", name)
 	Success(w, info)
 }
 
@@ -443,6 +444,7 @@ func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	c.log.Info("删除 keystore: %s", name)
 	Success(w, nil)
 }
 
@@ -765,6 +767,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	c.log.Info("生成 keystore: %s", req.Name)
 	Success(w, info)
 }
 

@@ -58,12 +58,32 @@
           <el-descriptions :column="1" border size="small">
             <el-descriptions-item label="类型">{{ instance?.config.type }}</el-descriptions-item>
             <el-descriptions-item label="协议">{{ instance?.config.protocol }}</el-descriptions-item>
-            <el-descriptions-item label="TLCP认证">{{ instance?.config.tlcp?.clientAuthType || 'no-client-cert' }}</el-descriptions-item>
-            <el-descriptions-item label="TLS认证">{{ instance?.config.tls?.clientAuthType || 'no-client-cert' }}</el-descriptions-item>
             <el-descriptions-item label="监听地址">{{ instance?.config.listen }}</el-descriptions-item>
             <el-descriptions-item label="目标地址">{{ instance?.config.target }}</el-descriptions-item>
              <el-descriptions-item label="运行时长">{{ formatUptime(instance?.uptime || 0) }}</el-descriptions-item>
           </el-descriptions>
+        </el-card>
+
+        <el-card style="margin-top: 20px">
+          <template #header>
+            <span>协议配置</span>
+          </template>
+          <el-collapse v-model="activeCollapse" accordion>
+            <el-collapse-item name="tlcp" title="TLCP 配置" :disabled="instance?.config.protocol === 'tls'">
+              <ProtocolConfigDetail
+                v-if="instance?.config.tlcp"
+                :config="instance.config.tlcp"
+                :is-tlcp="true"
+              />
+            </el-collapse-item>
+            <el-collapse-item name="tls" title="TLS 配置" :disabled="instance?.config.protocol === 'tlcp'">
+              <ProtocolConfigDetail
+                v-if="instance?.config.tls"
+                :config="instance.config.tls"
+                :is-tlcp="false"
+              />
+            </el-collapse-item>
+          </el-collapse>
         </el-card>
 
          <el-card style="margin-top: 20px">
@@ -107,6 +127,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import ProtocolConfigDetail from '@/components/ProtocolConfigDetail.vue'
 import { instanceApi } from '@/api'
 import type { Instance, InstanceHealthResponse, InstanceStats } from '@/types'
 
@@ -120,6 +141,7 @@ const logLevel = ref('')
 const logsLoading = ref(false)
 const healthLoading = ref(false)
 const healthResults = ref<InstanceHealthResponse | null>(null)
+const activeCollapse = ref(['tlcp', 'tls'])
 
 const name = computed(() => route.params.name as string)
 

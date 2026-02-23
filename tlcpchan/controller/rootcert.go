@@ -119,6 +119,7 @@ func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Reque
 		InternalError(w, "删除失败: "+err.Error())
 		return
 	}
+	c.log.Info("删除根证书: %s", filename)
 	Success(w, nil)
 }
 
@@ -209,6 +210,7 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	c.log.Info("添加根证书: %s", filename)
 	Success(w, cert)
 }
 
@@ -233,6 +235,7 @@ func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Requ
 		InternalError(w, "重载失败: "+err.Error())
 		return
 	}
+	c.log.Info("重载根证书")
 	Success(w, nil)
 }
 
@@ -381,5 +384,6 @@ func (c *SecurityController) GenerateRootCA(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	c.log.Info("生成根CA证书: %s", req.CommonName)
 	Success(w, cert)
 }

@@ -26,34 +26,6 @@
             <el-option label="TLS" value="tls" />
           </el-select>
         </el-form-item>
-        <el-form-item label="TLCP客户端认证" :disabled="form.protocol === 'tls'">
-          <el-select v-model="form.tlcp.clientAuthType" placeholder="请选择认证类型">
-            <el-option label="no-client-cert" value="no-client-cert" />
-            <el-option label="request-client-cert" value="request-client-cert" />
-            <el-option label="require-any-client-cert" value="require-any-client-cert" />
-            <el-option label="verify-client-cert-if-given" value="verify-client-cert-if-given" />
-            <el-option label="require-and-verify-client-cert" value="require-and-verify-client-cert" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="TLS客户端认证" :disabled="form.protocol === 'tlcp'">
-          <el-select v-model="form.tls.clientAuthType" placeholder="请选择认证类型">
-            <el-option label="no-client-cert" value="no-client-cert" />
-            <el-option label="request-client-cert" value="request-client-cert" />
-            <el-option label="require-any-client-cert" value="require-any-client-cert" />
-            <el-option label="verify-client-cert-if-given" value="verify-client-cert-if-given" />
-            <el-option label="require-and-verify-client-cert" value="require-and-verify-client-cert" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="选择密钥">
-          <el-select v-model="selectedKeystoreName" placeholder="请选择密钥（可选）" clearable @change="onKeystoreChange">
-            <el-option
-              v-for="ks in keystores"
-              :key="ks.name"
-              :label="ks.name"
-              :value="ks.name"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="监听地址" required>
           <el-input v-model="form.listen" placeholder=":443" />
         </el-form-item>
@@ -63,35 +35,85 @@
         <el-form-item label="启用">
           <el-switch v-model="form.enabled" />
         </el-form-item>
-        
-        <el-divider content-position="left">TLCP 高级配置</el-divider>
+
+        <el-form-item>
+          <el-button type="primary" @click="create" :loading="loading">创建</el-button>
+          <el-button @click="router.back()">取消</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- TLCP 配置卡片 -->
+    <el-card style="margin-top: 20px" :disabled="form.protocol === 'tls'">
+      <template #header>
+        <span>TLCP 配置</span>
+      </template>
+      <el-form :model="form" label-width="140px">
+        <KeystoreConfig
+          v-model="form.tlcp.keystoreConfig"
+          :keystores="keystores"
+          :is-tlcp="true"
+        />
+        <el-form-item label="客户端认证类型">
+          <el-select v-model="form.tlcp.clientAuthType" placeholder="请选择认证类型">
+            <el-option label="no-client-cert" value="no-client-cert" />
+            <el-option label="request-client-cert" value="request-client-cert" />
+            <el-option label="require-any-client-cert" value="require-any-client-cert" />
+            <el-option label="verify-client-cert-if-given" value="verify-client-cert-if-given" />
+            <el-option label="require-and-verify-client-cert" value="require-and-verify-client-cert" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="最低版本">
-          <el-select v-model="form.tlcp.minVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
+          <el-select v-model="form.tlcp.minVersion" placeholder="请选择">
             <el-option label="1.1" value="1.1" />
           </el-select>
         </el-form-item>
         <el-form-item label="最高版本">
-          <el-select v-model="form.tlcp.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
+          <el-select v-model="form.tlcp.maxVersion" placeholder="请选择">
             <el-option label="1.1" value="1.1" />
           </el-select>
         </el-form-item>
         <el-form-item label="密码套件">
-          <el-checkbox-group v-model="form.tlcp.cipherSuites" :disabled="form.protocol === 'tls'">
+          <el-checkbox-group v-model="form.tlcp.cipherSuites">
             <div class="cipher-grid">
               <el-checkbox v-for="cs in TLCP_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
             </div>
           </el-checkbox-group>
         </el-form-item>
+        <el-form-item label="会话票据">
+          <el-switch v-model="form.tlcp.sessionTickets" />
+        </el-form-item>
         <el-form-item label="会话缓存">
-          <el-switch v-model="form.tlcp.sessionCache" :disabled="form.protocol === 'tls'" />
+          <el-switch v-model="form.tlcp.sessionCache" />
         </el-form-item>
-        <el-form-item label="跳过会话证书验证">
-          <el-switch v-model="form.tlcp.insecureSkipVerify" :disabled="form.protocol === 'tls'" />
+        <el-form-item label="跳过证书验证">
+          <el-switch v-model="form.tlcp.insecureSkipVerify" />
         </el-form-item>
+      </el-form>
+    </el-card>
 
-        <el-divider content-position="left">TLS 高级配置</el-divider>
+    <!-- TLS 配置卡片 -->
+    <el-card style="margin-top: 20px" :disabled="form.protocol === 'tlcp'">
+      <template #header>
+        <span>TLS 配置</span>
+      </template>
+      <el-form :model="form" label-width="140px">
+        <KeystoreConfig
+          v-model="form.tls.keystoreConfig"
+          :keystores="keystores"
+          :is-tlcp="false"
+        />
+        <el-form-item label="客户端认证类型">
+          <el-select v-model="form.tls.clientAuthType" placeholder="请选择认证类型">
+            <el-option label="no-client-cert" value="no-client-cert" />
+            <el-option label="request-client-cert" value="request-client-cert" />
+            <el-option label="require-any-client-cert" value="require-any-client-cert" />
+            <el-option label="verify-client-cert-if-given" value="verify-client-cert-if-given" />
+            <el-option label="require-and-verify-client-cert" value="require-and-verify-client-cert" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="最低版本">
-          <el-select v-model="form.tls.minVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+          <el-select v-model="form.tls.minVersion" placeholder="请选择">
             <el-option label="1.0" value="1.0" />
             <el-option label="1.1" value="1.1" />
             <el-option label="1.2" value="1.2" />
@@ -99,7 +121,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="最高版本">
-          <el-select v-model="form.tls.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+          <el-select v-model="form.tls.maxVersion" placeholder="请选择">
             <el-option label="1.0" value="1.0" />
             <el-option label="1.1" value="1.1" />
             <el-option label="1.2" value="1.2" />
@@ -107,25 +129,20 @@
           </el-select>
         </el-form-item>
         <el-form-item label="密码套件">
-          <el-checkbox-group v-model="form.tls.cipherSuites" :disabled="form.protocol === 'tlcp'">
+          <el-checkbox-group v-model="form.tls.cipherSuites">
             <div class="cipher-grid">
               <el-checkbox v-for="cs in TLS_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
             </div>
           </el-checkbox-group>
         </el-form-item>
         <el-form-item label="会话票据">
-          <el-switch v-model="form.tls.sessionTickets" :disabled="form.protocol === 'tlcp'" />
+          <el-switch v-model="form.tls.sessionTickets" />
         </el-form-item>
         <el-form-item label="会话缓存">
-          <el-switch v-model="form.tls.sessionCache" :disabled="form.protocol === 'tlcp'" />
+          <el-switch v-model="form.tls.sessionCache" />
         </el-form-item>
         <el-form-item label="跳过证书验证">
-          <el-switch v-model="form.tls.insecureSkipVerify" :disabled="form.protocol === 'tlcp'" />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="create" :loading="loading">创建</el-button>
-          <el-button @click="router.back()">取消</el-button>
+          <el-switch v-model="form.tls.insecureSkipVerify" />
         </el-form-item>
       </el-form>
     </el-card>
@@ -136,6 +153,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import KeystoreConfig from '@/components/KeystoreConfig.vue'
 import { instanceApi, keyStoreApi } from '@/api'
 import type { InstanceConfig } from '@/types'
 
@@ -143,8 +161,6 @@ const router = useRouter()
 
 const loading = ref(false)
 const keystores = ref<any[]>([])
-const selectedKeystoreName = ref('')
-const selectedKeystoreType = ref('')
 
 const TLCP_CIPHER_SUITES = [
   'ECC_SM4_CBC_SM3',
@@ -179,7 +195,8 @@ const form = ref<InstanceConfig>({
     cipherSuites: [],
     sessionCache: false,
     insecureSkipVerify: false,
-    keystore: undefined
+    keystore: undefined,
+    keystoreConfig: { type: 'named', name: undefined, params: {} }
   },
   tls: {
     clientAuthType: 'no-client-cert',
@@ -189,7 +206,8 @@ const form = ref<InstanceConfig>({
     sessionTickets: false,
     sessionCache: false,
     insecureSkipVerify: false,
-    keystore: undefined
+    keystore: undefined,
+    keystoreConfig: { type: 'named', name: undefined, params: {} }
   }
 })
 
@@ -203,15 +221,6 @@ async function loadKeystores() {
     keystores.value = result.keystores || []
   } catch (err) {
     console.error('获取密钥列表失败:', err)
-  }
-}
-
-function onKeystoreChange(name: string) {
-  if (name) {
-    const ks = keystores.value.find(k => k.name === name)
-    selectedKeystoreType.value = ks?.type || ''
-  } else {
-    selectedKeystoreType.value = ''
   }
 }
 
@@ -230,14 +239,55 @@ async function create() {
     data.tls.auth = form.value.auth
   }
 
-  if (selectedKeystoreName.value) {
-    const ksData = { name: selectedKeystoreName.value }
-    if (form.value.protocol === 'tlcp' || form.value.protocol === 'auto') {
-      data.tlcp = { ...data.tlcp, keystore: ksData }
+  // 处理 TLCP keystore 配置
+  if (form.value.tlcp.keystoreConfig) {
+    const ksConfig = form.value.tlcp.keystoreConfig
+    if (ksConfig.type === 'named' && ksConfig.name) {
+      if (form.value.protocol === 'tlcp' || form.value.protocol === 'auto') {
+        data.tlcp.keystore = { type: 'named', name: ksConfig.name }
+      }
+    } else if (ksConfig.type === 'file') {
+      const hasRequiredFields = ksConfig.params['sign-cert'] && ksConfig.params['sign-key'] &&
+        ksConfig.params['enc-cert'] && ksConfig.params['enc-key']
+      
+      if (hasRequiredFields) {
+        if (form.value.protocol === 'tlcp' || form.value.protocol === 'auto') {
+          data.tlcp.keystore = {
+            type: 'file',
+            params: ksConfig.params
+          }
+        }
+      }
     }
-    if (form.value.protocol === 'tls' || form.value.protocol === 'auto') {
-      data.tls = { ...data.tls, keystore: ksData }
+  }
+
+  // 处 fancyp TLS keystore 配置
+  if (form.value.tls.keystoreConfig) {
+    const ksConfig = form.value.tls.keystoreConfig
+    if (ksConfig.type === 'named' && ksConfig.name) {
+      if (form.value.protocol === 'tls' || form.value.protocol === 'auto') {
+        data.tls.keystore = { type: 'named', name: ksConfig.name }
+      }
+    } else if (ksConfig.type === 'file') {
+      const hasRequiredFields = ksConfig.params['sign-cert'] && ksConfig.params['sign-key']
+      
+      if (hasRequiredFields) {
+        if (form.value.protocol === 'tls' || form.value.protocol === 'auto') {
+          data.tls.keystore = {
+            type: 'file',
+            params: ksConfig.params
+          }
+        }
+      }
     }
+  }
+
+  // 删除 keystoreConfig 字段（前端使用字段）
+  if (data.tlcp) {
+    delete data.tlcp.keystoreConfig
+  }
+  if (data.tls) {
+    delete data.tls.keystoreConfig
   }
 
   loading.value = true

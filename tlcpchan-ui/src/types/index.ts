@@ -29,15 +29,24 @@ export interface KeyStoreConfig {
   params: Record<string, string>
 }
 
+// 前端 UI 使用的 keystore 配置，支持 named 和 file 类型
+export interface KeystoreConfigUI {
+  type: 'named' | 'file'
+  name?: string
+  params: Record<string, string>
+}
+
 export interface TLCPConfig {
   auth?: 'none' | 'one-way' | 'mutual'
   clientAuthType?: 'no-client-cert' | 'request-client-cert' | 'require-any-client-cert' | 'verify-client-cert-if-given' | 'require-and-verify-client-cert'
   minVersion?: string
   maxVersion?: string
   cipherSuites?: string[]
+  sessionTickets?: boolean
   sessionCache?: boolean
   insecureSkipVerify?: boolean
   keystore?: KeyStoreConfig
+  keystoreConfig?: KeystoreConfigUI
 }
 
 export interface TLSConfig {
@@ -50,6 +59,7 @@ export interface TLSConfig {
   sessionCache?: boolean
   insecureSkipVerify?: boolean
   keystore?: KeyStoreConfig
+  keystoreConfig?: KeystoreConfigUI
 }
 
 export interface HTTPConfig {
@@ -201,7 +211,6 @@ export interface Config {
     }
   }
   mcp?: {
-    enabled: boolean
     apiKey: string
   }
   keystores: KeyStoreConfig[]

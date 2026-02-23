@@ -26,7 +26,7 @@
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
             <el-tag size="small" :type="row.type === CertType.TLCP ? 'primary' : 'success'">{{ row.type.toUpperCase()
-            }}</el-tag>
+              }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="签名证书/密钥" width="180">
@@ -56,33 +56,16 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-               <el-table-column label="算法" width="100">
-          <template #default="{ row }">
-            {{ row.type === CertType.TLCP ? 'SM2' : 'ECDSA' }}
-          </template>
-        </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="保护状态" width="90">
-          <template #default="{ row }">
-            <el-tag v-if="row.protected" size="small" type="warning">受保护</el-tag>
-            <el-tag v-else size="small">可删除</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button type="success" size="small" link @click="goToExportCSR(row)">导出 CSR</el-button>
             <el-button type="primary" size="small" link @click="goToUpdateCertificate(row)">更新证书</el-button>
-            <el-button 
-              v-if="!row.protected" 
-              type="danger" 
-              size="small" 
-              link 
-              @click="remove(row.name)"
-            >
+            <el-button v-if="!row.protected" type="danger" size="small" link @click="remove(row.name)">
               删除
             </el-button>
           </template>

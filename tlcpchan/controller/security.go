@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/Trisia/tlcpchan/config"
+	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
 )
 
@@ -12,6 +13,7 @@ type SecurityController struct {
 	rootCertMgr *security.RootCertManager // 根证书管理器
 	cfg         *config.Config            // 全局配置
 	configPath  string                    // 配置文件路径
+	log         *logger.Logger            // 日志记录器
 }
 
 // NewSecurityController 创建安全参数管理控制器
@@ -29,6 +31,7 @@ func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *s
 		rootCertMgr: rootCertMgr,
 		cfg:         cfg,
 		configPath:  configPath,
+		log:         logger.Default(),
 	}
 }
 
