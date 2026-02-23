@@ -281,7 +281,7 @@ func (m *Manager) Initialize() error {
 			Protocol: "auto",
 			Enabled:  true,
 			TLCP: config.TLCPConfig{
-				ClientAuthType: "request-client-cert",
+				ClientAuthType: "no-client-cert",
 				Keystore: &config.KeyStoreConfig{
 					Type: keystore.LoaderTypeFile,
 					Params: map[string]string{
@@ -293,7 +293,7 @@ func (m *Manager) Initialize() error {
 				},
 			},
 			TLS: config.TLSConfig{
-				ClientAuthType: "request-client-cert",
+				ClientAuthType: "no-client-cert",
 				Keystore: &config.KeyStoreConfig{
 					Type: keystore.LoaderTypeFile,
 					Params: map[string]string{

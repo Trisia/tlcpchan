@@ -94,15 +94,12 @@ func instanceCreate(args []string) error {
 	tlcpMinVersion := fs.String("tlcp-min-version", "", "TLCP最小协议版本")
 	tlcpMaxVersion := fs.String("tlcp-max-version", "", "TLCP最大协议版本")
 	tlcpCipherSuites := fs.String("tlcp-cipher-suites", "", "TLCP密码套件，多个用逗号分隔")
-	tlcpCurvePreferences := fs.String("tlcp-curve-preferences", "", "TLCP椭圆曲线偏好，多个用逗号分隔")
-	tlcpSessionTickets := fs.Bool("tlcp-session-tickets", false, "启用TLCP会话票据")
 	tlcpSessionCache := fs.Bool("tlcp-session-cache", false, "启用TLCP会话缓存")
 	tlcpInsecureSkipVerify := fs.Bool("tlcp-insecure-skip-verify", false, "跳过TLCP证书验证（不安全）")
 
 	tlsMinVersion := fs.String("tls-min-version", "", "TLS最小协议版本")
 	tlsMaxVersion := fs.String("tls-max-version", "", "TLS最大协议版本")
 	tlsCipherSuites := fs.String("tls-cipher-suites", "", "TLS密码套件，多个用逗号分隔")
-	tlsCurvePreferences := fs.String("tls-curve-preferences", "", "TLS椭圆曲线偏好，多个用逗号分隔")
 	tlsSessionTickets := fs.Bool("tls-session-tickets", false, "启用TLS会话票据")
 	tlsSessionCache := fs.Bool("tls-session-cache", false, "启用TLS会话缓存")
 	tlsInsecureSkipVerify := fs.Bool("tls-insecure-skip-verify", false, "跳过TLS证书验证（不安全）")
@@ -164,7 +161,7 @@ func instanceCreate(args []string) error {
 				},
 			}
 			populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
-				tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
+				tlcpSessionCache, tlcpInsecureSkipVerify)
 		}
 		if *protocol == "tls" || *protocol == "auto" {
 			cfg.TLS = &client.TLSConfig{
@@ -174,7 +171,7 @@ func instanceCreate(args []string) error {
 				},
 			}
 			populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
-				tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
+				tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 		}
 	} else {
 		if (*tlcpSignCert != "" && *tlcpSignKey != "") || (*tlcpEncCert != "" && *tlcpEncKey != "") {
@@ -200,7 +197,7 @@ func instanceCreate(args []string) error {
 					},
 				}
 				populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
-					tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
+					tlcpSessionCache, tlcpInsecureSkipVerify)
 			}
 		}
 
@@ -218,7 +215,7 @@ func instanceCreate(args []string) error {
 					},
 				}
 				populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
-					tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
+					tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 			}
 		}
 	}
@@ -271,15 +268,12 @@ func instanceUpdate(args []string) error {
 	tlcpMinVersion := fs.String("tlcp-min-version", "", "TLCP最小协议版本")
 	tlcpMaxVersion := fs.String("tlcp-max-version", "", "TLCP最大协议版本")
 	tlcpCipherSuites := fs.String("tlcp-cipher-suites", "", "TLCP密码套件，多个用逗号分隔")
-	tlcpCurvePreferences := fs.String("tlcp-curve-preferences", "", "TLCP椭圆曲线偏好，多个用逗号分隔")
-	tlcpSessionTickets := fs.Bool("tlcp-session-tickets", false, "启用TLCP会话票据")
 	tlcpSessionCache := fs.Bool("tlcp-session-cache", false, "启用TLCP会话缓存")
-	tlcpInsecureSkipVerify := fs.Bool("tlcp-insecure-skip-verify", false, "跳过TLCP证书验证（不安全）")
+	tlcpInsecureSkipVerify := fs.Bool("tlcp-insecure-skip-verify", false, "跳过TLCP证书验证了（不安全）")
 
 	tlsMinVersion := fs.String("tls-min-version", "", "TLS最小协议版本")
 	tlsMaxVersion := fs.String("tls-max-version", "", "TLS最大协议版本")
 	tlsCipherSuites := fs.String("tls-cipher-suites", "", "TLS密码套件，多个用逗号分隔")
-	tlsCurvePreferences := fs.String("tls-curve-preferences", "", "TLS椭圆曲线偏好，多个用逗号分隔")
 	tlsSessionTickets := fs.Bool("tls-session-tickets", false, "启用TLS会话票据")
 	tlsSessionCache := fs.Bool("tls-session-cache", false, "启用TLS会话缓存")
 	tlsInsecureSkipVerify := fs.Bool("tls-insecure-skip-verify", false, "跳过TLS证书验证（不安全）")
@@ -363,7 +357,7 @@ func instanceUpdate(args []string) error {
 				Name: *keystoreName,
 			}
 			populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
-				tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
+				tlcpSessionCache, tlcpInsecureSkipVerify)
 		}
 		if cfg.Protocol == "tls" || cfg.Protocol == "auto" {
 			if cfg.TLS == nil {
@@ -373,7 +367,7 @@ func instanceUpdate(args []string) error {
 				Name: *keystoreName,
 			}
 			populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
-				tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
+				tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 		}
 	} else {
 		if (*tlcpSignCert != "" && *tlcpSignKey != "") || (*tlcpEncCert != "" && *tlcpEncKey != "") {
@@ -408,7 +402,7 @@ func instanceUpdate(args []string) error {
 					cfg.TLCP.ClientAuthType = *tlcpClientAuthType
 				}
 				populateTLCPConfig(cfg.TLCP, tlcpMinVersion, tlcpMaxVersion, tlcpCipherSuites,
-					tlcpCurvePreferences, tlcpSessionTickets, tlcpSessionCache, tlcpInsecureSkipVerify)
+					tlcpSessionCache, tlcpInsecureSkipVerify)
 			}
 		}
 
@@ -434,7 +428,7 @@ func instanceUpdate(args []string) error {
 					cfg.TLS.ClientAuthType = *tlsClientAuthType
 				}
 				populateTLSConfig(cfg.TLS, tlsMinVersion, tlsMaxVersion, tlsCipherSuites,
-					tlsCurvePreferences, tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
+					tlsSessionTickets, tlsSessionCache, tlsInsecureSkipVerify)
 			}
 		}
 	}
@@ -659,8 +653,8 @@ func splitString(s, sep string) []string {
 	return result
 }
 
-func populateTLCPConfig(cfg *client.TLCPConfig, minVersion, maxVersion, cipherSuites, curvePreferences *string,
-	sessionTickets, sessionCache, insecureSkipVerify *bool) {
+func populateTLCPConfig(cfg *client.TLCPConfig, minVersion, maxVersion, cipherSuites *string,
+	sessionCache, insecureSkipVerify *bool) {
 	if *minVersion != "" {
 		cfg.MinVersion = *minVersion
 	}
@@ -669,12 +663,6 @@ func populateTLCPConfig(cfg *client.TLCPConfig, minVersion, maxVersion, cipherSu
 	}
 	if *cipherSuites != "" {
 		cfg.CipherSuites = splitString(*cipherSuites, ",")
-	}
-	if *curvePreferences != "" {
-		cfg.CurvePreferences = splitString(*curvePreferences, ",")
-	}
-	if *sessionTickets {
-		cfg.SessionTickets = *sessionTickets
 	}
 	if *sessionCache {
 		cfg.SessionCache = *sessionCache
@@ -684,7 +672,7 @@ func populateTLCPConfig(cfg *client.TLCPConfig, minVersion, maxVersion, cipherSu
 	}
 }
 
-func populateTLSConfig(cfg *client.TLSConfig, minVersion, maxVersion, cipherSuites, curvePreferences *string,
+func populateTLSConfig(cfg *client.TLSConfig, minVersion, maxVersion, cipherSuites *string,
 	sessionTickets, sessionCache, insecureSkipVerify *bool) {
 	if *minVersion != "" {
 		cfg.MinVersion = *minVersion
@@ -694,9 +682,6 @@ func populateTLSConfig(cfg *client.TLSConfig, minVersion, maxVersion, cipherSuit
 	}
 	if *cipherSuites != "" {
 		cfg.CipherSuites = splitString(*cipherSuites, ",")
-	}
-	if *curvePreferences != "" {
-		cfg.CurvePreferences = splitString(*curvePreferences, ",")
 	}
 	if *sessionTickets {
 		cfg.SessionTickets = *sessionTickets

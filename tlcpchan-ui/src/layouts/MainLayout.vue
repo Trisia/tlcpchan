@@ -112,22 +112,8 @@
       </el-menu>
       <div class="sidebar-footer">
         <div class="version-info">
-          <span>UI: v{{ uiVersion }}</span>
-          <span>后端: v{{ backendVersion || '-' }}</span>
-        </div>
-        <div class="links">
-          <a href="https://github.com/Trisia/tlcpchan" target="_blank" class="link">
-            <el-icon>
-              <Link />
-            </el-icon>
-            GitHub
-          </a>
-          <a href="https://github.com/Trisia/tlcpchan/tree/main/docs" target="_blank" class="link">
-            <el-icon>
-              <Reading />
-            </el-icon>
-            文档
-          </a>
+          <span>UI: {{ uiVersion }}</span>
+          <span>API: {{ backendVersion || '-' }}</span>
         </div>
       </div>
     </el-aside>

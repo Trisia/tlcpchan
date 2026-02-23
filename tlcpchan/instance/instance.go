@@ -69,9 +69,11 @@ func NewInstance(cfg *config.InstanceConfig,
 	keyStoreMgr *security.KeyStoreManager,
 	rootCertMgr *security.RootCertManager,
 	log *logger.Logger) (Instance, error) {
-	if err := config.Validate(&config.Config{Instances: []config.InstanceConfig{*cfg}}); err != nil {
+	tempCfg := &config.Config{Instances: []config.InstanceConfig{*cfg}}
+	if err := config.Validate(tempCfg); err != nil {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
+	*cfg = tempCfg.Instances[0]
 
 	base := &baseInstance{
 		cfg:             cfg,
@@ -373,9 +375,9 @@ func (i *httpClientInstance) Stats() *stats.Stats {
 
 func (i *serverInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
 	i.mu.RLock()
-	targetAddr := i.cfg.Target
+	listenAddr := i.cfg.Listen
 	i.mu.RUnlock()
-	return i.proxy.Adapter().CheckHealth(protocol, timeout, targetAddr)
+	return i.proxy.Adapter().CheckHealth(protocol, timeout, listenAddr)
 }
 
 func (i *clientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
@@ -387,9 +389,9 @@ func (i *clientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.D
 
 func (i *httpServerInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {
 	i.mu.RLock()
-	targetAddr := i.cfg.Target
+	listenAddr := i.cfg.Listen
 	i.mu.RUnlock()
-	return i.proxy.Adapter().CheckHealth(protocol, timeout, targetAddr)
+	return i.proxy.Adapter().CheckHealth(protocol, timeout, listenAddr)
 }
 
 func (i *httpClientInstance) CheckHealth(protocol proxy.ProtocolType, timeout time.Duration) *proxy.HealthCheckResult {

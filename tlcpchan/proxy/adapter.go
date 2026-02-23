@@ -514,6 +514,12 @@ func (a *TLCPAdapter) CheckHealth(protocol ProtocolType, timeout time.Duration, 
 		conn, err = a.checkTLCPHealth(dialer, targetAddr)
 	case ProtocolTLS:
 		conn, err = a.checkTLSHealth(dialer, targetAddr)
+	case ProtocolAuto:
+		conn, err = a.checkTLCPHealth(dialer, targetAddr)
+		if err != nil {
+			a.logger.Debug("TLCP健康检查失败，尝试TLS: %v", err)
+			conn, err = a.checkTLSHealth(dialer, targetAddr)
+		}
 	default:
 		result.Error = "不支持的协议类型"
 		return result

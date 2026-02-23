@@ -32,8 +32,8 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 				TLCP:     config.TLCPConfig{},
 				TLS:      config.TLSConfig{},
 			},
-			expectedTLCP: "one-way",
-			expectedTLS:  "one-way",
+			expectedTLCP: "no-client-cert",
+			expectedTLS:  "no-client-cert",
 		},
 		{
 			name: "已设置认证模式应保持不变",
@@ -44,14 +44,14 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 				Listen:   ":8444",
 				Target:   "127.0.0.1:8081",
 				TLCP: config.TLCPConfig{
-					Auth: "mutual",
+					ClientAuthType: "require-and-verify-client-cert",
 				},
 				TLS: config.TLSConfig{
-					Auth: "none",
+					ClientAuthType: "no-client-cert",
 				},
 			},
-			expectedTLCP: "mutual",
-			expectedTLS:  "none",
+			expectedTLCP: "require-and-verify-client-cert",
+			expectedTLS:  "no-client-cert",
 		},
 		{
 			name: "部分设置",
@@ -62,12 +62,12 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 				Listen:   ":8445",
 				Target:   "127.0.0.1:8082",
 				TLCP: config.TLCPConfig{
-					Auth: "none",
+					ClientAuthType: "no-client-cert",
 				},
 				TLS: config.TLSConfig{},
 			},
-			expectedTLCP: "none",
-			expectedTLS:  "one-way",
+			expectedTLCP: "no-client-cert",
+			expectedTLS:  "no-client-cert",
 		},
 	}
 
@@ -80,11 +80,11 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 			defer mgr.Delete(tt.cfg.Name)
 
 			cfg := inst.Config()
-			if cfg.TLCP.Auth != tt.expectedTLCP {
-				t.Errorf("TLCP 认证模式错误: 期望 %s, 实际 %s", tt.expectedTLCP, cfg.TLCP.Auth)
+			if cfg.TLCP.ClientAuthType != tt.expectedTLCP {
+				t.Errorf("TLCP 认证模式错误: 期望 %s, 实际 %s", tt.expectedTLCP, cfg.TLCP.ClientAuthType)
 			}
-			if cfg.TLS.Auth != tt.expectedTLS {
-				t.Errorf("TLS 认证模式错误: 期望 %s, 实际 %s", tt.expectedTLS, cfg.TLS.Auth)
+			if cfg.TLS.ClientAuthType != tt.expectedTLS {
+				t.Errorf("TLS 认证模式错误: 期望 %s, 实际 %s", tt.expectedTLS, cfg.TLS.ClientAuthType)
 			}
 		})
 	}

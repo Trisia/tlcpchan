@@ -182,10 +182,6 @@ type TLCPConfig struct {
 	// - "ECDHE_SM4_CBC_SM3": ECDHE密钥交换 + SM4 CBC + SM3
 	// - "ECDHE_SM4_GCM_SM3": ECDHE密钥交换 + SM4 GCM + SM3
 	CipherSuites []string `yaml:"cipher-suites,omitempty" json:"cipherSuites,omitempty"`
-	// CurvePreferences 椭圆曲线偏好，TLCP通常使用 "SM2"
-	CurvePreferences []string `yaml:"curve-preferences,omitempty" json:"curvePreferences,omitempty"`
-	// SessionTickets 是否启用会话票据
-	SessionTickets bool `yaml:"session-tickets,omitempty" json:"sessionTickets,omitempty"`
 	// SessionCache 是否启用会话缓存
 	SessionCache bool `yaml:"session-cache,omitempty" json:"sessionCache,omitempty"`
 	// InsecureSkipVerify 是否跳过证书验证（不安全，仅用于测试）
@@ -229,8 +225,6 @@ type TLSConfig struct {
 	// - "TLS_AES_256_GCM_SHA384" (TLS 1.3)
 	// - "TLS_CHACHA20_POLY1305_SHA256" (TLS 1.3)
 	CipherSuites []string `yaml:"cipher-suites,omitempty" json:"cipherSuites,omitempty"`
-	// CurvePreferences 椭圆曲线偏好，可选值: "P256", "P38", "P521", "X25519"
-	CurvePreferences []string `yaml:"curve-preferences,omitempty" json:"curvePreferences,omitempty"`
 	// SessionTickets 是否启用会话票据
 	SessionTickets bool `yaml:"session-tickets,omitempty" json:"sessionTickets,omitempty"`
 	// SessionCache 是否启用会话缓存
@@ -442,9 +436,25 @@ func Validate(cfg *Config) error {
 			cfg.Instances[i].TLCP.ClientAuthType = "no-client-cert"
 		}
 
+		// 为 TLCP 设置默认版本
+		if cfg.Instances[i].TLCP.MinVersion == "" {
+			cfg.Instances[i].TLCP.MinVersion = "1.1"
+		}
+		if cfg.Instances[i].TLCP.MaxVersion == "" {
+			cfg.Instances[i].TLCP.MaxVersion = "1.1"
+		}
+
 		// 验证TLS ClientAuthType
 		if inst.TLS.ClientAuthType == "" {
 			cfg.Instances[i].TLS.ClientAuthType = "no-client-cert"
+		}
+
+		// 为 TLS 设置默认版本
+		if cfg.Instances[i].TLS.MinVersion == "" {
+			cfg.Instances[i].TLS.MinVersion = "1.2"
+		}
+		if cfg.Instances[i].TLS.MaxVersion == "" {
+			cfg.Instances[i].TLS.MaxVersion = "1.3"
 		}
 
 		// 设置默认超时配置

@@ -171,11 +171,13 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
  * @apiBody {String} [certificates.tls.key] TLS私钥名称
  * @apiBody {String[]} [client_ca] 客户端CA证书名称列表，用于双向认证时验证客户端证书
  * @apiBody {Object} [tlcp] TLCP协议配置
+ * @apiBody {String} [tlcp.client_auth_type=no-client-cert] TLCP客户端认证类型，可选值："no-client-cert"、"request-client-cert"、"require-any-client-cert"、"verify-client-cert-if-given"、"require-and-verify-client-cert"
  * @apiBody {String} [tlcp.min_version=1.1] TLCP最小版本，可选值："1.1"
  * @apiBody {String} [tlcp.max_version=1.1] TLCP最大版本，可选值："1.1"
  * @apiBody {String[]} [tlcp.cipher_suites] TLCP密码套件列表，可选值："ECC_SM4_CBC_SM3"、"ECC_SM4_GCM_SM3"、"ECDHE_SM4_CBC_SM3"、"ECDHE_SM4_GCM_SM3" 等
  * @apiBody {Boolean} [tlcp.session_tickets=true] 是否启用会话票证
  * @apiBody {Object} [tls] TLS协议配置
+ * @apiBody {String} [tls.client_auth_type=no-client-cert] TLS客户端认证类型，可选值："no-client-cert"、"request-client-cert"、"require-any-client-cert"、"verify-client-cert-if-given"、"require-and-verify-client-cert"
  * @apiBody {String} [tls.min_version=1.2] TLS最小版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
  * @apiBody {String} [tls.max_version=1.3] TLS最大版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
  * @apiBody {String[]} [tls.cipher_suites] TLS密码套件列表
@@ -659,45 +661,119 @@ func (c *InstanceController) Logs(w http.ResponseWriter, r *http.Request) {
  * @apiGroup Instance
  * @apiVersion 1.0.0
  *
- * @apiDescription 编辑实例配置，保存到配置文件并在实例运行时热重载
+ * * @apiDescription 编辑实例配置，保存到配置文件并在实例运行时热重载
  *
- * @apiParam {String} name 实例名称（路径参数）
+ * @apiParam {String} name 实例名称（路径参数），实例的唯一标识符
  *
- * @apiBody {String} type 实例类型
- * @apiBody {String} protocol 协议类型
- * @apiBody {String} listen 监听地址
- * @apiBody {String} target 目标地址
- * @apiBody {Boolean} enabled 是否启用
+ * @apiBody {String} type 实例类型，可选值：server（服务端）、client（客户端）、http-server（HTTP服务端）、http-client（HTTP客户端）
+ * @apiBody {String} protocol 协议类型，可选值：auto（自动检测）、tlcp（仅TLCP）、tls（仅TLS）
+ * * @apiBody {String} [auth=none] 认证模式，可选值：none（无认证）、one-way（单向认证）、mutual（双向认证）
+ * @apiBody {String} listen 监听地址，格式为 ":port" 或 "ip:port"，例如 ":443" 或 "127.0.0.1:8443"
+ * @apiBody {String} target 目标地址，格式为 "host:port"，例如 "backend.example.com:8080"
+ * @apiBody {Boolean} enabled 是否启用，true 表示启用，false 表示禁用
+ * @apiBody {Object} [certificates] 证书配置对象
+ * @apiBody {Object} [certificates.tlcp] TLCP证书配置
+ * @apiBody {String} [certificates.tlcp.cert] TLCP证书名称，对应证书目录中的证书文件名
+ * @apiBody {String} [certificates.tlcp.key] TLCP私钥名称，对应证书目录中的私钥文件名
+ * @apiBody {Object} [certificates.tls] TLS证书配置
+ * @apiBody {String} [certificates.tls.cert] TLS证书名称
+ * @apiBody {String} [certificates.tls.key] TLS私钥名称
+ * @apiBody {String[]} [client_ca] 客户端CA证书名称列表，用于双向认证时验证客户端证书
+ * @apiBody {String[]} [server_ca] 服务端CA证书名称列表，用于验证服务端证书
  * @apiBody {Object} [tlcp] TLCP协议配置
+ * @apiBody {String} [tlcp.min_version=1.1] TLCP最小版本，可选值："1.1"
+ * @apiBody {String} [tlcp.max_version=1.1] TLCP最大版本，可选值："1.1"
+ * @apiBody {String[]} [tlcp.cipher_suites] TLCP密码套件列表，可选值："ECC_SM4_CBC_SM3"、"ECC_SM4_GCM_SM3"、"ECDHE_SM4_CBC_SM3"、"ECDHE_SM4_GCM_SM3" 等
+ * @apiBody {Boolean} [tlcp.session_tickets=true] 是否启用会话票证
  * @apiBody {Object} [tls] TLS协议配置
- * @apiBody {String[]} [clientCa] 客户端CA证书列表
- * @apiBody {String[]} [serverCa] 服务端CA证书列表
+ * @apiBody {String} [tls.min_version=1.2] TLS最小版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
+ * @apiBody {String} [tls.max_version=1.3] TLS最大版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
+ * @apiBody {String[]} [tls.cipher_suites] TLS密码套件列表
  * @apiBody {Object} [http] HTTP协议配置
- * @apiBody {String} [sni] 服务器名称指示
+ * @apiBody {Boolean} [http.compression] 是否启用压缩
+ * @apiBody {String} [http.compressionLevel] 压缩级别
+ * @apiBody {String} sni SNI（Server Name Indication）服务器名称指示，用于TLS客户端连接时指定服务器名称
  * @apiBody {Object} [timeout] 超时配置
- * @apiBody {Number} [bufferSize] 缓冲区大小
+ * @apiBody {Number} [timeout.read] 读超时时间，单位：秒
+ * @apiBody {Number} [timeout.write] 写超时时间，单位：秒
+ * @apiBody {Number} [timeout.handshake] 握手超时时间，单位：秒
+ * @apiBody {Number} [bufferSize=4096] 缓冲区大小，单位：字节，必须是正整数
  *
  * @apiSuccess {String} name 实例名称
- * @apiSuccess {String} status 实例状态
- * @apiSuccess {Object} config 更新后的配置
+ * @apiSuccess {String} status 实例状态，可选值：created（已创建）、running（运行中）、stopped（已停止）、error（错误）
+ * @apiSuccess {Object} config 更新后的完整配置对象
  *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
  *       "name": "tlcp-server",
  *       "status": "running",
- *       "config": { ... }
+ *       "config": {
+ *         "name": "tlcp-server",
+ *         "type": "server",
+ *         "protocol": "tlcp",
+ *         "auth": "mutual",
+ *         "listen": ":443",
+ *         "target": "127.0.0.1:8080",
+ *         "enabled": true,
+ *         "certificates": {
+ *           "tlcp": {
+ *             "cert": "server-sm2",
+ *             "key": "server-sm2"
+ *           }
+ *         },
+ *         "client_ca": ["ca-sm2"],
+ *         "tlcp": {
+ *           "min_version": "1.1",
+ *           "max_version": "1.1",
+ *           "cipher_suites": ["ECC_SM4_GCM_SM3", "ECDHE_SM4_GCM_SM3"],
+ *           "session_tickets": true
+ *         }
+ *       }
+ *     }
+ *
+ * @apiParamExample {json} Request-Example:
+ *     {
+ *       "type": "server",
+ *       "protocol": "tlcp",
+ *       "auth": "mutual",
+ *       "listen": ":443",
+ *       "target": "127.0.0.1:8080",
+ *       "enabled": true,
+ *       "certificates": {
+ *         "tlcp": {
+ *           "cert": "server-sm2",
+ *           "key": "server-sm2"
+ *         }
+ *       },
+ *       "client_ca": ["ca-sm2"]
  *     }
  *
  * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     Content-Type: text/plain
+ *
+ *     无效的请求体: json: cannot unmarshal string into Go value of type config.InstanceConfig
+ * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 404 Not Found
+ *     Content-Type: text/plain
+ *
  *     实例不存在
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 400 Bad Request
- *     无效的请求体
+ *     Content-Type: text/plain
+ *
+ *     配置验证失败: listen address is required
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     Content-Type: text/plain
+ *
+ *     热重载失败: port already in use
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 500 Internal Server Error
- *     保存配置失败
+ *     Content-Type: text/plain
+ *
+ *     保存配置失败: permission denied
  */
 func (c *InstanceController) Edit(w http.ResponseWriter, r *http.Request) {
 	name := PathParam(r, "name")

@@ -114,21 +114,17 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 		return nil, fmt.Errorf("无法解析私钥PEM块")
 	}
 
-	var certs []*x509.Certificate
-	var privateKey crypto.PrivateKey
-
 	smCerts, err := smx509.ParseCertificates(certBlock.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("解析SM证书失败: %w", err)
-	}
-	if len(smCerts) == 0 {
-		return nil, fmt.Errorf("证书为空")
+	if err != nil || len(smCerts) == 0 {
+		return nil, fmt.Errorf("解析国密证书失败: %w", err)
 	}
 
-	certs = make([]*x509.Certificate, len(smCerts))
+	certs := make([]*x509.Certificate, len(smCerts))
 	for i, smCert := range smCerts {
 		certs[i] = smCert.ToX509()
 	}
+
+	var privateKey crypto.PrivateKey
 
 	switch keyBlock.Type {
 	case "PRIVATE KEY", "EC PRIVATE KEY":
@@ -144,6 +140,67 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 		if err != nil {
 			return nil, fmt.Errorf("解析私钥失败: %w", err)
 		}
+	}
+
+	raw := make([][]byte, len(certs))
+	for i, c := range certs {
+		raw[i] = c.Raw
+	}
+
+	tlcpCert := &tlcp.Certificate{
+		Certificate: raw,
+		PrivateKey:  privateKey,
+	}
+
+	return tlcpCert, nil
+}
+
+func (f *FileKeyStore) loadTLSKeyPair(certPath, keyPath string) (*tlcp.Certificate, error) {
+	certPEM, err := os.ReadFile(certPath)
+	if err != nil {
+		return nil, fmt.Errorf("读取证书文件失败: %w", err)
+	}
+
+	keyPEM, err := os.ReadFile(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("读取私钥文件失败: %w", err)
+	}
+
+	certBlock, _ := pem.Decode(certPEM)
+	if certBlock == nil {
+		return nil, fmt.Errorf("无法解析证书PEM块")
+	}
+
+	keyBlock, _ := pem.Decode(keyPEM)
+	if keyBlock == nil {
+		return nil, fmt.Errorf("无法解析私钥PEM块")
+	}
+
+	certs, err := x509.ParseCertificates(certBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("解析TLS证书失败: %w", err)
+	}
+
+	var privateKey crypto.PrivateKey
+
+	switch keyBlock.Type {
+	case "RSA PRIVATE KEY":
+		privateKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("解析RSA私钥失败: %w", err)
+		}
+	case "EC PRIVATE KEY":
+		privateKey, err = x509.ParseECPrivateKey(keyBlock.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("解析EC私钥失败: %w", err)
+		}
+	case "PRIVATE KEY":
+		privateKey, err = x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("解析PKCS8私钥失败: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("不支持的私钥类型: %s", keyBlock.Type)
 	}
 
 	raw := make([][]byte, len(certs))

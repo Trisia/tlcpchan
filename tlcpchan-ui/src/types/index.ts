@@ -35,8 +35,6 @@ export interface TLCPConfig {
   minVersion?: string
   maxVersion?: string
   cipherSuites?: string[]
-  curvePreferences?: string[]
-  sessionTickets?: boolean
   sessionCache?: boolean
   insecureSkipVerify?: boolean
   keystore?: KeyStoreConfig
@@ -48,7 +46,6 @@ export interface TLSConfig {
   minVersion?: string
   maxVersion?: string
   cipherSuites?: string[]
-  curvePreferences?: string[]
   sessionTickets?: boolean
   sessionCache?: boolean
   insecureSkipVerify?: boolean

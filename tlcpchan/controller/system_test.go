@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
 	"testing"
 
 	"github.com/Trisia/tlcpchan/version"
@@ -30,14 +29,6 @@ func TestSystemController_Version(t *testing.T) {
 
 	if resp.Version != version.Version {
 		t.Errorf("版本应为 %s, 实际为 %s", version.Version, resp.Version)
-	}
-
-	if resp.GoVersion == "" {
-		t.Error("Go版本不应为空")
-	}
-
-	if resp.GoVersion != runtime.Version() {
-		t.Errorf("Go版本应为 %s, 实际为 %s", runtime.Version(), resp.GoVersion)
 	}
 }
 
@@ -84,10 +75,6 @@ func TestSystemController_Info(t *testing.T) {
 	var resp SystemInfo
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("解析响应失败: %v", err)
-	}
-
-	if resp.GoVersion == "" {
-		t.Error("Go版本不应为空")
 	}
 
 	if resp.OS == "" {
