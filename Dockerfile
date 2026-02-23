@@ -2,7 +2,7 @@
 # ============================================
 # 阶段 1: 构建 Go 核心服务 (tlcpchan)
 # ============================================
-FROM golang:1.21-alpine3.18 AS builder-tlcpchan
+FROM golang:1.26-alpine3.19 AS builder-tlcpchan
 
 WORKDIR /build
 COPY tlcpchan/go.mod tlcpchan/go.sum ./
@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan .
 # ============================================
 # 阶段 2: 构建 CLI 工具 (tlcpchan-cli)
 # ============================================
-FROM golang:1.21-alpine3.18 AS builder-cli
+FROM golang:1.26-alpine3.19 AS builder-cli
 
 WORKDIR /build
 COPY tlcpchan-cli/go.mod tlcpchan-cli/go.sum ./

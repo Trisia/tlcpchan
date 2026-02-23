@@ -1,6 +1,6 @@
 # TLCP Channel
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TLCP](https://img.shields.io/badge/TLCP-1.1-green.svg)](https://github.com/Trisia/gotlcp)
 
@@ -40,7 +40,7 @@
 
 ## 技术栈
 
-- **后端**: Go 1.21+, [gotlcp](https://github.com/Trisia/gotlcp)
+- **后端**: Go 1.26+, [gotlcp](https://github.com/Trisia/gotlcp)
 - **前端**: Vue 3, TypeScript, Element Plus
 - **协议**: TLCP 1.1, TLS 1.0-1.3
 - **算法**: SM2/SM3/SM4, RSA/ECDSA/AES

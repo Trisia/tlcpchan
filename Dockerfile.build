@@ -2,7 +2,7 @@
 # TLCP Channel 多平台构建环境
 # 包含 Go、Node.js 和所有必要的构建工具
 
-FROM golang:1.21-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 
 # 设置工作目录
 WORKDIR /build

@@ -37,3 +37,7 @@ contents:
 scripts:
   postinstall: "{{POSTINST_PATH}}"
   preremove: "{{PRERM_PATH}}"
+deb:
+  signing:
+    key_file: "{{GPG_KEY_FILE}}"
+    passphrase: "{{GPG_PASSPHRASE}}"

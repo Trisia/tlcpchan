@@ -18,6 +18,10 @@ DIST_DIR="$PROJECT_ROOT/dist"
 
 ARCHES=("amd64" "arm64" "loong64")
 
+# GPG 配置（从环境变量读取）
+GPG_PRIVATE_KEY="${GPG_PRIVATE_KEY:-}"
+GPG_PASSPHRASE="${GPG_PASSPHRASE:-}"
+
 log_info() {
     echo -e "\033[0;32m[INFO]\033[0m $1"
 }
@@ -42,6 +46,15 @@ create_nfpm_config() {
         package_arch="loongarch64"
     fi
     
+    # 创建 GPG 密钥文件（如果提供了 GPG_PRIVATE_KEY）
+    local gpg_key_file=""
+    local gpg_passphrase=""
+    if [ -n "$GPG_PRIVATE_KEY" ]; then
+        gpg_key_file="$BUILD_DIR/gpg-key-${arch}.asc"
+        echo "$GPG_PRIVATE_KEY" | base64 -d > "$gpg_key_file"
+        gpg_passphrase="$GPG_PASSPHRASE"
+    fi
+    
     # 先替换 linux-{{ARCH}} 为 linux-$arch，再替换其他变量
     sed -e "s|linux-{{ARCH}}|linux-$arch|g" \
         -e "s|{{PACKAGE_ARCH}}|$package_arch|g" \
@@ -49,6 +62,8 @@ create_nfpm_config() {
         -e "s|{{BUILD_DIR}}|$BUILD_DIR|g" \
         -e "s|{{POSTINST_RPM_PATH}}|$BUILD_DIR/postinst-rpm.sh|g" \
         -e "s|{{PRERM_RPM_PATH}}|$BUILD_DIR/prerm-rpm.sh|g" \
+        -e "s|{{GPG_KEY_FILE}}|$gpg_key_file|g" \
+        -e "s|{{GPG_PASSPHRASE}}|$gpg_passphrase|g" \
         "$SCRIPT_DIR/nfpm.yaml.template" > "$BUILD_DIR/nfpm-rpm-$arch.yaml"
 }
 
