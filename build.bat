@@ -9,5 +9,5 @@ go build -o ../target/tlcpchan-cli.exe
 cd ..
 cd tlcpchan-ui
 call npm run build
-xcopy /e /i /y dist ..\target\ui
+xcopy /e /i /y ui ..\target\ui
 cd ..
