@@ -72,7 +72,7 @@ func NewServer(opts ServerOptions) *Server {
 		}
 	}
 
-	instanceCtrl := NewInstanceController(instMgr)
+	instanceCtrl := NewInstanceController(instMgr, opts.ConfigPath)
 	configCtrl := NewConfigController(opts.ConfigPath)
 	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController()

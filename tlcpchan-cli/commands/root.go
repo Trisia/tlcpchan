@@ -110,7 +110,7 @@ func getCommands() map[string]Command {
 			Usage:       "rootcert <子命令>",
 			SubCommands: map[string]Command{
 				"list":     {Name: "list", Description: "列出所有根证书", Usage: "list", Run: rootCertList},
-				"show":     {Name: "show", Description: "显示根证书详情", Usage: "show <filename>", Run: rootCertShow},
+				"download": {Name: "download", Description: "下载根证书文件", Usage: "download <filename> [-o output]", Run: rootCertDownload},
 				"add":      {Name: "add", Description: "添加根证书", Usage: "add [选项]", Run: rootCertAdd},
 				"generate": {Name: "generate", Description: "生成根 CA 证书", Usage: "generate [选项]", Run: rootCertGenerate},
 				"delete":   {Name: "delete", Description: "删除根证书", Usage: "delete <filename>", Run: rootCertDelete},

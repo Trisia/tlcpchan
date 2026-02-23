@@ -12,14 +12,16 @@ import (
 )
 
 type InstanceController struct {
-	manager *instance.Manager
-	log     *logger.Logger
+	manager    *instance.Manager
+	configPath string
+	log        *logger.Logger
 }
 
-func NewInstanceController(mgr *instance.Manager) *InstanceController {
+func NewInstanceController(mgr *instance.Manager, configPath string) *InstanceController {
 	return &InstanceController{
-		manager: mgr,
-		log:     logger.Default(),
+		manager:    mgr,
+		configPath: configPath,
+		log:        logger.Default(),
 	}
 }
 
@@ -652,6 +654,106 @@ func (c *InstanceController) Logs(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
+ * @api {put} /api/instances/:name/edit 编辑实例配置
+ * @apiName EditInstance
+ * @apiGroup Instance
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 编辑实例配置，保存到配置文件并在实例运行时热重载
+ *
+ * @apiParam {String} name 实例名称（路径参数）
+ *
+ * @apiBody {String} type 实例类型
+ * @apiBody {String} protocol 协议类型
+ * @apiBody {String} listen 监听地址
+ * @apiBody {String} target 目标地址
+ * @apiBody {Boolean} enabled 是否启用
+ * @apiBody {Object} [tlcp] TLCP协议配置
+ * @apiBody {Object} [tls] TLS协议配置
+ * @apiBody {String[]} [clientCa] 客户端CA证书列表
+ * @apiBody {String[]} [serverCa] 服务端CA证书列表
+ * @apiBody {Object} [http] HTTP协议配置
+ * @apiBody {String} [sni] 服务器名称指示
+ * @apiBody {Object} [timeout] 超时配置
+ * @apiBody {Number} [bufferSize] 缓冲区大小
+ *
+ * @apiSuccess {String} name 实例名称
+ * @apiSuccess {String} status 实例状态
+ * @apiSuccess {Object} config 更新后的配置
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "tlcp-server",
+ *       "status": "running",
+ *       "config": { ... }
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     实例不存在
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     无效的请求体
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     保存配置失败
+ */
+func (c *InstanceController) Edit(w http.ResponseWriter, r *http.Request) {
+	name := PathParam(r, "name")
+
+	inst, ok := c.manager.Get(name)
+	if !ok {
+		NotFound(w, "实例不存在")
+		return
+	}
+
+	var newCfg config.InstanceConfig
+	if err := parseJSON(r, &newCfg); err != nil {
+		BadRequest(w, "无效的请求体: "+err.Error())
+		return
+	}
+
+	newCfg.Name = name
+
+	currentCfg := config.Get()
+	found := false
+	for i, instance := range currentCfg.Instances {
+		if instance.Name == name {
+			currentCfg.Instances[i] = newCfg
+			found = true
+			break
+		}
+	}
+	if !found {
+		NotFound(w, "实例不存在")
+		return
+	}
+
+	if err := config.Save(c.configPath, currentCfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+	config.Set(currentCfg)
+
+	c.log.Info("实例配置已保存: %s", name)
+
+	if inst.Status() == instance.StatusRunning {
+		if err := inst.Reload(&newCfg); err != nil {
+			BadRequest(w, "热重载失败: "+err.Error())
+			return
+		}
+		c.log.Info("实例已热重载: %s", name)
+	}
+
+	Success(w, map[string]interface{}{
+		"name":   name,
+		"status": inst.Status(),
+		"config": newCfg,
+	})
+}
+
+/**
  * @api {get} /api/instances/:name/health 实例健康检查
  * @apiName InstanceHealthCheck
  * @apiGroup Instance
@@ -748,6 +850,7 @@ func (c *InstanceController) RegisterRoutes(router *Router) {
 	router.POST("/api/instances", c.Create)
 	router.GET("/api/instances/:name", c.Get)
 	router.PUT("/api/instances/:name", c.Update)
+	router.PUT("/api/instances/:name/edit", c.Edit)
 	router.DELETE("/api/instances/:name", c.Delete)
 	router.POST("/api/instances/:name/start", c.Start)
 	router.POST("/api/instances/:name/stop", c.Stop)

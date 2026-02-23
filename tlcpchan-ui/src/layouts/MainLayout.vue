@@ -46,8 +46,8 @@
         </el-menu>
         <div class="sidebar-footer">
           <div class="version-info">
-            <span>UI: v{{ uiVersion }}</span>
-            <span>后端: v{{ backendVersion || '-' }}</span>
+            <span>UI: {{ uiVersion }}</span>
+            <span>后端: {{ backendVersion || '-' }}</span>
           </div>
           <div class="links">
             <a href="https://github.com/Trisia/tlcpchan" target="_blank" class="link">
@@ -153,7 +153,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { Menu } from '@element-plus/icons-vue'
+import {
+  Menu,
+  DataBoard,
+  Connection,
+  Lock,
+  Document,
+  Setting,
+  Link,
+  Reading
+} from '@element-plus/icons-vue'
 import { systemApi } from '@/api/index'
 import axios from 'axios'
 

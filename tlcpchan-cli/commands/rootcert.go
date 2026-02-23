@@ -46,30 +46,41 @@ func truncateTime(timeStr string) string {
 	return timeStr
 }
 
-func rootCertShow(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("请指定根证书文件名")
+func rootCertDownload(args []string) error {
+	fs := flagSet("download")
+	output := fs.String("output", "", "输出文件路径")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
 
-	cert, err := cli.GetRootCert(args[0])
+	remaining := fs.Args()
+	if len(remaining) == 0 {
+		return fmt.Errorf("请指定根证书文件名")
+	}
+	filename := remaining[0]
+
+	certData, err := cli.DownloadRootCert(filename)
 	if err != nil {
 		return err
 	}
 
-	if isJSONOutput() {
-		return printJSON(cert)
+	if *output == "" {
+		*output = filename
 	}
 
-	fmt.Printf("文件名: %s\n", cert.Filename)
-	fmt.Printf("主题: %s\n", cert.Subject)
-	fmt.Printf("颁发者: %s\n", cert.Issuer)
-	fmt.Printf("生效时间: %s\n", cert.NotBefore)
-	fmt.Printf("过期时间: %s\n", cert.NotAfter)
-	fmt.Printf("密钥类型: %s\n", cert.KeyType)
-	fmt.Printf("序列号: %s\n", cert.SerialNumber)
-	fmt.Printf("版本: v%d\n", cert.Version)
-	fmt.Printf("是否为CA: %v\n", cert.IsCA)
-	fmt.Printf("密钥用途: %v\n", cert.KeyUsage)
+	if err := os.WriteFile(*output, certData, 0644); err != nil {
+		return fmt.Errorf("写入文件失败: %w", err)
+	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success":  true,
+			"message":  "根证书下载成功",
+			"filename": *output,
+		})
+	}
+
+	fmt.Printf("根证书已下载到 %s\n", *output)
 	return nil
 }
 

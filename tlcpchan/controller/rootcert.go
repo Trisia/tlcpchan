@@ -54,7 +54,7 @@ type GenerateRootCARequest struct {
  *         "notBefore": "2020-01-01T00:00:00Z",
  *         "notAfter": "2030-01-01T00:00:00Z",
  *         "keyType": "SM2",
- *         "serialNumber": "0102030405060708090a0b0c0d0e0f1011121314",
+ *         "serialNumber": "0102030405060708090a1b1c1d1e1f1011121314",
  *         "version": 3,
  *         "isCA": true,
  *         "keyUsage": ["Cert Sign", "CRL Sign"]
@@ -67,108 +67,16 @@ func (c *SecurityController) ListRootCerts(w http.ResponseWriter, r *http.Reques
 }
 
 /**
- * @api {get} /api/security/rootcerts/:filename 获取根证书详情
+ * @api {get} /api/security/rootcerts/:filename 下载根证书
  * @apiName GetRootCert
  * @apiGroup Security-RootCert
  * @apiVersion 1.0.0
  *
- * @apiDescription 获取指定根证书的详细信息
+ * @apiDescription 下载指定根证书文件
  *
  * @apiParam {String} filename 证书文件名（路径参数），唯一标识符
  *
- * @apiSuccess {String} filename 证书文件名
- * @apiSuccess {String} subject 证书主题（Subject）
- * @apiSuccess {String} issuer 证书颁发者（Issuer）
- * @apiSuccess {String} notBefore 证书生效时间，ISO 8601 格式
- * @apiSuccess {String} notAfter 证书过期时间，ISO 8601 格式
- * @apiSuccess {String} keyType 密钥类型（如 "SM",2", "RSA-2048", "ECDSA-P256"）
- * @apiSuccess {String} serialNumber 证书序列号（十六进制）
- * @apiSuccess {Number} version 证书版本
- * @apiSuccess {Boolean} isCA 是否为 CA 证书
- * @apiSuccess {String[]} keyUsage 密钥用途数组
- *
- * @apiSuccessExample {json} Success-Response:
- *     HTTP/1.1 200 OK
- *     {
- *       "filename": "root-ca.crt",
- *       "subject": "CN=Root CA, O=Example Org",
- *       "issuer": "CN=Root CA, O=Example Org",
- *       "notBefore": "2020-01-01T00:00:00Z",
- *       "notAfter": "2030-01-01T00:00:00Z",
- *       "keyType": "SM2",
- *       "serialNumber": "0102030405060708090a0b0c0d0e0f1011121314",
- *       "version": 3,
- *       "isCA": true,
- *       "keyUsage": ["Cert Sign", "CRL Sign"]
- *     }
- *
- * @apiErrorExample {text} Error-Response:
- *     HTTP/1.1 404 Not Found
- *     根证书不存在
- */
-func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		BadRequest(w, "解析表单失败: "+err.Error())
-		return
-	}
-
-	filename := r.FormValue("filename")
-	if filename == "" {
-		BadRequest(w, "文件名不能为空")
-		return
-	}
-
-	file, _, err := r.FormFile("cert")
-	if err != nil {
-		BadRequest(w, "证书文件不能为空: "+err.Error())
-		return
-	}
-	defer file.Close()
-
-	certData := make([]byte, 0)
-	buf := make([]byte, 1024)
-	for {
-		n, err := file.Read(buf)
-		if n > 0 {
-			certData = append(certData, buf[:n]...)
-		}
-		if err != nil {
-			break
-		}
-	}
-
-	cert, err := c.rootCertMgr.Add(filename, certData)
-	if err != nil {
-		InternalError(w, "添加失败: "+err.Error())
-		return
-	}
-
-	Success(w, cert)
-}
-
-/**
- * @api {get} /api/security/rootcerts/:filename 获取根证书详情
- * @apiName GetRootCert
- * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
- *
- * @apiDescription 获取指定根证书的详细信息
- *
- * @apiParam {String} filename 证书文件名（路径参数），唯一标识符
- *
- * @apiSuccess {String} filename 证书文件名
- * @apiSuccess {String} subject 证书主题（Subject）
- * @apiSuccess {String} issuer 证书颁发者（Issuer）
- * @apiSuccess {String} notAfter 证书过期时间，ISO 8601 格式
- *
- * @apiSuccessExample {json} Success-Response:
- *     HTTP/1.1 200 OK
- *     {
- *       "filename": "root-ca.crt",
- *       "subject": "CN=Root CA, O=Example Org",
- *       "issuer": "CN=Root CA, O=Example Org",
- *       "notAfter": "2030-01-01T00:00:00Z"
- *     }
+ * @apiSuccess {File} - 证书文件内容（PEM 格式）
  *
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 404 Not Found
@@ -176,12 +84,15 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
  */
 func (c *SecurityController) GetRootCert(w http.ResponseWriter, r *http.Request) {
 	filename := PathParam(r, "filename")
-	cert, err := c.rootCertMgr.Get(filename)
+	certData, err := c.rootCertMgr.ReadFile(filename)
 	if err != nil {
 		NotFound(w, "根证书不存在")
 		return
 	}
-	Success(w, cert)
+
+	w.Header().Set("Content-Type", "application/x-pem-file")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	w.Write(certData)
 }
 
 /**
@@ -241,8 +152,8 @@ func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Reque
  *       "issuer": "CN=Root CA, O=Example Org",
  *       "notBefore": "2020-01-01T00:00:00Z",
  *       "notAfter": "2030-01-01T00:00:00Z",
- *             "keyType": "SM2",
- *       "serialNumber": "0102030405060708090a0b0c0d0e0f1011121314",
+ *       "keyType": "SM2",
+ *       "serialNumber": "0102030405060708090a1b1c1d1e1f1011121314",
  *       "version": 3,
  *       "isCA": true,
  *       "keyUsage": ["Cert Sign", "CRL Sign"]
@@ -260,6 +171,62 @@ func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Reque
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 500 Internal Server Error
  *     添加失败: 具体错误信息
+ */
+func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		BadRequest(w, "解析表单失败: "+err.Error())
+		return
+	}
+
+	filename := r.FormValue("filename")
+	if filename == "" {
+		BadRequest(w, "文件名不能为空")
+		return
+	}
+
+	file, _, err := r.FormFile("cert")
+	if err != nil {
+		BadRequest(w, "证书文件不能为空: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	certData := make([]byte, 0)
+	buf := make([]byte, 1024)
+	for {
+		n, err := file.Read(buf)
+		if n > 0 {
+			certData = append(certData, buf[:n]...)
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	cert, err := c.rootCertMgr.Add(filename, certData)
+	if err != nil {
+		InternalError(w, "添加失败: "+err.Error())
+		return
+	}
+
+	Success(w, cert)
+}
+
+/**
+ * @api {post} /api/security/rootcerts/reload 重载根证书
+ * @apiName ReloadRootCerts
+ * @apiGroup Security-RootCert
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 重新加载所有根证书
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     null
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     重载失败: 具体错误信息
  */
 func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Request) {
 	if err := c.rootCertMgr.Reload(); err != nil {
@@ -279,9 +246,14 @@ func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Requ
  *
  * @apiBody {String} [type="tlcp"] 证书类型，可选值：tlcp（SM2）、tls（RSA-2048）
  * @apiBody {String} [commonName="tlcpchan-root-ca"] 证书通用名称（CN）
+ * @apiBody {String} [country] 国家代码（C），如 "CN"
+ * @apiBody {String} [stateOrProvince] 省/州（ST），如 "Beijing"
+ * @apiBody {String} [locality] 地区（L），如 "Haidian"
  * @apiBody {String} [org="tlcpchan"] 组织名称（O）
- * @apiBody {String} [orgUnit] 组织单位（OU）
+ * @apiBody {String} [orgUnit] 组织单位（OU），如 "IT"
+ * @apiBody {String} [emailAddress] 邮箱地址
  * @apiBody {Number} [years=10] 证书有效期（年）
+ * @apiBody {Number} [days] 证书有效期（天），与 years 二选一
  *
  * @apiSuccess {String} filename 证书文件名
  * @apiSuccess {String} subject 证书主题（Subject）
@@ -303,7 +275,7 @@ func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Requ
  *       "notBefore": "2024-01-01T00:00:00Z",
  *       "notAfter": "2034-01-01T00:00:00Z",
  *       "keyType": "SM2",
- *       "serialNumber": "0102030405060708090a0b0c0d0e0f1011121314",
+ *       "serialNumber": "0102030405060708090a1b1c1d1e1f1011121314",
  *       "version": 3,
  *       "isCA": true,
  *       "keyUsage": ["Cert Sign", "CRL Sign"]

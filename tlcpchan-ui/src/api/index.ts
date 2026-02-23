@@ -107,9 +107,19 @@ export const rootCertApi = {
     return res.data || []
   },
 
-  get: async (filename: string) => {
-    const res = await http.get(`/security/rootcerts/${filename}`)
-    return res.data
+  download: async (filename: string) => {
+    const res = await http.get(`/security/rootcerts/${filename}`, {
+      responseType: 'blob'
+    })
+
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   },
 
   add: async (filename: string, file: File) => {
@@ -138,6 +148,7 @@ export const rootCertApi = {
 
 export const trustedApi = {
   list: rootCertApi.list,
+  download: rootCertApi.download,
   upload: rootCertApi.add,
   delete: rootCertApi.delete,
 }
@@ -160,6 +171,11 @@ export const instanceApi = {
 
   update: async (name: string, data: any) => {
     const res = await http.put(`/instances/${name}`, data)
+    return res.data
+  },
+
+  edit: async (name: string, data: any) => {
+    const res = await http.put(`/instances/${name}/edit`, data)
     return res.data
   },
 

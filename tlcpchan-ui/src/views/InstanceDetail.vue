@@ -88,14 +88,16 @@
            </div>
          </el-card>
 
-         <el-card style="margin-top: 20px">
-           <template #header>
-             <span>操作</span>
-           </template>
-            <el-button type="primary" @click="start" :disabled="instance?.status === 'running'" :loading="actionLoading.start">启动</el-button>
-            <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'" :loading="actionLoading.stop">停止</el-button>
-            <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'" :loading="actionLoading.reload">重载</el-button>
-         </el-card>
+          <el-card style="margin-top: 20px">
+            <template #header>
+              <span>操作</span>
+            </template>
+             <el-button type="primary" @click="start" :disabled="instance?.status === 'running'" :loading="actionLoading.start">启动</el-button>
+             <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'" :loading="actionLoading.stop">停止</el-button>
+             <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'" :loading="actionLoading.reload">重载</el-button>
+             <el-button type="info" @click="restart" :loading="actionLoading.restart">重启</el-button>
+             <el-button type="success" @click="edit" style="margin-left: 8px">编辑</el-button>
+          </el-card>
       </el-col>
     </el-row>
   </div>
@@ -196,6 +198,10 @@ function statusText(status: Instance['status']): string {
 
 const actionLoading = ref<Record<string, boolean>>({})
 
+function edit() {
+  router.push(`/instances/${name.value}/edit`)
+}
+
 async function start() {
   actionLoading.value.start = true
   try {
@@ -235,6 +241,20 @@ async function reload() {
     ElMessage.error('重载失败')
   } finally {
     actionLoading.value.reload = false
+  }
+}
+
+async function restart() {
+  actionLoading.value.restart = true
+  try {
+    await instanceApi.restart(name.value)
+    fetchInstance()
+    ElMessage.success('实例已重启')
+  } catch (err) {
+    console.error('重启失败:', err)
+    ElMessage.error('重启失败')
+  } finally {
+    actionLoading.value.restart = false
   }
 }
 </script>

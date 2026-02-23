@@ -124,6 +124,18 @@ func (m *Manager) Reload() error {
 	return m.loadAllCerts()
 }
 
+// ReadFile 读取证书文件内容
+// 参数：
+//   - filename: 证书文件名
+//
+// 返回：
+//   - []byte: 证书文件内容
+//   - error: 错误信息
+func (m *Manager) ReadFile(filename string) ([]byte, error) {
+	certPath := filepath.Join(m.baseDir, filename)
+	return os.ReadFile(certPath)
+}
+
 func (m *Manager) loadAllCerts() error {
 	m.certs = make(map[string]*RootCert)
 	m.certPool = x509.NewCertPool()

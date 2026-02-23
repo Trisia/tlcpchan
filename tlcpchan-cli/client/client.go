@@ -488,16 +488,19 @@ func (c *Client) ListRootCerts() ([]RootCertInfo, error) {
 	return certs, nil
 }
 
-func (c *Client) GetRootCert(filename string) (*RootCertInfo, error) {
+// DownloadRootCert 下载根证书文件
+// 参数：
+//   - filename: 证书文件名
+//
+// 返回：
+//   - []byte: 证书文件内容
+//   - error: 错误信息
+func (c *Client) DownloadRootCert(filename string) ([]byte, error) {
 	data, err := c.Get("/api/security/rootcerts/" + url.PathEscape(filename))
 	if err != nil {
 		return nil, err
 	}
-	var cert RootCertInfo
-	if err := json.Unmarshal(data, &cert); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %w", err)
-	}
-	return &cert, nil
+	return data, nil
 }
 
 func (c *Client) AddRootCert(filename string, certData []byte) (*RootCertInfo, error) {

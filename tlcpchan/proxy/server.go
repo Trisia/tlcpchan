@@ -36,10 +36,15 @@ func NewServerProxy(cfg *config.InstanceConfig,
 		return nil, fmt.Errorf("创建协议适配器失败: %w", err)
 	}
 
+	bufferSize := cfg.BufferSize
+	if bufferSize <= 0 {
+		bufferSize = 4096
+	}
+
 	proxy := &ServerProxy{
 		cfg:             cfg,
 		adapter:         adapter,
-		handler:         NewConnHandler(stats.DefaultCollector()),
+		handler:         NewConnHandler(stats.DefaultCollector(), bufferSize),
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
 		stats:           stats.DefaultCollector(),
