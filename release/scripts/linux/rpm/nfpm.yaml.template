@@ -38,3 +38,7 @@ contents:
 scripts:
   postinstall: "{{POSTINST_RPM_PATH}}"
   preremove: "{{PRERM_RPM_PATH}}"
+rpm:
+  signature:
+    key_file: "{{GPG_KEY_FILE}}"
+    passphrase: "{{GPG_PASSPHRASE}}"
