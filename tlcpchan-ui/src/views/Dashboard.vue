@@ -114,30 +114,6 @@
             <el-descriptions-item label="内存">{{ info?.memAllocMb }} MB / {{ info?.memSysMb }} MB</el-descriptions-item>
           </el-descriptions>
         </el-card>
-
-        <el-card class="quick-links-card">
-          <template #header>
-            <span>快捷入口</span>
-          </template>
-          <div class="quick-links">
-            <el-button type="primary" @click="$router.push('/instances')">
-              <el-icon><Connection /></el-icon>
-              实例管理
-            </el-button>
-            <el-button type="warning" @click="$router.push('/certificates')">
-              <el-icon><Key /></el-icon>
-              证书管理
-            </el-button>
-            <el-button type="info" @click="$router.push('/logs')">
-              <el-icon><Document /></el-icon>
-              日志查看
-            </el-button>
-            <el-button @click="$router.push('/settings')">
-              <el-icon><Setting /></el-icon>
-              系统设置
-            </el-button>
-          </div>
-        </el-card>
       </el-col>
     </el-row>
   </div>

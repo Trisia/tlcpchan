@@ -117,50 +117,32 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 	var certs []*x509.Certificate
 	var privateKey crypto.PrivateKey
 
-	if smCerts, err := smx509.ParseCertificates(certBlock.Bytes); err == nil && len(smCerts) > 0 {
-		certs = make([]*x509.Certificate, len(smCerts))
-		for i, smCert := range smCerts {
-			certs[i] = smCert.ToX509()
-		}
-		switch keyBlock.Type {
-		case "PRIVATE KEY", "EC PRIVATE KEY":
-			privateKey, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-			if err != nil {
-				privateKey, err = smx509.ParseECPrivateKey(keyBlock.Bytes)
-				if err != nil {
-					return nil, fmt.Errorf("解析SM2私钥失败: %w", err)
-				}
-			}
-		default:
-			privateKey, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("解析私钥失败: %w", err)
-			}
-		}
-	} else {
-		stdCerts, err := x509.ParseCertificates(certBlock.Bytes)
+	smCerts, err := smx509.ParseCertificates(certBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("解析SM证书失败: %w", err)
+	}
+	if len(smCerts) == 0 {
+		return nil, fmt.Errorf("证书为空")
+	}
+
+	certs = make([]*x509.Certificate, len(smCerts))
+	for i, smCert := range smCerts {
+		certs[i] = smCert.ToX509()
+	}
+
+	switch keyBlock.Type {
+	case "PRIVATE KEY", "EC PRIVATE KEY":
+		privateKey, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("解析证书失败: %w", err)
+			privateKey, err = smx509.ParseECPrivateKey(keyBlock.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("解析SM2私钥失败: %w", err)
+			}
 		}
-		certs = stdCerts
-		switch keyBlock.Type {
-		case "RSA PRIVATE KEY":
-			privateKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("解析RSA私钥失败: %w", err)
-			}
-		case "EC PRIVATE KEY":
-			privateKey, err = x509.ParseECPrivateKey(keyBlock.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("解析EC私钥失败: %w", err)
-			}
-		case "PRIVATE KEY":
-			privateKey, err = x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("解析PKCS8私钥失败: %w", err)
-			}
-		default:
-			return nil, fmt.Errorf("不支持的私钥类型: %s", keyBlock.Type)
+	default:
+		privateKey, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("解析私钥失败: %w", err)
 		}
 	}
 
