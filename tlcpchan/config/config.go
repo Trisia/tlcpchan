@@ -337,12 +337,19 @@ func Load(path string) (*Config, error) {
 
 // Save 保存配置到文件
 // 参数:
-//   - path: 配置文件路径
 //   - cfg: 配置实例
 //
 // 返回:
-//   - error: 序列化或写入失败时返回错误
-func Save(path string, cfg *Config) error {
+//   - error: 序列化或写入失败时返回错误，或未初始化配置文件路径
+func Save(cfg *Config) error {
+	configMutex.RLock()
+	path := globalConfigPath
+	configMutex.RUnlock()
+
+	if path == "" {
+		return fmt.Errorf("未初始化配置文件路径，请先调用 Init 函数")
+	}
+
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("序列化配置失败: %w", err)
@@ -699,19 +706,22 @@ func (c *Config) GetRootCertDir() string {
 }
 
 var (
-	globalConfig *Config
-	configMutex  sync.RWMutex
+	globalConfig     *Config
+	globalConfigPath string
+	configMutex      sync.RWMutex
 )
 
 // Init 初始化全局配置单例
 // 参数:
 //   - cfg: 配置实例
+//   - configPath: 配置文件路径，用于后续 Save 操作
 //
 // 注意: 该方法应该在程序启动时调用一次
-func Init(cfg *Config) {
+func Init(cfg *Config, configPath string) {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 	globalConfig = cfg
+	globalConfigPath = configPath
 }
 
 // Get 获取当前全局配置
@@ -743,19 +753,18 @@ func LoadAndInit(path string) error {
 	if err != nil {
 		return err
 	}
-	Init(cfg)
+	Init(cfg, path)
 	return nil
 }
 
 // SaveAndUpdate 保存配置到文件并更新全局单例
 // 参数:
-//   - path: 配置文件路径
 //   - cfg: 配置实例
 //
 // 返回:
 //   - error: 保存失败时返回错误
-func SaveAndUpdate(path string, cfg *Config) error {
-	if err := Save(path, cfg); err != nil {
+func SaveAndUpdate(cfg *Config) error {
+	if err := Save(cfg); err != nil {
 		return err
 	}
 	Set(cfg)

@@ -61,7 +61,7 @@
     </el-row>
 
     <el-row :gutter="20" class="content-row">
-      <el-col :xs="24" :sm="24" :md="24" :lg="16" :xl="16">
+      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -95,20 +95,6 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="24" :md="24" :lg="8" :xl="8">
-        <el-card>
-          <template #header>
-            <span>系统信息</span>
-          </template>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="版本">{{ health?.version || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
-            <el-descriptions-item label="CPU核心数">{{ info?.numCpu }}</el-descriptions-item>
-            <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
-            <el-descriptions-item label="内存">{{ info?.memAllocMb }} MB / {{ info?.memSysMb }} MB</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-      </el-col>
     </el-row>
   </div>
 </template>
@@ -116,20 +102,19 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { systemApi, instanceApi } from '@/api'
-import type { Instance, SystemInfo, InstanceStats, HealthStatus } from '@/types'
-import { DataLine } from '@element-plus/icons-vue'
+import type { Instance, SystemInfo, InstanceStats } from '@/types'
+import { Connection, CircleCheck, DataLine, Timer, ArrowRight } from '@element-plus/icons-vue'
 
 const instances = ref<Instance[]>([])
 const instanceStats = ref<Record<string, InstanceStats>>({})
 const info = ref<SystemInfo | null>(null)
-const health = ref<HealthStatus | null>(null)
 const instanceLoading = ref(false)
 
 const runningCount = computed(() => instances.value.filter(i => i.status === 'running').length)
 const totalBytesReceived = computed(() => Object.values(instanceStats.value).reduce((sum, s) => sum + s.bytesReceived, 0))
 
 onMounted(async () => {
-  await Promise.all([fetchInstances(), fetchInfo(), fetchHealth()])
+  await Promise.all([fetchInstances(), fetchInfo()])
 })
 
 async function fetchInstances() {
@@ -170,14 +155,6 @@ async function fetchInfo() {
   }
 }
 
-async function fetchHealth() {
-  try {
-    health.value = await systemApi.health()
-  } catch (error) {
-    console.error('获取健康状态失败:', error)
-  }
-}
-
 function formatUptime(uptimeStr?: string): string {
   if (!uptimeStr) return '-'
   return uptimeStr
@@ -206,15 +183,6 @@ function statusText(status: Instance['status']): string {
   return map[status] || status
 }
 
-async function start(name: string) {
-  await instanceApi.start(name)
-  await fetchInstances()
-}
-
-async function stop(name: string) {
-  await instanceApi.stop(name)
-  await fetchInstances()
-}
 </script>
 
 <style scoped>

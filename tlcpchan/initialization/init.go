@@ -307,7 +307,7 @@ func (m *Manager) Initialize() error {
 
 	// 7. 保存配置文件
 	logger.Info("保存配置文件...")
-	if err := config.Save(m.configPath, m.cfg); err != nil {
+	if err := config.Save(m.cfg); err != nil {
 		return err
 	}
 

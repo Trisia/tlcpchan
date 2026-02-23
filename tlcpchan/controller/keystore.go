@@ -345,7 +345,7 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 		Params: params,
 	})
 
-	if err := config.Save(c.configPath, c.cfg); err != nil {
+	if err := config.Save(c.cfg); err != nil {
 		InternalError(w, "保存配置失败: "+err.Error())
 		return
 	}
@@ -439,7 +439,7 @@ func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Reque
 	}
 	c.cfg.KeyStores = newKeyStores
 
-	if err := config.Save(c.configPath, c.cfg); err != nil {
+	if err := config.Save(c.cfg); err != nil {
 		InternalError(w, "保存配置失败: "+err.Error())
 		return
 	}
@@ -762,7 +762,7 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 		Params: params,
 	})
 
-	if err := config.Save(c.configPath, c.cfg); err != nil {
+	if err := config.Save(c.cfg); err != nil {
 		InternalError(w, "保存配置失败: "+err.Error())
 		return
 	}

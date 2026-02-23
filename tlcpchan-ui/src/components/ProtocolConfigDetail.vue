@@ -21,12 +21,12 @@
         </el-tag>
         <span v-if="!config.cipherSuites?.length">-</span>
       </el-descriptions-item>
-      <el-descriptions-item label="会话票据">
-        <el-tag :type="config.sessionTickets ? 'success' : 'info'" size="small">
-          {{ config.sessionTickets ? '启用' : '禁用' }}
+      <el-descriptions-item label="会话票据" v-if="!isTlcp">
+        <el-tag :type="(config as TLSConfig).sessionTickets ? 'success' : 'info'" size="small">
+          {{ (config as TLSConfig).sessionTickets ? '启用' : '禁用' }}
         </el-tag>
       </el-descriptions-item>
-      <el-descriptions-item label="会话缓存">
+      <el-descriptions-item label="握手重用">
         <el-tag :type="config.sessionCache ? 'success' : 'info'" size="small">
           {{ config.sessionCache ? '启用' : '禁用' }}
         </el-tag>

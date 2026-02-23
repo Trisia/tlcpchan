@@ -181,7 +181,8 @@ func (s *Server) Stop(ctx context.Context) error {
 		return nil
 	}
 	s.log.Info("API服务器停止")
-	return s.httpServer.Shutdown(ctx)
+	return s.httpServer.Close()
+	// return s.httpServer.Shutdown(ctx)
 }
 
 func (s *Server) Handler() http.Handler {

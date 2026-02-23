@@ -56,8 +56,6 @@ func NewConfigController(configPath string) *ConfigController {
  * @apiSuccess {String} [config.instances.tlcp.minVersion] 最低协议版本，TLCP仅有"1.1"版本
  * @apiSuccess {String} [config.instances.tlcp.maxVersion] 最高协议版本，TLCP仅有"1.1"版本
  * @apiSuccess {String[]} [config.instances.tlcp.cipherSuites] 密码套件列表
- * @apiSuccess {String[]} [config.instances.tlcp.curvePreferences] 椭圆曲线偏好
- * @apiSuccess {Boolean} [config.instances.tlcp.sessionTickets] 是否启用会话票据
  * @apiSuccess {Boolean} [config.instances.tlcp.sessionCache] 是否启用会话缓存
  * @apiSuccess {Boolean} [config.instances.tlcp.insecureSkipVerify] 是否跳过证书验证（不安全，仅用于测试）
  * @apiSuccess {Object} [config.instances.tlcp.keystore] TLCP密钥存储配置
@@ -296,7 +294,7 @@ func (c *ConfigController) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := config.SaveAndUpdate(c.configPath, &newCfg); err != nil {
+	if err := config.SaveAndUpdate(&newCfg); err != nil {
 		InternalError(w, "保存配置失败: "+err.Error())
 		return
 	}

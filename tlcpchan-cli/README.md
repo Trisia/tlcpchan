@@ -130,8 +130,7 @@ tlcpchan-cli instance show my-proxy
 | `--tlcp-max-version` | TLCP最大协议版本 | 否 | - |
 | `--tlcp-cipher-suites` | TLCP密码套件，多个用逗号分隔 | 否 | - |
 | `--tlcp-curve-preferences` | TLCP椭圆曲线偏好，多个用逗号分隔 | 否 | - |
-| `--tlcp-session-tickets` | 启用TLCP会话票据 | 否 | false |
-| `--tlcp-session-cache` | 启用TLCP会话缓存 | 否 | false |
+| `--tlcp-session-cache` | 启用TLCP握手重用 | 否 | false |
 | `--tlcp-insecure-skip-verify` | 跳过TLCP证书验证（不安全） | 否 | false |
 | **TLS 直接文件参数** | | | |
 | `--tls-sign-cert` | TLS 签名证书路径 | 否 | - |
@@ -142,7 +141,7 @@ tlcpchan-cli instance show my-proxy
 | `--tls-cipher-suites` | TLS密码套件，多个用逗号分隔 | 否 | - |
 | `--tls-curve-preferences` | TLS椭圆曲线偏好，多个用逗号分隔 | 否 | - |
 | `--tls-session-tickets` | 启用TLS会话票据 | 否 | false |
-| `--tls-session-cache` | 启用TLS会话缓存 | 否 | false |
+| `--tls-session-cache` | 启用TLS握手重用 | 否 | false |
 | `--tls-insecure-skip-verify` | 跳过TLS证书验证（不安全） | 否 | false |
 
 **说明：**
@@ -296,8 +295,7 @@ tlcpchan-cli instance create \
 | `--tlcp-max-version` | TLCP最大协议版本 |
 | `--tlcp-cipher-suites` | TLCP密码套件，多个用逗号分隔 |
 | `--tlcp-curve-preferences` | TLCP椭圆曲线偏好，多个用逗号分隔 |
-| `--tlcp-session-tickets` | 启用TLCP会话票据 |
-| `--tlcp-session-cache` | 启用TLCP会话缓存 |
+| `--tlcp-session-cache` | 启用TLCP握手重用 |
 | `--tlcp-insecure-skip-verify` | 跳过TLCP证书验证（不安全） |
 | **TLS 直接文件参数** | |
 | `--tls-sign-cert` | TLS 签名证书路径 |
@@ -308,7 +306,7 @@ tlcpchan-cli instance create \
 | `--tls-cipher-suites` | TLS密码套件，多个用逗号分隔 |
 | `--tls-curve-preferences` | TLS椭圆曲线偏好，多个用逗号分隔 |
 | `--tls-session-tickets` | 启用TLS会话票据 |
-| `--tls-session-cache` | 启用TLS会话缓存 |
+| `--tls-session-cache` | 启用TLS握手重用 |
 | `--tls-insecure-skip-verify` | 跳过TLS证书验证（不安全） |
 
 **调用示例：**

@@ -3,6 +3,8 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/Trisia/tlcpchan/logger"
 )
 
 // WriteJSON 写入JSON响应
@@ -13,7 +15,11 @@ import (
 func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if data != nil {
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			logger.Default().Error("JSON编码失败: %v, 状态码: %d", err, status)
+		}
+	}
 }
 
 // WriteError 写入错误响应
@@ -24,7 +30,13 @@ func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 func WriteError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(status)
-	w.Write([]byte(message))
+	if _, err := w.Write([]byte(message)); err != nil {
+		logger.Default().Error("写入错误响应失败: %v, 状态码: %d, 原始消息: %s", err, status, message)
+	}
+	// 记录错误响应日志
+	if status >= 400 {
+		logger.Default().Error("返回错误响应, 状态码: %d, 消息: %s", status, message)
+	}
 }
 
 func BadRequest(w http.ResponseWriter, message string) {
@@ -51,10 +63,16 @@ func Created(w http.ResponseWriter, data interface{}) {
 	WriteJSON(w, http.StatusCreated, data)
 }
 
+// SuccessText 写入成功文本响应
+// 参数:
+//   - w: HTTP响应写入器
+//   - text: 文本内容
 func SuccessText(w http.ResponseWriter, text string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(text))
+	if _, err := w.Write([]byte(text)); err != nil {
+		logger.Default().Error("写入文本响应失败: %v, 文本: %s", err, text)
+	}
 }
 
 func NoContent(w http.ResponseWriter) {

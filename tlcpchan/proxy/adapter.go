@@ -105,25 +105,17 @@ func NewTLCPAdapter(
 	}, nil
 }
 
-func (a *TLCPAdapter) getTLCPConfig() *tlcp.Config {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.tlcpConfig
-}
-
-func (a *TLCPAdapter) getTLSConfig() *tls.Config {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.tlsConfig
-}
-
 func (a *TLCPAdapter) loadKeyStoreFromConfig(ksConfig *config.KeyStoreConfig, suggestedName string) (security.KeyStore, error) {
 	if ksConfig == nil {
 		return nil, nil
 	}
 
 	if string(ksConfig.Type) == string(keystore.LoaderTypeNamed) {
-		return a.keyStoreManager.LoadFromConfig(ksConfig.Params["name"])
+		var name = ksConfig.Name
+		if name == "" {
+			name = ksConfig.Params["name"]
+		}
+		return a.keyStoreManager.LoadFromConfig(name)
 	}
 
 	return a.keyStoreManager.LoadAndRegister(ksConfig.Name, suggestedName, string(ksConfig.Type), ksConfig.Params)
@@ -207,14 +199,6 @@ func (a *TLCPAdapter) Protocol() ProtocolType {
 	return a.protocol
 }
 
-func (a *TLCPAdapter) TLCPConfig() *tlcp.Config {
-	return a.getTLCPConfig()
-}
-
-func (a *TLCPAdapter) TLSConfig() *tls.Config {
-	return a.getTLSConfig()
-}
-
 func (a *TLCPAdapter) ReloadConfig(cfg *config.InstanceConfig) error {
 	a.mu.Lock()
 	a.protocol = ParseProtocolType(cfg.Protocol)
@@ -234,12 +218,14 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 	if newTLCPKS, err := a.loadKeyStoreFromConfig(cfg.TLCP.Keystore, cfg.Name+"-tlcp"); err == nil {
 		a.tlcpKeyStore = newTLCPKS
 	} else {
+		logger.Error("实例 %s 加载 TLCP Keystore错误: %v", cfg.Name, err)
 		a.tlcpKeyStore = nil
 	}
 
 	if newTLSKS, err := a.loadKeyStoreFromConfig(cfg.TLS.Keystore, cfg.Name+"-tls"); err == nil {
 		a.tlsKeyStore = newTLSKS
 	} else {
+		logger.Error("实例 %s 加载 TLS Keystore错误: %v", cfg.Name, err)
 		a.tlsKeyStore = nil
 	}
 
@@ -339,11 +325,18 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 			},
 		}
 	}
-
 	a.atomicTLCPConfig.Store(tlcpConfig)
 	a.atomicTLSConfig.Store(tlsConfig)
-
 	a.mu.Unlock()
+
+	// 验证协议类型与配置是否匹配
+	protocol := a.Protocol()
+	if protocol == ProtocolTLCP && tlcpConfig == nil {
+		return fmt.Errorf("协议类型为TLCP，但未提供有效的TLCP配置（需要keystore配置）")
+	}
+	if protocol == ProtocolTLS && tlsConfig == nil {
+		return fmt.Errorf("协议类型为TLS，但未提供有效的TLS配置（需要keystore配置）")
+	}
 
 	return nil
 }
@@ -546,7 +539,6 @@ func (a *TLCPAdapter) checkTLCPHealth(dialer *net.Dialer, targetAddr string) (ne
 	if baseConfig == nil {
 		return nil, fmt.Errorf("TLCP配置未初始化")
 	}
-
 	healthConfig := baseConfig.Clone()
 	healthConfig.InsecureSkipVerify = true
 

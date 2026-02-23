@@ -128,7 +128,6 @@ type TLCPConfig struct {
 	MinVersion         string          `json:"minVersion,omitempty"`
 	MaxVersion         string          `json:"maxVersion,omitempty"`
 	CipherSuites       []string        `json:"cipherSuites,omitempty"`
-	SessionTickets     bool            `json:"sessionTickets,omitempty"`
 	SessionCache       bool            `json:"sessionCache,omitempty"`
 	InsecureSkipVerify bool            `json:"insecureSkipVerify,omitempty"`
 	Keystore           *KeyStoreConfig `json:"keystore,omitempty"`

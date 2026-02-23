@@ -46,13 +46,14 @@
     <!-- TLCP 配置卡片 -->
     <el-card style="margin-top: 20px" v-if="form.protocol !== 'tls'">
       <template #header>
-        <span>TLCP 配置</span>
+        <span>TLCP 配置 {{ form.protocol === 'tlcp' ? '(必填)' : '' }}</span>
       </template>
       <el-form :model="form" label-width="140px">
         <KeystoreConfig
           v-model="form.tlcp.keystoreConfig"
           :keystores="keystores"
           :is-tlcp="true"
+          :required="form.protocol === 'tlcp'"
         />
         <el-form-item label="客户端认证类型">
           <el-select v-model="form.tlcp.clientAuthType" placeholder="请选择认证类型">
@@ -80,10 +81,7 @@
             </div>
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="会话票据">
-          <el-switch v-model="form.tlcp.sessionTickets" />
-        </el-form-item>
-        <el-form-item label="会话缓存">
+        <el-form-item label="握手重用">
           <el-switch v-model="form.tlcp.sessionCache" />
         </el-form-item>
         <el-form-item label="跳过证书验证">
@@ -95,13 +93,14 @@
     <!-- TLS 配置卡片 -->
     <el-card style="margin-top: 20px" v-if="form.protocol !== 'tlcp'">
       <template #header>
-        <span>TLS 配置</span>
+        <span>TLS 配置 {{ form.protocol === 'tls' ? '(必填)' : '' }}</span>
       </template>
       <el-form :model="form" label-width="140px">
         <KeystoreConfig
           v-model="form.tls.keystoreConfig"
           :keystores="keystores"
           :is-tlcp="false"
+          :required="form.protocol === 'tls'"
         />
         <el-form-item label="客户端认证类型">
           <el-select v-model="form.tls.clientAuthType" placeholder="请选择认证类型">
@@ -138,7 +137,7 @@
         <el-form-item label="会话票据">
           <el-switch v-model="form.tls.sessionTickets" />
         </el-form-item>
-        <el-form-item label="会话缓存">
+        <el-form-item label="握手重用">
           <el-switch v-model="form.tls.sessionCache" />
         </el-form-item>
         <el-form-item label="跳过证书验证">
@@ -245,6 +244,47 @@ async function create() {
     return
   }
 
+  const protocol = form.value.protocol
+  
+  // 验证 TLCP keystore 配置（当协议为 tlcp 或 auto 时）
+  if (protocol === 'tlcp' || protocol === 'auto') {
+    const tlcpConfig = form.value.tlcp.keystoreConfig
+    if (!tlcpConfig) {
+      ElMessage.error('请配置 TLCP 密钥存储')
+      return
+    }
+    if (tlcpConfig.type === 'named' && !tlcpConfig.name) {
+      ElMessage.error('请选择 TLCP 密钥名称')
+      return
+    }
+    if (tlcpConfig.type === 'file') {
+      if (!tlcpConfig.params['sign-cert'] || !tlcpConfig.params['sign-key'] ||
+          !tlcpConfig.params['enc-cert'] || !tlcpConfig.params['enc-key']) {
+        ElMessage.error('请填写完整的 TLCP 密钥文件路径（签名证书、签名密钥、加密证书、加密密钥）')
+        return
+      }
+    }
+  }
+
+  // 验证 TLS keystore 配置（当协议为 tls 或 auto 时）
+  if (protocol === 'tls' || protocol === 'auto') {
+    const tlsConfig = form.value.tls.keystoreConfig
+    if (!tlsConfig) {
+      ElMessage.error('请配置 TLS 密钥存储')
+      return
+    }
+    if (tlsConfig.type === 'named' && !tlsConfig.name) {
+      ElMessage.error('请选择 TLS 密钥名称')
+      return
+    }
+    if (tlsConfig.type === 'file') {
+      if (!tlsConfig.params['sign-cert'] || !tlsConfig.params['sign-key']) {
+        ElMessage.error('请填写完整的 TLS 密钥文件路径（签名证书、签名密钥）')
+        return
+      }
+    }
+  }
+
   const data: any = { ...form.value }
 
   if (data.tlcp) {
@@ -306,6 +346,27 @@ async function create() {
   try {
     await instanceApi.create(data)
     ElMessage.success('实例创建成功')
+    
+    // 根据启用状态启动或停止实例
+    const instanceName = form.value.name
+    if (form.value.enabled) {
+      try {
+        await instanceApi.start(instanceName)
+        ElMessage.success('实例已启动')
+      } catch (startErr: any) {
+        console.error('启动实例失败:', startErr)
+        ElMessage.warning('实例已创建，但启动失败: ' + (startErr.response?.data || startErr.message))
+      }
+    } else {
+      try {
+        await instanceApi.stop(instanceName)
+        ElMessage.success('实例已停止')
+      } catch (stopErr: any) {
+        console.error('停止实例失败:', stopErr)
+        // 停止失败不影响创建成功，因为默认就是停止状态
+      }
+    }
+    
     router.push('/instances')
   } catch (err: any) {
     console.error('创建失败:', err)

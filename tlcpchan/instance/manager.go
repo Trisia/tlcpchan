@@ -57,7 +57,7 @@ func (m *Manager) Create(cfg *config.InstanceConfig) (Instance, error) {
 	}
 
 	m.instances[cfg.Name] = inst
-	m.logger.Info("创建实例: %s, 类型: %s", cfg.Name, cfg.Type)
+	m.logger.Info("创建实例: %s, 类型: %s 协议: %s", cfg.Name, cfg.Type, cfg.Protocol)
 	return inst, nil
 }
 

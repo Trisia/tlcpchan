@@ -1,6 +1,21 @@
 <template>
   <div class="settings">
-    <el-row :gutter="20">
+    <el-card class="system-info-card">
+      <template #header>
+        <span>系统信息</span>
+      </template>
+      <el-descriptions :column="2" border size="small">
+        <el-descriptions-item label="UI版本">{{ uiVersion }}</el-descriptions-item>
+        <el-descriptions-item label="后端版本">{{ health?.version || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="系统">{{ info?.os }}/{{ info?.arch }}</el-descriptions-item>
+        <el-descriptions-item label="CPU核心数">{{ info?.numCpu }}</el-descriptions-item>
+        <el-descriptions-item label="Goroutines">{{ info?.numGoroutine }}</el-descriptions-item>
+        <el-descriptions-item label="内存">{{ info?.memAllocMb }} MB / {{ info?.memSysMb }} MB</el-descriptions-item>
+        <el-descriptions-item label="运行时长">{{ info?.uptime || '-' }}</el-descriptions-item>
+      </el-descriptions>
+    </el-card>
+
+    <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="12">
         <el-card>
           <template #header>
@@ -22,6 +37,9 @@
           <el-form label-width="120px">
             <el-form-item label="API 密钥">
               <el-input v-model="config.mcp!.apiKey" type="password" show-password placeholder="留空表示无需认证" />
+            </el-form-item>
+            <el-form-item label="对接地址">
+              <el-input :value="mcpConnectUrl" readonly />
             </el-form-item>
           </el-form>
         </el-card>
@@ -91,8 +109,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { configApi } from '@/api'
-import type { Config } from '@/types'
+import { configApi, systemApi } from '@/api'
+import type { Config, SystemInfo, HealthStatus } from '@/types'
+import { DocumentChecked, Refresh } from '@element-plus/icons-vue'
+import axios from 'axios'
+
+const info = ref<SystemInfo | null>(null)
+const health = ref<HealthStatus | null>(null)
+const uiVersion = ref('dev')
 
 const config = ref<Config>({
   server: {
@@ -137,8 +161,28 @@ const logConfig = computed({
   }
 })
 
+const mcpConnectUrl = computed(() => {
+  const host = window.location.host
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const apiKey = config.value.mcp?.apiKey
+  let url = `${protocol}//${host}/api/mcp/ws`
+  if (apiKey) {
+    url += `?api_key=${apiKey}`
+  }
+  return url
+})
+
 onMounted(() => {
-  fetchConfig()
+  // 获取UI版本
+  axios.get('./version.txt', { responseType: 'text' })
+    .then((response) => {
+      uiVersion.value = response.data.trim()
+    })
+    .catch(() => {
+      uiVersion.value = 'dev'
+    })
+
+  Promise.all([fetchConfig(), fetchInfo(), fetchHealth()])
 })
 
 async function fetchConfig() {
@@ -148,6 +192,22 @@ async function fetchConfig() {
   } catch (error) {
     console.error('获取配置失败:', error)
     ElMessage.error('获取配置失败')
+  }
+}
+
+async function fetchInfo() {
+  try {
+    info.value = await systemApi.info()
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+  }
+}
+
+async function fetchHealth() {
+  try {
+    health.value = await systemApi.health()
+  } catch (error) {
+    console.error('获取健康状态失败:', error)
   }
 }
 

@@ -41,29 +41,9 @@
             <el-icon>
               <Setting />
             </el-icon>
-            <span>系统设置</span>
+          <span>系统设置</span>
           </el-menu-item>
         </el-menu>
-        <div class="sidebar-footer">
-          <div class="version-info">
-            <span>UI: {{ uiVersion }}</span>
-            <span>后端: {{ backendVersion || '-' }}</span>
-          </div>
-          <div class="links">
-            <a href="https://github.com/Trisia/tlcpchan" target="_blank" class="link">
-              <el-icon>
-                <Link />
-              </el-icon>
-              GitHub
-            </a>
-            <a href="https://github.com/Trisia/tlcpchan/tree/main/docs" target="_blank" class="link">
-              <el-icon>
-                <Reading />
-              </el-icon>
-              文档
-            </a>
-          </div>
-        </div>
       </div>
     </el-drawer>
 
@@ -108,15 +88,9 @@
             <Setting />
           </el-icon>
           <span>系统设置</span>
-        </el-menu-item>
-      </el-menu>
-      <div class="sidebar-footer">
-        <div class="version-info">
-          <span>UI: {{ uiVersion }}</span>
-          <span>API: {{ backendVersion || '-' }}</span>
-        </div>
-      </div>
-    </el-aside>
+          </el-menu-item>
+        </el-menu>
+      </el-aside>
 
     <el-container class="main-container">
       <el-header class="mobile-header">
@@ -137,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Menu,
@@ -145,37 +119,11 @@ import {
   Connection,
   Lock,
   Document,
-  Setting,
-  Link,
-  Reading
+  Setting
 } from '@element-plus/icons-vue'
-import { systemApi } from '@/api/index'
-import axios from 'axios'
 
 const route = useRoute()
-const uiVersion = ref('dev')
-const backendVersion = ref('')
 const mobileMenuOpen = ref(false)
-
-onMounted(() => {
-  // 获取UI版本
-  axios.get('./version.txt', { responseType: 'text' })
-    .then((response) => {
-      uiVersion.value = response.data.trim()
-    })
-    .catch(() => {
-      uiVersion.value = 'dev'
-    })
-
-  // 获取后端版本
-  systemApi.version()
-    .then((response) => {
-      backendVersion.value = response.version
-    })
-    .catch(() => {
-      // ignore
-    })
-})
 </script>
 
 <style scoped>
@@ -207,39 +155,6 @@ onMounted(() => {
 .el-menu {
   border-right: none;
   flex: 1;
-}
-
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid #3a3b3c;
-}
-
-.version-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-  font-size: 12px;
-  color: #909399;
-}
-
-.links {
-  display: flex;
-  gap: 16px;
-}
-
-.link {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #909399;
-  text-decoration: none;
-  font-size: 13px;
-  transition: color 0.2s;
-}
-
-.link:hover {
-  color: #409eff;
 }
 
 .main-container {

@@ -233,7 +233,7 @@ func (t *KeyStoreManagerTool) generate(ctx context.Context, req GenerateKeyStore
 		Params: params,
 	})
 
-	if err := config.Save(t.configPath, t.cfg); err != nil {
+	if err := config.Save(t.cfg); err != nil {
 		return nil, fmt.Errorf("保存配置失败: %w", err)
 	}
 
@@ -254,7 +254,7 @@ func (t *KeyStoreManagerTool) delete(ctx context.Context, name string) (interfac
 	}
 	t.cfg.KeyStores = newKeyStores
 
-	if err := config.Save(t.configPath, t.cfg); err != nil {
+	if err := config.Save(t.cfg); err != nil {
 		return nil, fmt.Errorf("保存配置失败: %w", err)
 	}
 

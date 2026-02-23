@@ -80,7 +80,7 @@ func main() {
 		cfg.WorkDir = wd
 		logger.Info("使用默认配置: %v", err)
 
-		if err := config.Save(configPath, cfg); err != nil {
+		if err := config.Save(cfg); err != nil {
 			logger.Warn("保存默认配置文件失败: %v", err)
 		} else {
 			logger.Info("默认配置已保存到: %s", configPath)
@@ -88,7 +88,7 @@ func main() {
 	} else {
 		cfg.WorkDir = wd
 	}
-	config.Init(cfg)
+	config.Init(cfg, configPath)
 
 	// 检查并执行初始化
 	initMgr := initialization.NewManager(cfg, configPath, wd)

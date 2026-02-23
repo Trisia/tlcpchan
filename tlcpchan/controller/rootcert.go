@@ -379,7 +379,7 @@ func (c *SecurityController) GenerateRootCA(w http.ResponseWriter, r *http.Reque
 		Params: params,
 	})
 
-	if err := config.Save(c.configPath, c.cfg); err != nil {
+	if err := config.Save(c.cfg); err != nil {
 		InternalError(w, "保存配置失败: "+err.Error())
 		return
 	}

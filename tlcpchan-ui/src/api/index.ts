@@ -174,11 +174,6 @@ export const instanceApi = {
     return res.data
   },
 
-  edit: async (name: string, data: any) => {
-    const res = await http.put(`/instances/${name}/edit`, data)
-    return res.data
-  },
-
   delete: async (name: string) => {
     await http.delete(`/instances/${name}`)
   },
