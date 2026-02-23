@@ -102,42 +102,48 @@
     </el-dialog>
 
     <el-dialog v-model="showGenerateDialog" title="生成根 CA 证书" width="700px">
-      <el-form :model="generateForm" label-width="140px">
+      <el-alert
+        title="提示：根 CA 证书用于签发服务器和客户端证书"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      />
+      <el-form :model="generateForm" label-width="120px">
         <el-divider content-position="left">证书类型</el-divider>
-        <el-form-item label="类型" required>
+        <el-form-item label="证书类型" required>
           <el-radio-group v-model="generateForm.type">
-            <el-radio value="tlcp">TLCP (SM2)</el-radio>
-            <el-radio value="tls">TLS (RSA)</el-radio>
+            <el-radio value="tlcp">国密 SM2 (TLCP)</el-radio>
+            <el-radio value="tls">国际 RSA (TLS)</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-divider content-position="left">证书主体 (DN)</el-divider>
+        <el-divider content-position="left">证书主体信息</el-divider>
         <el-row :gutter="20">
           <el-col :span="8">
-            <el-form-item label="国家 (C)">
+            <el-form-item label="国家代码 (C)">
               <el-input v-model="generateForm.country" placeholder="CN" maxlength="2" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="省/州 (ST)">
-              <el-input v-model="generateForm.stateOrProvince" placeholder="Beijing" />
+            <el-form-item label="省份/直辖市 (ST)">
+              <el-input v-model="generateForm.stateOrProvince" placeholder="北京市" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="地区 (L)">
-              <el-input v-model="generateForm.locality" placeholder="Haidian" />
+            <el-form-item label="城市/地区 (L)">
+              <el-input v-model="generateForm.locality" placeholder="北京市" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="组织 (O)">
-              <el-input v-model="generateForm.org" placeholder="Example Org" />
+            <el-form-item label="组织名称 (O)">
+              <el-input v-model="generateForm.org" placeholder="公司名称" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="组织单位 (OU)">
-              <el-input v-model="generateForm.orgUnit" placeholder="IT" />
+              <el-input v-model="generateForm.orgUnit" placeholder="IT 部门" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -145,41 +151,52 @@
           <el-col :span="12">
             <el-form-item label="通用名称 (CN)" required>
               <el-input v-model="generateForm.commonName" placeholder="my-root-ca" />
+              <template #label>
+                <span>通用名称 (CN) <el-tooltip content="证书的唯一标识，建议使用根证书名称" placement="top"><el-icon><QuestionFilled /></el-icon></el-tooltip></span>
+              </template>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="邮箱地址">
-              <el-input v-model="generateForm.emailAddress" placeholder="admin@example.com" />
+            <el-form-item label="邮箱地址 (E)">
+              <el-input v-model="generateForm.emailAddress" placeholder="admin@company.com" />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-divider content-position="left">有效期</el-divider>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="有效期(年)">
-              <el-input-number v-model="generateForm.years" :min="1" :max="100" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="或 有效期(天)">
-              <el-input-number v-model="generateForm.days" :min="1" :max="36500" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-divider content-position="left">证书有效期</el-divider>
+        <el-form-item label="有效期" required>
+          <el-select v-model="generateForm.validityPeriod" placeholder="请选择有效期" style="width: 100%;">
+            <el-option label="1 年 (365 天)" value="1y" />
+            <el-option label="3 年 (1095 天)" value="3y" />
+            <el-option label="5 年 (1825 天)" value="5y" />
+            <el-option label="10 年 (3650 天)" value="10y" />
+            <el-option label="20 年 (7300 天)" value="20y" />
+            <el-option label="50 年 (18250 天)" value="50y" />
+            <el-option label="100 年 (36500 天)" value="100y" />
+          </el-select>
+        </el-form-item>
+
+        <el-divider content-position="left">其他配置</el-divider>
+        <el-form-item label="密钥长度">
+          <el-select v-model="generateForm.keySize" placeholder="请选择密钥长度" style="width: 100%;" v-if="generateForm.type === 'tls'">
+            <el-option label="2048 位 (推荐)" :value="2048" />
+            <el-option label="4096 位" :value="4096" />
+          </el-select>
+          <el-input v-else value="SM2 256 位 (国密标准)" disabled style="width: 100%;" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showGenerateDialog = false">取消</el-button>
-        <el-button type="primary" :loading="generateLoading" @click="generateRootCA">生成</el-button>
+        <el-button type="primary" :loading="generateLoading" @click="generateRootCA">生成根证书</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
-import { Plus, MagicStick } from '@element-plus/icons-vue'
+import { Plus, MagicStick, QuestionFilled } from '@element-plus/icons-vue'
 import { trustedApi, rootCertApi } from '@/api'
 
 const loading = ref(false)
@@ -201,17 +218,21 @@ const uploadForm = ref({
 const generateForm = ref({
   type: 'tlcp',
   commonName: 'tlcpchan-root-ca',
-  country: '',
+  country: 'CN',
   stateOrProvince: '',
   locality: '',
   org: 'tlcpchan',
   orgUnit: '',
   emailAddress: '',
-  years: 10,
-  days: 0,
+  validityPeriod: '10y',
+  keySize: 256,
 })
 
 onMounted(() => fetchTrustedCerts())
+
+watch(() => generateForm.value.type, (newType) => {
+  generateForm.value.keySize = newType === 'tlcp' ? 256 : 2048
+})
 
 async function fetchTrustedCerts() {
   loading.value = true
@@ -278,10 +299,25 @@ async function generateRootCA() {
     ElMessage.error('请填写通用名称 (CN)')
     return
   }
+  if (!generateForm.value.validityPeriod) {
+    ElMessage.error('请选择证书有效期')
+    return
+  }
+  if (!generateForm.value.keySize) {
+    ElMessage.error('请选择密钥长度')
+    return
+  }
 
   generateLoading.value = true
   try {
-    await rootCertApi.generate(generateForm.value)
+    const period = generateForm.value.validityPeriod
+    const data = {
+      ...generateForm.value,
+      years: period.endsWith('y') ? parseInt(period) : 0,
+      days: period.endsWith('y') ? 0 : parseInt(period),
+    }
+    
+    await rootCertApi.generate(data)
     ElMessage.success('根证书生成成功')
     showGenerateDialog.value = false
     resetGenerateForm()
@@ -295,12 +331,17 @@ async function generateRootCA() {
 
 async function remove(name: string) {
   try {
-    await ElMessageBox.prompt('请输入证书文件名确认删除', '确认删除', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputPattern: new RegExp(`^${name}$`),
-      inputErrorMessage: '文件名不匹配，删除已取消',
-    })
+    await ElMessageBox.prompt(
+      `请输入证书文件名 <span style="color: red; font-weight: bold;">${name}</span> 确认删除`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        dangerouslyUseHTMLString: true,
+        inputPattern: new RegExp(`^${name}$`),
+        inputErrorMessage: '文件名不匹配，删除已取消',
+      }
+    )
     await trustedApi.delete(name)
     ElMessage.success('信任证书已删除')
     fetchTrustedCerts()
@@ -320,14 +361,14 @@ function resetGenerateForm() {
   generateForm.value = {
     type: 'tlcp',
     commonName: 'tlcpchan-root-ca',
-    country: '',
+    country: 'CN',
     stateOrProvince: '',
     locality: '',
     org: 'tlcpchan',
     orgUnit: '',
     emailAddress: '',
-    years: 10,
-    days: 0,
+    validityPeriod: '10y',
+    keySize: 256,
   }
 }
 </script>

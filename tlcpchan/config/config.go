@@ -150,8 +150,6 @@ type InstanceConfig struct {
 	ServerCA []string `yaml:"server-ca,omitempty" json:"serverCa,omitempty"`
 	// HTTP HTTP协议专用配置，用于HTTP代理
 	HTTP *HTTPConfig `yaml:"http,omitempty" json:"http,omitempty"`
-	// Log 实例级别日志配置，nil表示使用全局配置
-	Log *LogConfig `yaml:"log,omitempty" json:"log,omitempty"`
 	// Stats 统计信息配置
 	Stats *StatsConfig `yaml:"stats,omitempty" json:"stats,omitempty"`
 	// SNI 服务器名称指示，用于TLS/TLCP握手时的SNI扩展
@@ -260,9 +258,6 @@ type HeadersConfig struct {
 type StatsConfig struct {
 	// Enabled 是否启用统计信息收集
 	Enabled bool `yaml:"enabled" json:"enabled"`
-	// Interval 统计信息收集间隔，单位: 纳秒（支持时间格式如 "10s", "1m"）
-	// 示例: "10s" 表示每10秒收集一次
-	Interval time.Duration `yaml:"interval" json:"interval"`
 }
 
 // TimeoutConfig 连接超时配置

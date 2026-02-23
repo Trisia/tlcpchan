@@ -5,63 +5,75 @@
       <el-breadcrumb-item>更新证书</el-breadcrumb-item>
     </el-breadcrumb>
     
-    <el-card class="form-card" style="margin-top: 16px;">
+    <el-card class="info-card" style="margin-top: 16px;">
       <template #header>
         <div class="card-header">
-          <span>更新证书 - {{ keyStoreName }}</span>
+          <span>密钥库信息</span>
         </div>
       </template>
-      
-      <el-alert 
-        v-if="keyStoreType" 
-        :title="`类型: ${keyStoreType.toUpperCase()}`" 
-        type="info" 
-        :closable="false"
-        style="margin-bottom: 16px;"
-      />
-      
-      <el-form label="140px" style="max-width: 700px;">
-        <el-form-item label="签名证书">
-          <el-upload 
-            v-model:file-list="signCertFiles" 
-            :limit="1" 
-            :auto-upload="false" 
-            accept=".crt,.pem"
-            drag
-          >
-            <div class="upload-content">
-              <el-icon class="upload-icon"><UploadFilled /></el-icon>
-              <div class="upload-text">
-                <p>点击或拖拽文件到此处上传</p>
-                <p class="upload-tip">支持 .crt 或 .pem 格式</p>
-              </div>
-            </div>
-          </el-upload>
-        </el-form-item>
-        
-        <el-form-item v-if="keyStoreType === 'tlcp'" label="加密证书">
-          <el-upload 
-            v-model:file-list="encCertFiles" 
-            :limit="1" 
-            :auto-upload="false" 
-            accept=".crt,.pem"
-            drag
-          >
-            <div class="upload-content">
-              <el-icon class="upload-icon"><UploadFilled /></el-icon>
-              <div class="upload-text">
-                <p>点击或拖拽文件到此处上传</p>
-                <p class="upload-tip">支持 .crt 或 .pem 格式</p>
-              </div>
-            </div>
-          </el-upload>
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
+      <div class="info-content">
+        <div class="info-item">
+          <span class="info-label">密钥库名称：</span>
+          <span class="info-value">{{ keyStoreName }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">类型：</span>
+          <span class="info-value">{{ keyStoreType ? keyStoreType.toUpperCase() : '-' }}</span>
+        </div>
+      </div>
+    </el-card>
+    
+    <el-card class="upload-card" style="margin-top: 16px;">
+      <template #header>
+        <div class="card-header">
+          <span>签名证书</span>
+        </div>
+      </template>
+      <el-upload 
+        v-model:file-list="signCertFiles" 
+        :limit="1" 
+        :auto-upload="false" 
+        accept=".crt,.pem"
+        drag
+      >
+        <div class="upload-content">
+          <el-icon class="upload-icon"><UploadFilled /></el-icon>
+          <div class="upload-text">
+            <p>点击或拖拽文件到此处上传</p>
+            <p class="upload-tip">支持 .crt 或 .pem 格式</p>
+          </div>
+        </div>
+      </el-upload>
+    </el-card>
+    
+    <el-card v-if="keyStoreType === 'tlcp'" class="upload-card" style="margin-top: 16px;">
+      <template #header>
+        <div class="card-header">
+          <span>加密证书</span>
+        </div>
+      </template>
+      <el-upload 
+        v-model:file-list="encCertFiles" 
+        :limit="1" 
+        :auto-upload="false" 
+        accept=".crt,.pem"
+        drag
+      >
+        <div class="upload-content">
+          <el-icon class="upload-icon"><UploadFilled /></el-icon>
+          <div class="upload-text">
+            <p>点击或拖拽文件到此处上传</p>
+            <p class="upload-tip">支持 .crt 或 .pem 格式</p>
+          </div>
+        </div>
+      </el-upload>
+    </el-card>
+    
+    <el-card class="action-card" style="margin-top: 16px;">
+      <div class="action-content">
         <el-button @click="goBack">取消</el-button>
         <el-button type="primary" :loading="updateLoading" @click="updateCertificates">更新</el-button>
-      </template>
+      </div>
     </el-card>
   </div>
 </template>
@@ -133,14 +145,50 @@ async function updateCertificates() {
   font-weight: 600;
 }
 
+.info-card {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.info-content {
+  display: flex;
+  gap: 40px;
+  padding: 8px 0;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+
+.info-label {
+  color: #606266;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #303133;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.upload-card {
+  transition: all 0.3s ease;
+}
+
+.upload-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
 .upload-content {
   text-align: center;
-  padding: 20px 0;
+  padding: 30px 0;
 }
 
 .upload-icon {
   font-size: 48px;
-  color: #909399;
+  color: #409eff;
+  margin-bottom: 12px;
 }
 
 .upload-text p {
@@ -156,5 +204,17 @@ async function updateCertificates() {
 
 :deep(.el-upload-dragger) {
   width: 100%;
+  border-radius: 8px;
+}
+
+.action-card {
+  background: #f5f7fa;
+}
+
+.action-content {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 8px 0;
 }
 </style>

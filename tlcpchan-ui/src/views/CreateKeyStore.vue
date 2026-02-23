@@ -32,15 +32,8 @@
             :limit="1" 
             :auto-upload="false" 
             accept=".crt,.pem"
-            drag
           >
-            <div class="upload-content">
-              <el-icon class="upload-icon"><UploadFilled /></el-icon>
-              <div class="upload-text">
-                <p>点击或拖拽文件到此处上传</p>
-                <p class="upload-tip">支持 .crt 或 .pem 格式</p>
-              </div>
-            </div>
+            <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
         
@@ -50,15 +43,8 @@
             :limit="1" 
             :auto-upload="false" 
             accept=".key,.pem"
-            drag
           >
-            <div class="upload-content">
-              <el-icon class="upload-icon"><UploadFilled /></el-icon>
-              <div class="upload-text">
-                <p>点击或拖拽文件到此处上传</p>
-                <p class="upload-tip">支持 .key 或 .pem 格式</p>
-              </div>
-            </div>
+            <el-button type="primary">选择文件</el-button>
           </el-upload>
         </el-form-item>
         
@@ -71,15 +57,8 @@
               :limit="1" 
               :auto-upload="false" 
               accept=".crt,.pem"
-              drag
             >
-              <div class="upload-content">
-                <el-icon class="upload-icon"><UploadFilled /></el-icon>
-                <div class="upload-text">
-                  <p>点击或拖拽文件到此处上传</p>
-                  <p class="upload-tip">支持 .crt 或 .pem 格式</p>
-                </div>
-              </div>
+              <el-button type="primary">选择文件</el-button>
             </el-upload>
           </el-form-item>
           
@@ -89,15 +68,8 @@
               :limit="1" 
               :auto-upload="false" 
               accept=".key,.pem"
-              drag
             >
-              <div class="upload-content">
-                <el-icon class="upload-icon"><UploadFilled /></el-icon>
-                <div class="upload-text">
-                  <p>点击或拖拽文件到此处上传</p>
-                  <p class="upload-tip">支持 .key 或 .pem 格式</p>
-                </div>
-              </div>
+              <el-button type="primary">选择文件</el-button>
             </el-upload>
           </el-form-item>
         </template>
@@ -115,7 +87,6 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type UploadUserFile } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
 import { keyStoreApi } from '@/api'
 import { CertType } from '@/types'
 
@@ -191,30 +162,5 @@ async function createKeyStore() {
   align-items: center;
   font-size: 16px;
   font-weight: 600;
-}
-
-.upload-content {
-  text-align: center;
-  padding: 20px 0;
-}
-
-.upload-icon {
-  font-size: 48px;
-  color: #909399;
-}
-
-.upload-text p {
-  margin: 8px 0;
-  font-size: 14px;
-  color: #606266;
-}
-
-.upload-tip {
-  font-size: 12px;
-  color: #909399 !important;
-}
-
-:deep(.el-upload-dragger) {
-  width: 100%;
 }
 </style>

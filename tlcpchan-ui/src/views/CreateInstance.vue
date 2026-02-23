@@ -15,7 +15,7 @@
           <el-select v-model="form.type" placeholder="请选择类型">
             <el-option label="服务端代理" value="server" />
             <el-option label="客户端代理" value="client" />
-            <el-option label="HTTP服务端" value="http-server" />
+            <el-option label="HTTP服务" value="http-server" />
             <el-option label="HTTP客户端" value="http-client" />
           </el-select>
         </el-form-item>
@@ -44,7 +44,7 @@
     </el-card>
 
     <!-- TLCP 配置卡片 -->
-    <el-card style="margin-top: 20px" :disabled="form.protocol === 'tls'">
+    <el-card style="margin-top: 20px" v-if="form.protocol !== 'tls'">
       <template #header>
         <span>TLCP 配置</span>
       </template>
@@ -93,7 +93,7 @@
     </el-card>
 
     <!-- TLS 配置卡片 -->
-    <el-card style="margin-top: 20px" :disabled="form.protocol === 'tlcp'">
+    <el-card style="margin-top: 20px" v-if="form.protocol !== 'tlcp'">
       <template #header>
         <span>TLS 配置</span>
       </template>
@@ -143,6 +143,18 @@
         </el-form-item>
         <el-form-item label="跳过证书验证">
           <el-switch v-model="form.tls.insecureSkipVerify" />
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 统计配置卡片 -->
+    <el-card style="margin-top: 20px" v-if="form.stats">
+      <template #header>
+        <span>统计配置</span>
+      </template>
+      <el-form :model="form" label-width="140px">
+        <el-form-item label="启用统计">
+          <el-switch v-model="form.stats.enabled" />
         </el-form-item>
       </el-form>
     </el-card>
@@ -208,6 +220,9 @@ const form = ref<InstanceConfig>({
     insecureSkipVerify: false,
     keystore: undefined,
     keystoreConfig: { type: 'named', name: undefined, params: {} }
+  },
+  stats: {
+    enabled: false
   }
 })
 
@@ -239,7 +254,6 @@ async function create() {
     data.tls.auth = form.value.auth
   }
 
-  // 处理 TLCP keystore 配置
   if (form.value.tlcp.keystoreConfig) {
     const ksConfig = form.value.tlcp.keystoreConfig
     if (ksConfig.type === 'named' && ksConfig.name) {
@@ -261,7 +275,6 @@ async function create() {
     }
   }
 
-  // 处 fancyp TLS keystore 配置
   if (form.value.tls.keystoreConfig) {
     const ksConfig = form.value.tls.keystoreConfig
     if (ksConfig.type === 'named' && ksConfig.name) {
@@ -282,7 +295,6 @@ async function create() {
     }
   }
 
-  // 删除 keystoreConfig 字段（前端使用字段）
   if (data.tlcp) {
     delete data.tlcp.keystoreConfig
   }

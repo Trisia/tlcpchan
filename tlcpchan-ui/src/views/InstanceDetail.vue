@@ -7,119 +7,105 @@
       </template>
     </el-page-header>
 
-    <el-row :gutter="20" style="margin-top: 20px">
-      <el-col :span="16">
-        <el-card>
-          <template #header>
-            <span>统计信息</span>
-          </template>
-           <el-row :gutter="20">
-             <el-col :span="6">
-               <el-statistic title="总连接数" :value="stats?.totalConnections || 0" />
-             </el-col>
-             <el-col :span="6">
-               <el-statistic title="活跃连接" :value="stats?.activeConnections || 0" />
-             </el-col>
-              <el-col :span="6">
-                <el-statistic title="接收字节" :value="stats?.bytesReceived || 0" :formatter="formatBytes" />
-              </el-col>
-              <el-col :span="6">
-                <el-statistic title="发送字节" :value="stats?.bytesSent || 0" :formatter="formatBytes" />
-              </el-col>
-           </el-row>
-        </el-card>
+    <div style="margin-top: 20px">
+      <!-- 控制区：操作 -->
+      <el-card>
+        <template #header>
+          <span>操作</span>
+        </template>
+         <el-button type="primary" @click="start" :disabled="instance?.status === 'running'" :loading="actionLoading.start">启动</el-button>
+         <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'" :loading="actionLoading.stop">停止</el-button>
+         <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'" :loading="actionLoading.reload">重载</el-button>
+         <el-button type="info" @click="restart" :loading="actionLoading.restart">重启</el-button>
+         <el-button type="success" @click="edit" style="margin-left: 8px">编辑</el-button>
+      </el-card>
 
-        <el-card style="margin-top: 20px">
-          <template #header>
-            <span>实例日志</span>
-            <el-select v-model="logLevel" size="small" style="margin-left: 16px; width: 100px" @change="fetchLogs">
-              <el-option label="全部" value="" />
-              <el-option label="INFO" value="info" />
-              <el-option label="WARN" value="warn" />
-              <el-option label="ERROR" value="error" />
-            </el-select>
-          </template>
-          <div class="log-container" v-loading="logsLoading">
-            <div v-for="(log, i) in logs" :key="i" class="log-line">
-              <span class="log-time">{{ log.time }}</span>
-              <span :class="['log-level', log.level]">{{ log.level.toUpperCase() }}</span>
-              <span class="log-message">{{ log.message }}</span>
+      <!-- 控制区：健康检查 -->
+      <el-card style="margin-top: 20px">
+        <template #header>
+          <span>健康检查</span>
+        </template>
+        <el-button type="success" @click="checkHealth" :loading="healthLoading">健康检查</el-button>
+        <div v-if="healthResults" style="margin-top: 16px">
+          <div v-for="result in healthResults.results" :key="result.protocol" style="margin-bottom: 12px">
+            <div class="health-result-header">
+              <el-tag :type="result.success ? 'success' : 'danger'" size="small">
+                {{ result.protocol.toUpperCase() }}
+              </el-tag>
+               <span v-if="result.success" style="margin-left: 8px; color: #67c23a">
+                 延迟: {{ result.latencyMs }}ms
+               </span>
+              <span v-else style="margin-left: 8px; color: #f56c6c">
+                失败: {{ result.error }}
+              </span>
             </div>
-            <el-empty v-if="logs.length === 0" description="暂无日志" />
           </div>
-        </el-card>
-      </el-col>
+        </div>
+      </el-card>
 
-      <el-col :span="8">
-        <el-card>
-          <template #header>
-            <span>配置信息</span>
-          </template>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="类型">{{ instance?.config.type }}</el-descriptions-item>
-            <el-descriptions-item label="协议">{{ instance?.config.protocol }}</el-descriptions-item>
-            <el-descriptions-item label="监听地址">{{ instance?.config.listen }}</el-descriptions-item>
-            <el-descriptions-item label="目标地址">{{ instance?.config.target }}</el-descriptions-item>
-             <el-descriptions-item label="运行时长">{{ formatUptime(instance?.uptime || 0) }}</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
+      <!-- 基本信息 -->
+      <el-card style="margin-top: 20px">
+        <template #header>
+          <span>基本信息</span>
+        </template>
+        <el-descriptions :column="4" border size="small">
+          <el-descriptions-item label="类型">{{ instance?.config.type }}</el-descriptions-item>
+          <el-descriptions-item label="协议">{{ instance?.config.protocol }}</el-descriptions-item>
+          <el-descriptions-item label="监听地址">{{ instance?.config.listen }}</el-descriptions-item>
+          <el-descriptions-item label="目标地址">{{ instance?.config.target }}</el-descriptions-item>
+          <el-descriptions-item label="运行时长">{{ formatUptime(instance?.uptime || 0) }}</el-descriptions-item>
+          <el-descriptions-item label="统计">
+            <el-tag :type="instance?.config.stats?.enabled ? 'success' : 'info'" size="small">
+              {{ instance?.config.stats?.enabled ? '已启用' : '已禁用' }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
 
-        <el-card style="margin-top: 20px">
-          <template #header>
-            <span>协议配置</span>
-          </template>
-          <el-collapse v-model="activeCollapse" accordion>
-            <el-collapse-item name="tlcp" title="TLCP 配置" :disabled="instance?.config.protocol === 'tls'">
-              <ProtocolConfigDetail
-                v-if="instance?.config.tlcp"
-                :config="instance.config.tlcp"
-                :is-tlcp="true"
-              />
-            </el-collapse-item>
-            <el-collapse-item name="tls" title="TLS 配置" :disabled="instance?.config.protocol === 'tlcp'">
-              <ProtocolConfigDetail
-                v-if="instance?.config.tls"
-                :config="instance.config.tls"
-                :is-tlcp="false"
-              />
-            </el-collapse-item>
-          </el-collapse>
-        </el-card>
+      <!-- 监控区：统计信息 -->
+      <el-card style="margin-top: 20px">
+        <template #header>
+          <span>统计信息</span>
+        </template>
+         <el-row :gutter="20">
+           <el-col :span="6">
+             <el-statistic title="总连接数" :value="stats?.totalConnections || 0" />
+           </el-col>
+           <el-col :span="6">
+             <el-statistic title="活跃连接" :value="stats?.activeConnections || 0" />
+           </el-col>
+            <el-col :span="6">
+              <el-statistic title="接收字节" :value="stats?.bytesReceived || 0" :formatter="formatBytes" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="发送字节" :value="stats?.bytesSent || 0" :formatter="formatBytes" />
+            </el-col>
+         </el-row>
+      </el-card>
 
-         <el-card style="margin-top: 20px">
-           <template #header>
-             <span>健康检查</span>
-           </template>
-           <el-button type="success" @click="checkHealth" :loading="healthLoading">健康检查</el-button>
-           <div v-if="healthResults" style="margin-top: 16px">
-             <div v-for="result in healthResults.results" :key="result.protocol" style="margin-bottom: 12px">
-               <div class="health-result-header">
-                 <el-tag :type="result.success ? 'success' : 'danger'" size="small">
-                   {{ result.protocol.toUpperCase() }}
-                 </el-tag>
-                  <span v-if="result.success" style="margin-left: 8px; color: #67c23a">
-                    延迟: {{ result.latencyMs }}ms
-                  </span>
-                 <span v-else style="margin-left: 8px; color: #f56c6c">
-                   失败: {{ result.error }}
-                 </span>
-               </div>
-             </div>
-           </div>
-         </el-card>
-
-          <el-card style="margin-top: 20px">
-            <template #header>
-              <span>操作</span>
-            </template>
-             <el-button type="primary" @click="start" :disabled="instance?.status === 'running'" :loading="actionLoading.start">启动</el-button>
-             <el-button type="danger" @click="stop" :disabled="instance?.status !== 'running'" :loading="actionLoading.stop">停止</el-button>
-             <el-button type="warning" @click="reload" :disabled="instance?.status !== 'running'" :loading="actionLoading.reload">重载</el-button>
-             <el-button type="info" @click="restart" :loading="actionLoading.restart">重启</el-button>
-             <el-button type="success" @click="edit" style="margin-left: 8px">编辑</el-button>
-          </el-card>
-      </el-col>
-    </el-row>
+      <!-- 协议配置区 -->
+      <el-card style="margin-top: 20px">
+        <template #header>
+          <span>协议配置</span>
+        </template>
+        <el-collapse v-model="activeCollapse" accordion>
+          <el-collapse-item name="tlcp" title="TLCP 配置" :disabled="instance?.config.protocol === 'tls'">
+            <ProtocolConfigDetail
+              v-if="instance?.config.tlcp"
+              :config="instance.config.tlcp"
+              :is-tlcp="true"
+            />
+          </el-collapse-item>
+          <el-collapse-item name="tls" title="TLS 配置" :disabled="instance?.config.protocol === 'tlcp'">
+            <ProtocolConfigDetail
+              v-if="instance?.config.tls"
+              :config="instance.config.tls"
+              :is-tlcp="false"
+            />
+          </el-collapse-item>
+        </el-collapse>
+      </el-card>
+    </div>
   </div>
 </template>
 

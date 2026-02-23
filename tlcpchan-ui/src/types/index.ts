@@ -21,6 +21,21 @@ export interface InstanceConfig {
   http?: HTTPConfig
   sni?: string
   bufferSize?: number
+  stats?: StatsConfig
+}
+
+export interface LogConfig {
+  level: 'debug' | 'info' | 'warn' | 'error'
+  file: string
+  maxSize: number
+  maxBackups: number
+  maxAge: number
+  compress: boolean
+  enabled: boolean
+}
+
+export interface StatsConfig {
+  enabled: boolean
 }
 
 export interface KeyStoreConfig {

@@ -68,7 +68,7 @@ func NewConfigController(configPath string) *ConfigController {
  * @apiSuccess {String} [config.instances.tls.auth] 认证模式，可选值: "none", "one-way", "mutual"
  * @apiSuccess {String} [config.instances.tls.minVersion] 最低协议版本，可选值: "1.0", "1.1", "1.2", "1.3"
  * @apiSuccess {String} [config.instances.tls.maxVersion] 最高协议版本，可选值: "1.0", "1.1", "1.2", "1.3"
- * @apiSuccess {String[]} [config.instances.tls.cipherSuites] 密码套件列表
+ * @apiSuccess {String[]} [config.instances.tls.cipherSuites] 密码套件列表列表
  * @apiSuccess {String[]} [config.instances.tls.curvePreferences] 椭圆曲线偏好
  * @apiSuccess {Boolean} [config.instances.tls.sessionTickets] 是否启用会话票据
  * @apiSuccess {Boolean} [config.instances.tls.sessionCache] 是否启用会话缓存
@@ -91,7 +91,6 @@ func NewConfigController(configPath string) *ConfigController {
  * @apiSuccess {Object} [config.instances.log] 实例级别日志配置
  * @apiSuccess {Object} [config.instances.stats] 统计信息配置
  * @apiSuccess {Boolean} [config.instances.stats.enabled] 是否启用统计信息收集
- * @apiSuccess {Number} [config.instances.stats.interval] 统计信息收集间隔，单位: 纳秒
  * @apiSuccess {String} [config.instances.sni] 服务器名称指示
  * @apiSuccess {Object} [config.instances.timeout] 连接超时配置
  * @apiSuccess {Number} [config.instances.timeout.dial] 连接建立超时，默认: 10s
@@ -204,7 +203,6 @@ func (c *ConfigController) Get(w http.ResponseWriter, r *http.Request) {
  * @apiSuccess {Object} [config.instances.log] 实例级别日志配置
  * @apiSuccess {Object} [config.instances.stats] 统计信息配置
  * @apiSuccess {Boolean} [config.instances.stats.enabled] 是否启用统计信息收集
- * @apiSuccess {Number} [config.instances.stats.interval] 统计信息收集间隔，单位: 纳秒
  * @apiSuccess {String} [config.instances.sni] 服务器名称指示
  * @apiSuccess {Object} [config.instances.timeout] 连接超时配置
  * @apiSuccess {Number} [config.instances.timeout.dial] 连接建立超时，默认: 10s

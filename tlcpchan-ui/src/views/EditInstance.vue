@@ -44,7 +44,7 @@
     </el-card>
 
     <!-- TLCP 配置卡片 -->
-    <el-card style="margin-top: 20px" :disabled="form.protocol === 'tls'">
+    <el-card style="margin-top: 20px" v-if="form.protocol !== 'tls'">
       <template #header>
         <span>TLCP 配置</span>
       </template>
@@ -93,7 +93,7 @@
     </el-card>
 
     <!-- TLS 配置卡片 -->
-    <el-card style="margin-top: 20px" :disabled="form.protocol === 'tlcp'">
+    <el-card style="margin-top: 20px" v-if="form.protocol !== 'tlcp'">
       <template #header>
         <span>TLS 配置</span>
       </template>
@@ -143,6 +143,18 @@
         </el-form-item>
         <el-form-item label="跳过证书验证">
           <el-switch v-model="form.tls.insecureSkipVerify" />
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 统计配置卡片 -->
+    <el-card style="margin-top: 20px" v-if="form.stats">
+      <template #header>
+        <span>统计配置</span>
+      </template>
+      <el-form :model="form" label-width="140px">
+        <el-form-item label="启用统计">
+          <el-switch v-model="form.stats.enabled" />
         </el-form-item>
       </el-form>
     </el-card>
@@ -211,6 +223,9 @@ const form = ref<InstanceConfig>({
     insecureSkipVerify: false,
     keystore: undefined,
     keystoreConfig: { type: 'named', name: undefined, params: {} }
+  },
+  stats: {
+    enabled: false
   }
 })
 
@@ -236,6 +251,13 @@ async function loadInstance() {
       form.value.tls.keystoreConfig = parseKeystoreConfig(form.value.tls.keystore)
     } else {
       form.value.tls.keystoreConfig = { type: 'named', name: undefined, params: {} }
+    }
+
+    // 设置统计配置默认值
+    if (!form.value.stats) {
+      form.value.stats = {
+        enabled: false
+      }
     }
   } catch (err) {
     console.error('加载实例失败:', err)
@@ -307,7 +329,7 @@ async function save() {
           data.tls.keystore = { type: 'named', name: ksConfig.name }
         }
       } else if (ksConfig.type === 'file') {
-        const hasRequiredFields = ksConfig.params['sign-cert'] && ksConfig.params['sign-key']
+        const hasRequiredFields = ksConfig.params['sign-cert'] &&ksConfig.params['sign-key']
         
         if (hasRequiredFields) {
           if (form.value.protocol === 'tls' || form.value.protocol === 'auto') {

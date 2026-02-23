@@ -35,23 +35,14 @@
         </el-table-column>
         <el-table-column prop="config.listen" label="监听地址" />
         <el-table-column prop="config.target" label="目标地址" />
-        <el-table-column prop="enabled" label="启用" width="80">
-          <template #default="{ row }">
-            <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
-          </template>
-        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" link @click="viewDetail(row.name)">详情</el-button>
-            <el-button v-if="row.status !== 'running'" type="success" size="small" link @click="start(row.name)" :loading="instanceActions[row.name]">启动</el-button>
-            <el-button v-if="row.status === 'running'" type="warning" size="small" link @click="stop(row.name)" :loading="instanceActions[row.name]">停止</el-button>
-            <el-button v-if="row.status === 'running'" type="info" size="small" link @click="reload(row.name)" :loading="instanceActions[row.name]">重载</el-button>
-            <el-button type="danger" size="small" link @click="remove(row.name)" :loading="instanceActions[row.name]">删除</el-button>
+            <el-button type="primary" size="small" link @click="viewDetail(row.name)">进入管理</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -62,7 +53,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { instanceApi } from '@/api'
 import type { Instance } from '@/types'
 
@@ -70,7 +60,6 @@ const router = useRouter()
 
 const instances = ref<Instance[]>([])
 
-const instanceActions = ref<Record<string, boolean>>({})
 const refreshLoading = ref(false)
 
 onMounted(() => {
@@ -105,79 +94,6 @@ function statusText(status: Instance['status']): string {
 
 function viewDetail(name: string) {
   router.push(`/instances/${name}`)
-}
-
-async function start(name: string) {
-  instanceActions.value[name] = true
-  try {
-    await instanceApi.start(name)
-    ElMessage.success('实例已启动')
-    loadInstances()
-  } catch (err) {
-    console.error('启动失败:', err)
-    ElMessage.error('启动失败')
-  } finally {
-    instanceActions.value[name] = false
-  }
-}
-
-async function stop(name: string) {
-  instanceActions.value[name] = true
-  try {
-    await instanceApi.stop(name)
-    ElMessage.success('实例已停止')
-    loadInstances()
-  } catch (err) {
-    console.error('停止失败:', err)
-    ElMessage.error('停止失败')
-  } finally {
-    instanceActions.value[name] = false
-  }
-}
-
-async function reload(name: string) {
-  instanceActions.value[name] = true
-  try {
-    await instanceApi.reload(name)
-    ElMessage.success('实例已重载')
-    loadInstances()
-  } catch (err) {
-    console.error('重载失败:', err)
-    ElMessage.error('重载失败')
-  } finally {
-    instanceActions.value[name] = false
-  }
-}
-
-async function remove(name: string) {
-  try {
-    await ElMessageBox.confirm('确定要删除此实例吗？', '确认删除', { type: 'warning' })
-    instanceActions.value[name] = true
-    await instanceApi.delete(name)
-    ElMessage.success('实例已删除')
-    loadInstances()
-  } catch (err) {
-    if (err !== 'cancel') {
-      console.error('删除失败:', err)
-      ElMessage.error('删除失败')
-    }
-  } finally {
-    instanceActions.value[name] = false
-  }
-}
-
-async function toggleEnabled(row: Instance) {
-  instanceActions.value[row.name] = true
-  try {
-    await instanceApi.update(row.name, { enabled: row.enabled })
-    ElMessage.success(row.enabled ? '实例已启用' : '实例已禁用')
-  } catch (err) {
-    console.error('更新状态失败:', err)
-    ElMessage.error('更新状态失败')
-    row.enabled = !row.enabled
-  } finally {
-    instanceActions.value[row.name] = false
-  }
 }
 </script>
 
