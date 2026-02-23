@@ -704,17 +704,67 @@ tlcpchan-cli keystore delete my-keystore
 keystore my-keystore 已删除
 ```
 
-### 5.6 重载 keystore
+### 5.6 导出证书请求(CSR)
 
-**调用示例：**
+使用现有密钥生成并导出证书请求文件(CSR)，用于向CA机构申请签发证书。
+
+**参数说明：**
+
+| 参数 | 说明 | 是否必需 | 默认值 |
+|------|------|---------|--------|
+| `<name>` | keystore 名称（位置参数） | 是 | - |
+| `--key-type` | 密钥类型（sign/enc，enc 仅 TLCP 有效） | 否 | sign |
+| `--cn` | 证书通用名称（CN） | 是 | - |
+| `--c` | 国家（C，2字母代码） | 否 | - |
+| `--st` | 省/州（ST） | 否 | - |
+| `--l` | 地区/城市（L） | 否 | - |
+| `--org` | 组织名称（O） | 否 | - |
+| `--org-unit` | 组织单位（OU） | 否 | - |
+| `--email` | 邮箱地址 | 否 | - |
+| `--dns` | DNS名称，多个用逗号分隔 | 否 | - |
+| `--ip` | IP地址，多个用逗号分隔 | 否 | - |
+| `--output` | 输出文件路径 | 否 | 自动生成 |
+
+**示例 1：导出签名密钥的CSR**
+
 ```bash
-tlcpchan-cli keystore reload my-keystore
+tlcpchan-cli keystore export-csr my-keystore \
+  --cn "proxy.example.com" \
+  --c CN \
+  --st "Beijing" \
+  --l "Beijing" \
+  --org "My Company" \
+  --org-unit "IT" \
+  --email "admin@example.com" \
+  --dns "proxy.example.com,*.example.com" \
+  --ip "192.168.1.100" \
+  --output my-proxy.csr
 ```
 
 **响应示例：**
 ```
-keystore my-keystore 已重载
+CSR已导出到: my-proxy.csr
 ```
+
+**示例 2：导出TLCP加密密钥的CSR**
+
+```bash
+tlcpchan-cli keystore export-csr tlcp-keystore \
+  --key-type enc \
+  --cn "enc-proxy.example.com" \
+  --c CN \
+  --org "My Company"
+```
+
+**响应示例：**
+```
+CSR已导出到: tlcp-keystore-enc-20240101120000.csr
+```
+
+**说明：**
+- 不指定 `--output` 时，会自动生成文件名：`{keystore名}-{keytype}-{时间戳}.csr`
+- 对于 TLS keystore，只能使用 `--key-type sign`
+- 对于 TLCP keystore，支持 `sign`（签名密钥）和 `enc`（加密密钥）两种类型
 
 ---
 
@@ -932,7 +982,7 @@ CLI版本:    1.0.0
 | `create` | 创建 keystore | `keystore create [选项]` |
 | `generate` | 生成 keystore（含证书） | `keystore generate [选项]` |
 | `delete` | 删除 keystore | `keystore delete <name>` |
-| `reload` | 重载 keystore | `keystore reload <name>` |
+| `export-csr` | 导出证书请求(CSR) | `keystore export-csr <name> [选项]` |
 
 ### 9.4 rootcert 命令组
 
