@@ -91,12 +91,6 @@
                   <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="160">
-                <template #default="{ row }">
-                  <el-button v-if="row.status !== 'running'" type="primary" size="small" @click="start(row.name)">启动</el-button>
-                  <el-button v-else type="danger" size="small" @click="stop(row.name)">停止</el-button>
-                </template>
-              </el-table-column>
             </el-table>
           </div>
         </el-card>
