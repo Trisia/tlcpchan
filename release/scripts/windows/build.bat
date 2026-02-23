@@ -43,7 +43,7 @@ echo [INFO] 输出目录: %OUTPUT_DIR%
 REM 检查 Go 是否安装
 where go >nul 2>nul
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Go 未安装，请先安装 Go 1.21+
+    echo [ERROR] Go 未安装，请先安装 Go 1.26+
     exit /b 1
 )
 

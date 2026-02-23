@@ -109,7 +109,7 @@ grep -E 'version\s*=' tlcpchan/main.go
 
 ### 基础依赖
 
-- **Go 1.21+** - 用于后端编译
+- **Go 1.26+** - 用于后端编译
 - **Node.js 18+** - 用于前端构建（如果需要）
 - **tar, gzip, zip** - 基础打包工具
 
