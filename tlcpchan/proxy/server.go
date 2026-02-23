@@ -23,7 +23,6 @@ type ServerProxy struct {
 	stats           *stats.Collector
 	logger          *logger.Logger
 	shutdownChan    chan struct{}
-	wg              sync.WaitGroup
 	mu              sync.Mutex
 	running         bool
 }
@@ -82,15 +81,12 @@ func (p *ServerProxy) Start() error {
 
 	p.logger.Info("服务端代理启动: %s -> %s, 协议: %s", p.cfg.Listen, p.cfg.Target, p.cfg.Protocol)
 
-	p.wg.Add(1)
 	go p.acceptLoop()
 
 	return nil
 }
 
 func (p *ServerProxy) acceptLoop() {
-	defer p.wg.Done()
-
 	for {
 		select {
 		case <-p.shutdownChan:
@@ -111,13 +107,11 @@ func (p *ServerProxy) acceptLoop() {
 
 		p.stats.IncrementConnections()
 
-		p.wg.Add(1)
 		go p.handleConnection(conn)
 	}
 }
 
 func (p *ServerProxy) handleConnection(clientConn net.Conn) {
-	defer p.wg.Done()
 	defer p.stats.DecrementConnections()
 	defer clientConn.Close()
 	defer func() {
@@ -175,8 +169,6 @@ func (p *ServerProxy) Stop() error {
 	if p.listener != nil {
 		p.listener.Close()
 	}
-
-	p.wg.Wait()
 
 	p.running = false
 	p.shutdownChan = make(chan struct{})

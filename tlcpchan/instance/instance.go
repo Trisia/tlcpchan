@@ -181,7 +181,8 @@ func (i *serverInstance) Stop() error {
 
 func (i *serverInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
-		return fmt.Errorf("实例 %s 未在运行", i.Name())
+		// 实例未运行，无需执行热加载
+		return nil
 	}
 
 	if err := i.proxy.Reload(cfg); err == nil {
@@ -234,7 +235,8 @@ func (i *clientInstance) Stop() error {
 
 func (i *clientInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
-		return fmt.Errorf("实例 %s 未在运行", i.Name())
+		// 实例未运行，无需执行热加载
+		return nil
 	}
 
 	if err := i.proxy.Reload(cfg); err == nil {
@@ -287,7 +289,8 @@ func (i *httpServerInstance) Stop() error {
 
 func (i *httpServerInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
-		return fmt.Errorf("实例 %s 未在运行", i.Name())
+		// 实例未运行，无需执行热加载
+		return nil
 	}
 
 	if err := i.proxy.Reload(cfg); err == nil {
@@ -340,7 +343,8 @@ func (i *httpClientInstance) Stop() error {
 
 func (i *httpClientInstance) Reload(cfg *config.InstanceConfig) error {
 	if i.Status() != StatusRunning {
-		return fmt.Errorf("实例 %s 未在运行", i.Name())
+		// 实例未运行，无需执行热加载
+		return nil
 	}
 
 	if err := i.proxy.Reload(cfg); err == nil {
