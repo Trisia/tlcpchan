@@ -81,7 +81,7 @@ jobs:
 
   windows-build:
     name: Windows MSI 打包
-    runs-on:Windows-latest
+    runs-on: Windows-latest
     needs: build
 
     steps:
@@ -261,7 +261,7 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           files: |
-|            dist/tlcpchan_${{ steps.get_version.outputs.version }}_linux_amd64.tar.gz
+            dist/tlcpchan_${{ steps.get_version.outputs.version }}_linux_amd64.tar.gz
             dist/tlcpchan_${{ steps.get_version.outputs.version }}_linux_arm64.tar.gz
             dist/tlcpchan_${{ steps.get_version.outputs.version }}_linux_loong64.tar.gz
             dist/tlcpchan_${{ steps.get_version.outputs.version }}_darwin_amd64.tar.gz
