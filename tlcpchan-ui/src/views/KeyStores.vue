@@ -468,12 +468,12 @@ async function createKeyStore() {
     const data: any = {
       name: createForm.value.name,
       type: createForm.value.type,
-      signCert: signCertFiles.value[0].raw as File,
-      signKey: signKeyFiles.value[0].raw as File,
+      signCert: signCertFiles.value[0]?.raw as File,
+      signKey: signKeyFiles.value[0]?.raw as File,
     }
     if (createForm.value.type === CertType.TLCP) {
-      data.encCert = encCertFiles.value[0].raw as File
-      data.encKey = encKeyFiles.value[0].raw as File
+      data.encCert = encCertFiles.value[0]?.raw as File
+      data.encKey = encKeyFiles.value[0]?.raw as File
     }
 
     await keyStoreApi.create(data)
@@ -523,10 +523,10 @@ async function updateCertificates() {
   try {
     const data: any = {}
     if (updateSignCertFiles.value.length > 0) {
-      data.signCert = updateSignCertFiles.value[0].raw as File
+      data.signCert = updateSignCertFiles.value[0]?.raw as File
     }
     if (updateEncCertFiles.value.length > 0) {
-      data.encCert = updateEncCertFiles.value[0].raw as File
+      data.encCert = updateEncCertFiles.value[0]?.raw as File
     }
 
     await keyStoreApi.updateCertificates(selectedKeyStore.value.name, data)

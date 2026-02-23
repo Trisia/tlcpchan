@@ -7,14 +7,17 @@ import (
 	"sync"
 
 	"github.com/Trisia/tlcpchan/logger"
+	"github.com/Trisia/tlcpchan/stats"
 )
 
 type ConnHandler struct {
+	stats  *stats.Collector
 	logger *logger.Logger
 }
 
-func NewConnHandler() *ConnHandler {
+func NewConnHandler(stats *stats.Collector) *ConnHandler {
 	return &ConnHandler{
+		stats:  stats,
 		logger: logger.Default(),
 	}
 }
@@ -31,6 +34,9 @@ func (h *ConnHandler) Pipe(ctx context.Context, clientConn, targetConn net.Conn)
 		var n int64
 		n, clientToTargetErr = io.Copy(targetConn, clientConn)
 		sent = n
+		if h.stats != nil {
+			h.stats.AddBytesSent(n)
+		}
 	}()
 
 	go func() {
@@ -38,6 +44,9 @@ func (h *ConnHandler) Pipe(ctx context.Context, clientConn, targetConn net.Conn)
 		var n int64
 		n, targetToClientErr = io.Copy(clientConn, targetConn)
 		received = n
+		if h.stats != nil {
+			h.stats.AddBytesReceived(n)
+		}
 	}()
 
 	done := make(chan struct{})

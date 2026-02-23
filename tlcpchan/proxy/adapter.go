@@ -14,6 +14,7 @@ import (
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
 	"github.com/Trisia/tlcpchan/security/keystore"
+	"github.com/Trisia/tlcpchan/stats"
 )
 
 func detectProtocol(data []byte) ProtocolType {
@@ -88,6 +89,7 @@ type TLCPAdapter struct {
 	tlsKeyStore      security.KeyStore
 	keyStoreManager  *security.KeyStoreManager
 	rootCertManager  *security.RootCertManager
+	stats            *stats.Collector
 	logger           *logger.Logger
 }
 
@@ -98,6 +100,7 @@ func NewTLCPAdapter(
 	return &TLCPAdapter{
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
+		stats:           stats.DefaultCollector(),
 		logger:          logger.Default(),
 	}, nil
 }

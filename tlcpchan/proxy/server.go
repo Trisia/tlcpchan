@@ -39,7 +39,7 @@ func NewServerProxy(cfg *config.InstanceConfig,
 	proxy := &ServerProxy{
 		cfg:             cfg,
 		adapter:         adapter,
-		handler:         NewConnHandler(),
+		handler:         NewConnHandler(stats.DefaultCollector()),
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
 		stats:           stats.DefaultCollector(),

@@ -48,7 +48,7 @@ func NewClientProxy(cfg *config.InstanceConfig,
 	proxy := &ClientProxy{
 		cfg:             cfg,
 		adapter:         adapter,
-		handler:         NewConnHandler(),
+		handler:         NewConnHandler(stats.DefaultCollector()),
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
 		stats:           stats.DefaultCollector(),

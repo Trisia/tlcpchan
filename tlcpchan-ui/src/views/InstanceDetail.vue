@@ -106,7 +106,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { instanceApi } from '@/api'
-import type { Instance, InstanceConfig, InstanceHealthResponse, InstanceStats } from '@/types'
+import type { Instance, InstanceHealthResponse, InstanceStats } from '@/types'
 
 const route = useRoute()
 const router = useRouter()

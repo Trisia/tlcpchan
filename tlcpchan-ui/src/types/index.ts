@@ -16,8 +16,8 @@ export interface InstanceConfig {
   enabled: boolean
   clientCa?: string[]
   serverCa?: string[]
-  tlcp?: TLCPConfig
-  tls?: TLSConfig
+  tlcp: TLCPConfig
+  tls: TLSConfig
   http?: HTTPConfig
   sni?: string
   bufferSize?: number
@@ -31,6 +31,7 @@ export interface KeyStoreConfig {
 
 export interface TLCPConfig {
   auth?: 'none' | 'one-way' | 'mutual'
+  clientAuthType?: 'no-client-cert' | 'request-client-cert' | 'require-any-client-cert' | 'verify-client-cert-if-given' | 'require-and-verify-client-cert'
   minVersion?: string
   maxVersion?: string
   cipherSuites?: string[]
@@ -43,6 +44,7 @@ export interface TLCPConfig {
 
 export interface TLSConfig {
   auth?: 'none' | 'one-way' | 'mutual'
+  clientAuthType?: 'no-client-cert' | 'request-client-cert' | 'require-any-client-cert' | 'verify-client-cert-if-given' | 'require-and-verify-client-cert'
   minVersion?: string
   maxVersion?: string
   cipherSuites?: string[]
@@ -200,6 +202,10 @@ export interface Config {
       compress: boolean
       enabled: boolean
     }
+  }
+  mcp?: {
+    enabled: boolean
+    apiKey: string
   }
   keystores: KeyStoreConfig[]
   instances: InstanceConfig[]

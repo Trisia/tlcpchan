@@ -109,7 +109,9 @@ const config = ref<Config>({
   mcp: {
     enabled: false,
     apiKey: ''
-  }
+  },
+  keystores: [],
+  instances: []
 })
 
 const saving = ref(false)

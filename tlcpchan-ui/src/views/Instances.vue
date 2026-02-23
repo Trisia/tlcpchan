@@ -115,73 +115,144 @@
           <el-switch v-model="form.enabled" />
         </el-form-item>
         
-        <el-divider content-position="left">TLCP 高级配置</el-divider>
-        <el-form-item label="最低版本">
-          <el-select v-model="form.tlcp.minVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
-            <el-option label="1.1" value="1.1" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="最高版本">
-          <el-select v-model="form.tlcp.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
-            <el-option label="1.1" value="1.1" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="密码套件">
-          <el-select v-model="form.tlcp.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tls'">
-            <el-option v-for="cs in TLCP_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="椭圆曲线">
-          <el-select v-model="form.tlcp.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tls' || selectedKeystoreType === 'RSA'">
-            <el-option v-for="c in TLCP_CURVES" :key="c" :label="c" :value="c" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="会话票据">
-          <el-switch v-model="form.tlcp.sessionTickets" :disabled="form.protocol === 'tls'" />
-        </El-form-item>
-        <el-form-item label="会话缓存">
-          <el-switch v-model="form.tlcp.sessionCache" :disabled="form.protocol === 'tls'" />
-        </el-form-item>
-        <el-form-item label="跳过证书验证">
-          <el-switch v-model="form.tlcp.insecureSkipVerify" :disabled="form.protocol === 'tls'" />
-        </el-form-item>
+         <el-divider content-position="left">TLCP 高级配置</el-divider>
+         <el-form-item label="最低版本">
+           <el-select v-model="form.tlcp.minVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
+             <el-option label="1.1" value="1.1" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="最高版本">
+           <el-select v-model="form.tlcp.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tls'">
+             <el-option label="1.1" value="1.1" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="密码套件">
+           <el-select v-model="form.tlcp.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tls'">
+             <el-option v-for="cs in TLCP_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="椭圆曲线">
+           <el-select v-model="form.tlcp.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tls' || selectedKeystoreType === 'RSA'">
+             <el-option v-for="c in TLCP_CURVES" :key="c" :label="c" :value="c" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="会话票据">
+           <el-switch v-model="form.tlcp.sessionTickets" :disabled="form.protocol === 'tls'" />
+         </el-form-item>
+         <el-form-item label="会话缓存">
+           <el-switch v-model="form.tlcp.sessionCache" :disabled="form.protocol === 'tls'" />
+         </el-form-item>
+          <el-form-item label="跳过证书验证">
+            <el-switch v-model="form.tlcp.insecureSkipVerify" :disabled="form.protocol === 'tls'" />
+          </el-form-item>
 
-        <el-divider content-position="left">TLS 高级配置</el-divider>
-        <el-form-item label="最低版本">
-          <el-select v-model="form.tls.minVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
-            <el-option label="1.0" value="1.0" />
-            <el-option label="1.1" value="1.1" />
-            <el-option label="1.2" value="1.2" />
-            <el-option label="1.3" value="1.3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="最高版本">
-          <el-select v-model="form.tls.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
-            <el-option label="1.0" value="1.0" />
-            <el-option label="1.1" value="1.1" />
-            <el-option label="1.2" value="1.2" />
-            <el-option label="1.3" value="1.3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="密码套件">
-          <el-select v-model="form.tls.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
-            <el-option v-for="cs in TLS_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="椭圆曲线">
-          <el-select v-model="form.tls.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
-            <el-option v-for="c in TLS_CURVES" :key="c" :label="c" :value="c" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="会话票据">
-          <el-switch v-model="form.tls.sessionTickets" :disabled="form.protocol === 'tlcp'" />
-        </el-form-item>
-        <el-form-item label="会话缓存">
-          <el-switch v-model="form.tls.sessionCache" :disabled="form.protocol === 'tlcp'" />
-        </el-form-item>
-        <el-form-item label="跳过证书验证">
-          <el-switch v-model="form.tls.insecureSkipVerify" :disabled="form.protocol === 'tlcp'" />
-        </el-form-item>
+          <el-divider content-position="left">TLS 高级配置</el-divider>
+          <el-form-item label="最低版本">
+            <el-select v-model="form.tls.minVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+              <el-option label="1.0" value="1.0" />
+              <el-option label="1.1" value="1.1" />
+              <el-option label="1.2" value="1.2" />
+              <el-option label="1.3" value="1.3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="最高版本">
+            <el-select v-model="form.tls.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+              <el-option label="1.0" value="1.0" />
+              <el-option label="1.1" value="1.1" />
+              <el-option label="1.2" value="1.2" />
+              <el-option label="1.3" value="1.3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="密码套件">
+            <el-select v-model="form.tls.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+              <el-option v-for="cs in TLS_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="椭圆曲线">
+            <el-select v-model="form.tls.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+              <el-option v-for="c in TLS_CURVES" :key="c" :label="c" :value="c" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="会话票据">
+            <el-switch v-model="form.tls.sessionTickets" :disabled="form.protocol === 'tlcp'" />
+          </el-form-item>
+          <el-form-item label="会话缓存">
+            <el-switch v-model="form.tls.sessionCache" :disabled="form.protocol === 'tlcp'" />
+          </el-form-item>
+          <el-form-item label="跳过证书验证">
+            <el-switch v-model="form.tls.insecureSkipVerify" :disabled="form.protocol === 'tlcp'" />
+          </el-form-item>
+
+         <el-divider content-position="left">TLS 高级配置</el-divider>
+         <el-form-item label="最低版本">
+           <el-select v-model="form.tls.minVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+             <el-option label="1.0" value="1.0" />
+             <el-option label="1.1" value="1.1" />
+             <el-option label="1.2" value="1.2" />
+             <el-option label="1.3" value="1.3" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="最高版本">
+           <el-select v-model="form.tls.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+             <el-option label="1.0" value="1.0" />
+             <el-option label="1.1" value="1.1" />
+             <el-option label="1.2" value="1.2" />
+             <el-option label="1.3" value="1.3" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="密码套件">
+           <el-select v-model="form.tls.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+             <el-option v-for="cs in TLS_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="椭圆曲线">
+           <el-select v-model="form.tls.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+             <el-option v-for="c in TLS_CURVES" :key="c" :label="c" :value="c" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="会话票据">
+           <el-switch v-model="form.tls.sessionTickets" :disabled="form.protocol === 'tlcp'" />
+         </el-form-item>
+         <el-form-item label="会话缓存">
+           <el-switch v-model="form.tls.sessionCache" :disabled="form.protocol === 'tlcp'" />
+         </el-form-item>
+          <el-form-item label="跳过证书验证">
+            <el-switch v-model="form.tls.insecureSkipVerify" :disabled="form.protocol === 'tlcp'" />
+          </el-form-item>
+
+         <el-divider content-position="left">TLS 高级配置</el-divider>
+         <el-form-item label="最低版本">
+           <el-select v-model="form.tls.minVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+             <el-option label="1.0" value="1.0" />
+             <el-option label="1.1" value="1.1" />
+             <el-option label="1.2" value="1.2" />
+             <el-option label="1.3" value="1.3" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="最高版本">
+           <el-select v-model="form.tls.maxVersion" placeholder="请选择" :disabled="form.protocol === 'tlcp'">
+             <el-option label="1.0" value="1.0" />
+             <el-option label="1.1" value="1.1" />
+             <el-option label="1.2" value="1.2" />
+             <el-option label="1.3" value="1.3" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="密码套件">
+           <el-select v-model="form.tls.cipherSuites" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+             <el-option v-for="cs in TLS_CIPHER_SUITES" :key="cs" :label="cs" :value="cs" />
+           </el-select>
+        udi </el-form-item>
+         <el-form-item label="椭圆曲线">
+           <el-select v-model="form.tls.curvePreferences" placeholder="请选择" multiple :disabled="form.protocol === 'tlcp'">
+             <el-option v-for="c in TLS_CURVES" :key="c" :label="c" :value="c" />
+           </el-select>
+         </el-form-item>
+         <el-form-item label="会话票据">
+           <el-switch v-model="form.tls.sessionTickets" :disabled="form.protocol === 'tlcp'" />
+         </el-form-item>
+         <el-form-item label="会话缓存">
+           <el-switch v-model="form.tls.sessionCache" :disabled="form.protocol === 'tlcp'" />
+         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
@@ -234,10 +305,8 @@ const TLS_CIPHER_SUITES = [
 
 const TLCP_CURVES = ['SM2']
 const TLS_CURVES = ['P256', 'P38', 'P521', 'X25519']
-const TLCP_VERSIONS = ['1.1']
-const TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3']
 
-const form = ref<Partial<InstanceConfig>>({
+const form = ref<InstanceConfig>({
   name: '',
   type: 'server',
   protocol: 'auto',
@@ -252,7 +321,8 @@ const form = ref<Partial<InstanceConfig>>({
     curvePreferences: [],
     sessionTickets: false,
     sessionCache: false,
-    insecureSkipVerify: false
+    insecureSkipVerify: false,
+    keystore: undefined
   },
   tls: {
     clientAuthType: 'no-client-cert',
@@ -262,7 +332,8 @@ const form = ref<Partial<InstanceConfig>>({
     curvePreferences: [],
     sessionTickets: false,
     sessionCache: false,
-    insecureSkipVerify: false
+    insecureSkipVerify: false,
+    keystore: undefined
   }
 })
 
@@ -426,24 +497,28 @@ async function create() {
     form.value.name = ''
     selectedKeystoreName.value = ''
     form.value.tlcp = {
+      clientAuthType: 'no-client-cert',
       minVersion: '1.1',
       maxVersion: '1.1',
       cipherSuites: [],
       curvePreferences: [],
       sessionTickets: false,
       sessionCache: false,
-      insecureSkipVerify: false
-    }
-    form.value.tls = {
-      minVersion: '1.2',
-      maxVersion: '1.3',
-      cipherSuites: [],
-      curvePreferences: [],
-      sessionTickets: false,
-      sessionCache: false,
-      insecureSkipVerify: false
-    }
-  } catch (err) {
+      insecureSkipVerify: false,
+      keystore: undefined
+     }
+     form.value.tls = {
+       clientAuthType: 'no-client-cert',
+       minVersion: '1.2',
+       maxVersion: '1.3',
+       cipherSuites: [],
+       curvePreferences: [],
+       sessionTickets: false,
+       sessionCache: false,
+       insecureSkipVerify: false,
+       keystore: undefined
+     }
+   } catch (err) {
     console.error('创建失败:', err)
     ElMessage.error('创建失败')
   } finally {

@@ -124,6 +124,7 @@ type KeyStoreConfig struct {
 
 type TLCPConfig struct {
 	Auth               string          `json:"auth,omitempty"`
+	ClientAuthType     string          `json:"clientAuthType,omitempty"`
 	MinVersion         string          `json:"minVersion,omitempty"`
 	MaxVersion         string          `json:"maxVersion,omitempty"`
 	CipherSuites       []string        `json:"cipherSuites,omitempty"`
@@ -136,6 +137,7 @@ type TLCPConfig struct {
 
 type TLSConfig struct {
 	Auth               string          `json:"auth,omitempty"`
+	ClientAuthType     string          `json:"clientAuthType,omitempty"`
 	MinVersion         string          `json:"minVersion,omitempty"`
 	MaxVersion         string          `json:"maxVersion,omitempty"`
 	CipherSuites       []string        `json:"cipherSuites,omitempty"`
