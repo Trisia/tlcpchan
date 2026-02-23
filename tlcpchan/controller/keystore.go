@@ -1,9 +1,13 @@
 package controller
 
 import (
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +16,7 @@ import (
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/security/certgen"
 	"github.com/Trisia/tlcpchan/security/keystore"
+	"github.com/emmansun/gmsm/smx509"
 )
 
 // GenerateKeyStoreRequest 生成 keystore 请求
@@ -40,10 +45,23 @@ type GenerateKeyStoreCertConfig struct {
 	IPAddresses     []string `json:"ipAddresses,omitempty"`
 }
 
+// CSRParams 证书请求参数
+type CSRParams struct {
+	CommonName      string   `json:"commonName"`
+	Country         string   `json:"country,omitempty"`
+	StateOrProvince string   `json:"stateOrProvince,omitempty"`
+	Locality        string   `json:"locality,omitempty"`
+	Org             string   `json:"org,omitempty"`
+	OrgUnit         string   `json:"orgUnit,omitempty"`
+	EmailAddress    string   `json:"emailAddress,omitempty"`
+	DNSNames        []string `json:"dnsNames,omitempty"`
+	IPAddresses     []string `json:"ipAddresses,omitempty"`
+}
+
 // ExportCSRRequest 导出CSR请求
 type ExportCSRRequest struct {
-	KeyType   keystore.KeyType   `json:"keyType"`
-	CSRParams keystore.CSRParams `json:"csrParams"`
+	KeyType   keystore.KeyType `json:"keyType"`
+	CSRParams CSRParams        `json:"csrParams"`
 }
 
 /**
@@ -819,10 +837,78 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	derBytes, err := ks.GenerateCSR(req.KeyType, req.CSRParams)
-	if err != nil {
-		InternalError(w, "生成CSR失败: "+err.Error())
-		return
+	// 根据 KeyStore 类型选择获取私钥的方式
+	var privateKey interface{}
+	var keyStoreType keystore.KeyStoreType
+
+	ksType := ks.Type()
+	keyStoreType = ksType
+
+	if ksType == keystore.KeyStoreTypeTLCP {
+		certs, err := ks.TLCPCertificate()
+		if err != nil {
+			InternalError(w, "获取证书失败: "+err.Error())
+			return
+		}
+		if len(certs) == 0 {
+			InternalError(w, "证书不存在")
+			return
+		}
+		if req.KeyType == keystore.KeyTypeEnc && len(certs) > 1 {
+			privateKey = certs[1].PrivateKey
+		} else {
+			privateKey = certs[0].PrivateKey
+		}
+	} else {
+		cert, err := ks.TLSCertificate()
+		if err != nil {
+			InternalError(w, "获取证书失败: "+err.Error())
+			return
+		}
+		if cert == nil {
+			InternalError(w, "证书不存在")
+			return
+		}
+		privateKey = cert.PrivateKey
+	}
+
+	// 组装 CSR 模板
+	subject := pkix.Name{
+		CommonName:         req.CSRParams.CommonName,
+		Country:            []string{req.CSRParams.Country},
+		Province:           []string{req.CSRParams.StateOrProvince},
+		Locality:           []string{req.CSRParams.Locality},
+		Organization:       []string{req.CSRParams.Org},
+		OrganizationalUnit: []string{req.CSRParams.OrgUnit},
+	}
+
+	template := &x509.CertificateRequest{
+		Subject:            subject,
+		DNSNames:           req.CSRParams.DNSNames,
+		IPAddresses:        make([]net.IP, 0, len(req.CSRParams.IPAddresses)),
+		SignatureAlgorithm: x509.UnknownSignatureAlgorithm,
+	}
+
+	for _, ipStr := range req.CSRParams.IPAddresses {
+		if ip := net.ParseIP(ipStr); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		}
+	}
+
+	// 根据 keystore 类型选择使用 smx509 还是 x509 生成 CSR
+	var derBytes []byte
+	if keyStoreType == keystore.KeyStoreTypeTLCP {
+		derBytes, err = smx509.CreateCertificateRequest(rand.Reader, template, privateKey)
+		if err != nil {
+			InternalError(w, "生成SM2证书请求失败: "+err.Error())
+			return
+		}
+	} else {
+		derBytes, err = x509.CreateCertificateRequest(rand.Reader, template, privateKey)
+		if err != nil {
+			InternalError(w, "生成证书请求失败: "+err.Error())
+			return
+		}
 	}
 
 	pemBytes := pem.EncodeToMemory(&pem.Block{

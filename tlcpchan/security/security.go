@@ -12,7 +12,6 @@ type (
 	KeyStoreInfo    = keystore.KeyStoreInfo
 	KeyStoreManager = keystore.Manager
 	KeyType         = keystore.KeyType
-	CSRParams       = keystore.CSRParams
 	RootCert        = rootcert.RootCert
 	RootCertPool    = rootcert.RootCertPool
 	RootCertManager = rootcert.Manager
