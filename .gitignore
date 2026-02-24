@@ -89,3 +89,5 @@ target/
 
 venv
 .venv
+
+openspec

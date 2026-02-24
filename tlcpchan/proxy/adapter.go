@@ -337,6 +337,9 @@ func (a *TLCPAdapter) reloadServerConfig(cfg *config.InstanceConfig) error {
 	if protocol == ProtocolTLS && tlsConfig == nil {
 		return fmt.Errorf("协议类型为TLS，但未提供有效的TLS配置（需要keystore配置）")
 	}
+	if protocol == ProtocolAuto && tlcpConfig == nil && tlsConfig == nil {
+		return fmt.Errorf("协议类型为 auto，但未配置任何 keystore（至少需要配置 tlcp.keystore 或 tls.keystore）")
+	}
 
 	return nil
 }

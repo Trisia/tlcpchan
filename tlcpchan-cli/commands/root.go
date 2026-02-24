@@ -124,6 +124,12 @@ func getCommands() map[string]Command {
 			SubCommands: map[string]Command{
 				"info":   {Name: "info", Description: "显示系统信息", Usage: "info", Run: systemInfo},
 				"health": {Name: "health", Description: "健康检查", Usage: "health", Run: systemHealth},
+				"logs": {Name: "logs", Description: "日志管理", Usage: "logs <子命令>", SubCommands: map[string]Command{
+					"list":         {Name: "list", Description: "列出日志文件", Usage: "list", Run: systemLogsList},
+					"content":      {Name: "content", Description: "读取日志内容", Usage: "content [选项]", Run: systemLogsContent},
+					"download":     {Name: "download", Description: "下载单个日志文件", Usage: "download <filename> [选项]", Run: systemLogsDownload},
+					"download-all": {Name: "download-all", Description: "打包下载所有日志", Usage: "download-all [选项]", Run: systemLogsDownloadAll},
+				}},
 			},
 		},
 		"version": {

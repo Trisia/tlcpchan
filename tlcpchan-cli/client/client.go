@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -42,7 +43,7 @@ func (c *Client) Delete(path string) error {
 	return err
 }
 
-func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error) {
+func (c *Client) doRequest(method, requestPath string, data interface{}) ([]byte, error) {
 	var body io.Reader
 	if data != nil {
 		jsonData, err := json.Marshal(data)
@@ -52,12 +53,13 @@ func (c *Client) doRequest(method, path string, data interface{}) ([]byte, error
 		body = bytes.NewReader(jsonData)
 	}
 
-	url, err := url.JoinPath(c.baseURL, path)
+	// 使用 url.JoinPath 安全拼接 URL
+	fullURL, err := url.JoinPath(c.baseURL, requestPath)
 	if err != nil {
-		return nil, fmt.Errorf("构建URL失败: %w", err)
+		return nil, fmt.Errorf("拼接URL失败: %w", err)
 	}
 
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequest(method, fullURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -339,12 +341,12 @@ func (c *Client) CreateKeyStoreWithFiles(name string, loaderType string, files m
 
 	_ = writer.Close()
 
-	url, err := url.JoinPath(c.baseURL, "/api/security/keystores")
+	fullURL, err := url.JoinPath(c.baseURL, "/api/security/keystores")
 	if err != nil {
-		return nil, fmt.Errorf("构建URL失败: %w", err)
+		return nil, fmt.Errorf("拼接URL失败: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, &body)
+	req, err := http.NewRequest(http.MethodPost, fullURL, &body)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -404,9 +406,9 @@ type ExportCSRRequest struct {
 }
 
 func (c *Client) ExportKeyStoreCSR(name string, req ExportCSRRequest) ([]byte, string, error) {
-	url, err := url.JoinPath(c.baseURL, "/api/security/keystores/"+url.PathEscape(name)+"/export-csr")
+	fullURL, err := url.JoinPath(c.baseURL, "/api/security/keystores", url.PathEscape(name), "export-csr")
 	if err != nil {
-		return nil, "", fmt.Errorf("构建URL失败: %w", err)
+		return nil, "", fmt.Errorf("拼接URL失败: %w", err)
 	}
 
 	jsonData, err := json.Marshal(req)
@@ -414,7 +416,7 @@ func (c *Client) ExportKeyStoreCSR(name string, req ExportCSRRequest) ([]byte, s
 		return nil, "", fmt.Errorf("序列化请求体失败: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(jsonData))
+	httpReq, err := http.NewRequest(http.MethodPost, fullURL, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, "", fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -514,12 +516,12 @@ func (c *Client) AddRootCert(filename string, certData []byte) (*RootCertInfo, e
 
 	_ = writer.Close()
 
-	url, err := url.JoinPath(c.baseURL, "/api/security/rootcerts")
+	fullURL, err := url.JoinPath(c.baseURL, "/api/security/rootcerts")
 	if err != nil {
-		return nil, fmt.Errorf("构建URL失败: %w", err)
+		return nil, fmt.Errorf("拼接URL失败: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, &body)
+	req, err := http.NewRequest(http.MethodPost, fullURL, &body)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -692,4 +694,78 @@ func (c *Client) InstanceHealth(name string, timeout *int) (*InstanceHealthRespo
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 	return &resp, nil
+}
+
+type LogFileInfo struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Size    int64  `json:"size"`
+	ModTime string `json:"modTime"`
+	Current bool   `json:"current"`
+}
+
+type LogFileListResponse struct {
+	Files []LogFileInfo `json:"files"`
+}
+
+type LogContentResponse struct {
+	File     string   `json:"file"`
+	Lines    []string `json:"lines"`
+	Total    int      `json:"total"`
+	Returned int      `json:"returned"`
+}
+
+func (c *Client) ListLogs() (*LogFileListResponse, error) {
+	data, err := c.Get("/api/system/logs")
+	if err != nil {
+		return nil, err
+	}
+	var resp LogFileListResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &resp, nil
+}
+
+func (c *Client) GetLogContent(fileName string, lines int, level string) (*LogContentResponse, error) {
+	requestPath := "/api/system/logs/content"
+	if fileName != "" || lines > 0 || level != "" {
+		requestPath += "?"
+		params := []string{}
+		if fileName != "" {
+			params = append(params, "file="+url.QueryEscape(fileName))
+		}
+		if lines > 0 {
+			params = append(params, fmt.Sprintf("lines=%d", lines))
+		}
+		if level != "" {
+			params = append(params, "level="+url.QueryEscape(level))
+		}
+		requestPath += strings.Join(params, "&")
+	}
+	data, err := c.Get(requestPath)
+	if err != nil {
+		return nil, err
+	}
+	var resp LogContentResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &resp, nil
+}
+
+func (c *Client) DownloadLog(filename string) ([]byte, error) {
+	data, err := c.Get("/api/system/logs/download/" + url.PathEscape(filename))
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (c *Client) DownloadAllLogs() ([]byte, error) {
+	data, err := c.Get("/api/system/logs/download-all")
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

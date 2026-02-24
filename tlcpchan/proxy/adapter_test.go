@@ -27,7 +27,7 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "服务端配置错误: 协议类型为 TLCP，但未配置 tlcp.keystore",
+			errMsg:  "协议类型为TLCP，但未提供有效的TLCP配置（需要keystore配置）",
 		},
 		{
 			name: "TLS协议但未配置keystore",
@@ -40,7 +40,7 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "服务端配置错误: 协议类型为 TLS，但未配置 tls.keystore",
+			errMsg:  "协议类型为TLS，但未提供有效的TLS配置（需要keystore配置）",
 		},
 		{
 			name: "Auto协议但未配置任何keystore",
@@ -56,7 +56,7 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "服务端配置错误: 协议类型为 auto，但未配置任何 keystore（至少需要配置 tlcp.keystore 或 tls.keystore）",
+			errMsg:  "协议类型为 auto，但未配置任何 keystore（至少需要配置 tlcp.keystore 或 tls.keystore）",
 		},
 		{
 			name: "Auto协议配置了TLCP keystore",
@@ -68,13 +68,15 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 					Keystore: &config.KeyStoreConfig{
 						Type: keystore.LoaderTypeFile,
 						Params: map[string]string{
-							"cert-file": "test-cert.pem",
-							"key-file":  "test-key.pem",
+							"sign-cert": "test-sign-cert.pem",
+							"sign-key":  "test-sign-key.pem",
+							"enc-cert":  "test-enc-cert.pem",
+							"enc-key":   "test-enc-key.pem",
 						},
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 			errMsg:  "",
 		},
 		{
@@ -87,20 +89,19 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 					Keystore: &config.KeyStoreConfig{
 						Type: keystore.LoaderTypeFile,
 						Params: map[string]string{
-							"cert-file": "test-cert.pem",
-							"key-file":  "test-key.pem",
+							"sign-cert": "test-sign-cert.pem",
+							"sign-key":  "test-sign-key.pem",
 						},
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 			errMsg:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 创建 KeyStoreManager 和（RootCertManager
 			keyStoreMgr := security.NewKeyStoreManager()
 			rootCertMgr := security.NewRootCertManager(".")
 

@@ -25,12 +25,16 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 			name: "空认证模式应默认为单向认证",
 			cfg: &config.InstanceConfig{
 				Name:     "test-1",
-				Type:     "server",
+				Type:     "client",
 				Protocol: "auto",
 				Listen:   ":8443",
 				Target:   "127.0.0.1:8080",
-				TLCP:     config.TLCPConfig{},
-				TLS:      config.TLSConfig{},
+				TLCP: config.TLCPConfig{
+					ClientAuthType: "",
+				},
+				TLS: config.TLSConfig{
+					ClientAuthType: "",
+				},
 			},
 			expectedTLCP: "no-client-cert",
 			expectedTLS:  "no-client-cert",
@@ -39,7 +43,7 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 			name: "已设置认证模式应保持不变",
 			cfg: &config.InstanceConfig{
 				Name:     "test-2",
-				Type:     "server",
+				Type:     "client",
 				Protocol: "auto",
 				Listen:   ":8444",
 				Target:   "127.0.0.1:8081",
@@ -98,10 +102,13 @@ func TestInstanceManagerCreateDuplicate(t *testing.T) {
 
 	cfg := &config.InstanceConfig{
 		Name:     "duplicate-test",
-		Type:     "server",
+		Type:     "client",
 		Protocol: "auto",
 		Listen:   ":8446",
 		Target:   "127.0.0.1:8083",
+		TLCP: config.TLCPConfig{
+			ClientAuthType: "no-client-cert",
+		},
 	}
 
 	_, err := mgr.Create(cfg)

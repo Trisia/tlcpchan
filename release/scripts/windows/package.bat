@@ -60,10 +60,12 @@ if %ERRORLEVEL% equ 0 (
     set "WIX_FOUND=1"
     set "CANDLE=candle"
     set "LIGHT=light"
+    set "HEAT=heat"
 ) else if exist "%WIX_DIR%\candle.exe" (
     set "WIX_FOUND=1"
     set "CANDLE=%WIX_DIR%\candle.exe"
     set "LIGHT=%WIX_DIR%\light.exe"
+    set "HEAT=%WIX_DIR%\heat.exe"
 )
 
 if %WIX_FOUND% equ 0 (
@@ -106,9 +108,40 @@ if %WIX_FOUND% equ 0 (
 REM 创建输出目录
 if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
 
+REM 检查 ui 和 rootcerts 目录是否存在
+if not exist "%SOURCE_DIR%\ui" (
+    echo [ERROR] ui 目录不存在：%SOURCE_DIR%\ui
+    echo [INFO] 请先运行 build.bat 构建前端资源
+    exit /b 1
+)
+
+if not exist "%SOURCE_DIR%\rootcerts" (
+    echo [ERROR] rootcerts 目录不存在：%SOURCE_DIR%\rootcerts
+    echo [INFO] 请先运行 build.bat 构建项目
+    exit /b 1
+)
+
+REM 使用 heat 生成 ui 目录结构的 XML 片段
+echo [INFO] 生成 UI 目录的 WiX 片段...
+"%HEAT%" dir "%SOURCE_DIR%\ui" -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -out "%BUILD_DIR%\ui.wxs"
+
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] heat.exe 生成 ui.wxs 失败！
+    exit /b 1
+)
+
+REM 使用 heat 生成 rootcerts 目录结构的 XML 片段
+echo [INFO] 生成信任证书目录的 WiX 片段...
+"%HEAT%" dir "%SOURCE_DIR%\rootcerts" -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg RootCertComponents -out "%BUILD_DIR%\rootcerts.wxs"
+
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] heat.exe 生成 rootcerts.wxs 失败！
+    exit /b 1
+)
+
 REM 编译 WiX 源文件
 echo [INFO] 编译 WiX 源文件...
-"%CANDLE%" -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%"
+"%CANDLE%" -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%" "%BUILD_DIR%\ui.wxs" "%BUILD_DIR%\rootcerts.wxs"
 
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] candle.exe 编译失败！
@@ -117,7 +150,7 @@ if %ERRORLEVEL% neq 0 (
 
 REM 链接生成 MSI
 echo [INFO] 生成 MSI 安装包...
-"%LIGHT%" -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj" -ext WixUIExtension
+"%LIGHT%" -sw1076 -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj" "%BUILD_DIR%\ui.wixobj" "%BUILD_DIR%\rootcerts.wixobj" -ext WixUIExtension
 
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] light.exe 链接失败！
@@ -126,6 +159,10 @@ if %ERRORLEVEL% neq 0 (
 
 REM 清理临时文件
 del "%BUILD_DIR%\tlcpchan.wixobj" 2>nul
+del "%BUILD_DIR%\ui.wxs" 2>nul
+del "%BUILD_DIR%\ui.wixobj" 2>nul
+del "%BUILD_DIR%\rootcerts.wxs" 2>nul
+del "%BUILD_DIR%\rootcerts.wixobj" 2>nul
 
 echo ========================================
 echo   MSI 打包完成！

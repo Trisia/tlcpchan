@@ -5,6 +5,19 @@ import (
 	"strings"
 )
 
+// 配置更新说明
+// TLCP Channel 不提供 config update API，配置更新通过以下方式实现：
+// 1. 使用编辑器直接编辑 config.yaml 配置文件
+// 2. 运行 config validate 验证配置文件格式正确性
+// 3. 运行 config reload 重载配置使配置生效
+// 4. 运行 config show 或 system info 确认配置已更新
+//
+// 这种设计基于以下考虑：
+// - 原子性：配置文件编辑更直观，避免 API 部分更新导致配置损坏
+// - 数据完整性：配置文件是唯一的数据源，避免 API 更新与文件状态不一致
+// - 用户习惯：配置文件编辑是用户熟悉的运维方式
+// - 简化设计：减少一个 API 接口，降低维护成本
+
 func configShow(args []string) error {
 	cfg, err := cli.GetConfig()
 	if err != nil {
