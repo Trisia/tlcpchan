@@ -9,6 +9,7 @@ const router = createRouter({
     { path: '/instances/:name', name: 'instance-detail', component: () => import('@/views/InstanceDetail.vue') },
     { path: '/instances/:name/edit', name: 'instance-edit', component: () => import('@/views/EditInstance.vue') },
     { path: '/keystores', name: 'keystores', component: () => import('@/views/KeyStores.vue') },
+    { path: '/keystores/:name', name: 'keystore-detail', component: () => import('@/views/KeystoreDetail.vue') },
     { path: '/keystores/create', name: 'keystores-create', component: () => import('@/views/CreateKeyStore.vue') },
     { path: '/keystores/generate', name: 'keystores-generate', component: () => import('@/views/GenerateKeyStore.vue') },
     { path: '/keystores/:name/update', name: 'keystores-update', component: () => import('@/views/UpdateCertificate.vue') },

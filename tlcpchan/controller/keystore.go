@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Trisia/tlcpchan/config"
@@ -931,4 +932,266 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-pem-file")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	w.Write(pemBytes)
+}
+
+/**
+ * @api {get} /api/security/keystores/:name/instances 查询引用指定 keystore 的实例列表
+ * @apiName GetKeyStoreInstances
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 查询引用指定 keystore 的所有实例列表，包括实例名称、状态和协议信息
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ *
+ * @apiSuccess {Object[]} - 实例列表数组
+ * @apiSuccess {String} -.name 实例名称
+ * @apiSuccess {String} -.status 实例状态，可选值：created（已创建）、running（运行中）、stopped（已停止）、error（错误）
+ * @apiSuccess {String} -.protocol协议类型，可选值：auto（自动）、tlcp（仅TLCP）、tls（仅TLS）
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     [
+ *       {
+ *         "name": "tlcp-server",
+ *         "status": "running",
+ *         "protocol": "tlcp"
+ *       },
+ *       {
+ *         "name": "tls-client",
+ *         "status": "stopped",
+ *         "protocol": "tls"
+ *       }
+ *     ]
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     keystore 不存在
+ */
+func (c *SecurityController) GetKeyStoreInstances(w http.ResponseWriter, r *http.Request) {
+	keystoreName := PathParam(r, "name")
+
+	// 先检查 keystore 是否存在
+	if _, err := c.keyStoreMgr.Get(keystoreName); err != nil {
+		NotFound(w, "keystore 不存在")
+		return
+	}
+
+	// 遍历所有实例配置，检查是否引用了指定的 keystore
+	var result []map[string]interface{}
+
+	// 需要获取运行中实例的状态，这里简化处理，返回配置中的协议信息
+	for _, instCfg := range c.cfg.Instances {
+		// 检查 tlcp.keystore 是否引用
+		if instCfg.TLCP.Keystore != nil {
+			if instCfg.TLCP.Keystore.Type == "named" && instCfg.TLCP.Keystore.Name == keystoreName {
+				result = append(result, map[string]interface{}{
+					"name":     instCfg.Name,
+					"status":   getInstanceStateStatus(instCfg.Name, c.cfg.Instances),
+					"protocol": instCfg.Protocol,
+				})
+				continue
+			}
+			// 检查 file 类型中，params 中是否包含该 keystore 名称的路径
+			if instCfg.TLCP.Keystore.Type == "file" {
+				for _, param := range instCfg.TLCP.Keystore.Params {
+					if containsKeystoreName(param, keystoreName) {
+						result = append(result, map[string]interface{}{
+							"name":     instCfg.Name,
+							"status":   getInstanceStateStatus(instCfg.Name, c.cfg.Instances),
+							"protocol": instCfg.Protocol,
+						})
+						break
+					}
+				}
+			}
+		}
+
+		// 检查 tls.keystore 是否引用
+		if instCfg.TLS.Keystore != nil {
+			if instCfg.TLS.Keystore.Type == "named" && instCfg.TLS.Keystore.Name == keystoreName {
+				result = append(result, map[string]interface{}{
+					"name":     instCfg.Name,
+					"status":   getInstanceStateStatus(instCfg.Name, c.cfg.Instances),
+					"protocol": instCfg.Protocol,
+				})
+				continue
+			}
+			// 检查 file 类型中，params 中是否包含该 keystore 名称的路径
+			if instCfg.TLS.Keystore.Type == "file" {
+				for _, param := range instCfg.TLS.Keystore.Params {
+					if containsKeystoreName(param, keystoreName) {
+						result = append(result, map[string]interface{}{
+							"name":     instCfg.Name,
+							"status":   getInstanceStateStatus(instCfg.Name, c.cfg.Instances),
+							"protocol": instCfg.Protocol,
+						})
+						break
+					}
+				}
+			}
+		}
+	}
+
+	Success(w, result)
+}
+
+/**
+ * containsKeystoreName 检查参数值是否包含 keystore 名称
+ *
+ * 参数:
+ *   - param: 参数值（通常是文件路径）
+ *   - keystoreName: keystore 名称
+ *
+ * 返回:
+ *   - bool: 如果参数值包含 keystore 名称则返回 true，否则返回 false
+ */
+func containsKeystoreName(param, keystoreName string) bool {
+	return strings.Contains(param, keystoreName)
+}
+
+/**
+ * getInstanceStateStatus 获取实例状态
+ * 注意：这是一个简化实现，实际状态应该从实例管理器获取
+ *
+ * 参数:
+ *   - instanceName: 实例名称
+ *   - instances: 所有实例配置列表
+ *
+ * 返回:
+ *   - string: 实例状态（简化为 "stopped"）
+ */
+func getInstanceStateStatus(instanceName string, instances []config.InstanceConfig) string {
+	// TODO: 从实例管理器获取真实的实例状态
+	// 当前返回 "stopped" 作为默认值
+	return "stopped"
+}
+
+/**
+ * @api {put} /api/security/keystores/:name 更新 keystore 参数
+ * @apiName UpdateKeystoreParams
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 更新指定 keystore 的参数（如证书和密钥路径的文件路径）
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ * @apiBody {Object} params 要更新的参数键值对，只更新提供的字段
+ * @apiBody {String} params.sign-cert 签名证书路径（可选）
+ * @apiBody {String} params.sign-key 签名密钥路径（可选）
+ * @apiBody {String} params.enc-cert 加密证书路径（可选，仅TLCP）
+ * @apiBody {String} params.enc-key 加密密钥路径（可选，仅TLCP）
+ * @apiBody {String} params.cert 证书路径（可选，仅TLS）
+ * @apiBody {String} params.key 密钥路径（可选，仅TLS）
+ *
+ * @apiSuccess {String} name keystore 名称
+ * @apiSuccess {String} type keystore 类型
+ * @apiSuccess {String} loaderType 加载器类型
+ * @apiSuccess {Object} params 更新后的参数
+ * @apiSuccess {Boolean} protected 是否受保护
+ * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
+ * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "tlcp-server",
+ *       "type": "tlcp",
+ *       "loaderType": "file",
+ *       "params": {
+ *         "sign-cert": "./keystores/new-sign.crt",
+ *         "sign-key": "./keystores/new-sign.key",
+ *         "enc-cert": "./keystores/enc.crt",
+ *         "enc-key": "./keystores/enc.key"
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-02-25T10:30:00Z"
+ *     }
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     keystore 不存在
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     参数无效: 具体错误信息
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 500 Internal Server Error
+ *     保存配置失败: 具体错误信息
+ */
+func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http.Request) {
+	name := PathParam(r, "name")
+
+	// 检查 keystore 是否存在
+	info, err := c.keyStoreMgr.Get(name)
+	if err != nil {
+		NotFound(w, "keystore 不存在")
+		return
+	}
+
+	// 检查是否为 protected 状态
+	if info.Protected {
+		BadRequest(w, "受保护的 keystore 不允许修改")
+		return
+	}
+
+	// 解析请求体
+	var reqBody struct {
+		Params map[string]string `json:"params"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		BadRequest(w, "无效的请求体: "+err.Error())
+		return
+	}
+
+	if len(reqBody.Params) == 0 {
+		BadRequest(w, "参数不能为空")
+		return
+	}
+
+	// 验证参数有效性（基本验证）
+	for key, value := range reqBody.Params {
+		if value == "" {
+			BadRequest(w, fmt.Sprintf("参数 %s 不能为空", key))
+			return
+		}
+	}
+
+	// 更新 keystore 配置
+	// 需要在配置文件中找到对应的 keystore 并更新其参数
+	found := false
+	for i := range c.cfg.KeyStores {
+		if c.cfg.KeyStores[i].Name == name {
+			if c.cfg.KeyStores[i].Params == nil {
+				c.cfg.KeyStores[i].Params = make(map[string]string)
+			}
+			// 更新参数
+			for key, value := range reqBody.Params {
+				c.cfg.KeyStores[i].Params[key] = value
+			}
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		NotFound(w, "配置中未找到 keystore")
+		return
+	}
+
+	// 保存配置文件
+	if err := config.Save(c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+
+	// 重新加载 keystore
+	updatedInfo, err := c.keyStoreMgr.Get(name)
+	if err != nil {
+		InternalError(w, "重新加载 keystore 失败: "+err.Error())
+		return
+	}
+
+	c.log.Info("更新 keystore 参数: %s", name)
+	Success(w, updatedInfo)
 }

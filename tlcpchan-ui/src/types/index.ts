@@ -200,6 +200,12 @@ export interface InstanceHealthResponse {
   results: HealthCheckResult[]
 }
 
+export interface KeystoreInstance {
+  name: string
+  status: 'created' | 'running' | 'stopped' | 'error'
+  protocol: 'auto' | 'tlcp' | 'tls'
+}
+
 export const CertType = {
   TLCP: 'tlcp',
   TLS: 'tls'

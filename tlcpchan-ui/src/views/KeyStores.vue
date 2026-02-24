@@ -63,6 +63,7 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-button type="primary" size="small" link @click="goToDetail(row)">详情</el-button>
             <el-button type="success" size="small" link @click="goToExportCSR(row)">导出 CSR</el-button>
             <el-button type="primary" size="small" link @click="goToUpdateCertificate(row)">更新证书</el-button>
             <el-button v-if="!row.protected" type="danger" size="small" link @click="remove(row.name)">
@@ -114,6 +115,17 @@ function goToUpdateCertificate(row: any) {
     name: 'keystores-update',
     params: { name: row.name },
     query: { type: row.type }
+  })
+}
+
+/**
+ * 跳转到详情页面
+ * @param row 密钥存储信息
+ */
+function goToDetail(row: any) {
+  router.push({
+    name: 'keystore-detail',
+    params: { name: row.name }
   })
 }
 

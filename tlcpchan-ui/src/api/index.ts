@@ -99,6 +99,16 @@ export const keyStoreApi = {
     })
     return res.data
   },
+
+  update: async (name: string, data: { params: Record<string, string> }) => {
+    const res = await http.put(`/security/keystores/${name}`, data)
+    return res.data
+  },
+
+  getInstances: async (name: string) => {
+    const res = await http.get(`/security/keystores/${name}/instances`)
+    return res.data
+  },
 }
 
 export const rootCertApi = {
