@@ -2,10 +2,10 @@
 rmdir /s /q target 2>nul
 mkdir target
 cd tlcpchan
-go build -o ../target/tlcpchan.exe 
+go build -o ..\target\tlcpchan.exe 
 cd ..
 cd tlcpchan-cli
-go build -o ../target/tlcpchan-cli.exe
+go build -o ..\target\tlcpchan-cli.exe
 cd ..
 cd tlcpchan-ui
 call npm run build
