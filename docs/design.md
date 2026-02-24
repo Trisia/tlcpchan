@@ -915,41 +915,249 @@ CheckInitialized()?
 
 使用Go标准库`net/http`实现RESTful API，无需第三方框架。
 
-### 4.2 路由设计
+### 4.2 完整API路由表
 
-API 路径前缀统一为 `/api/`。
+系统共提供 36 个 RESTful API 接口，分为 5 个主要类别：
 
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | /api/instances | 获取实例列表 |
-| POST | /api/instances | 创建实例 |
-| GET | /api/instances/:name | 获取实例详情 |
-| PUT | /api/instances/:name | 更新实例配置 |
-| DELETE | /api/instances/:name | 删除实例 |
-| POST | /api/instances/:name/start | 启动实例 |
-| POST | /api/instances/:name/stop | 停止实例 |
-| POST | /api/instances/:name/reload | 重载实例 |
-| POST | /api/instances/:name/restart | 重启实例 |
-| GET | /api/instances/:name/stats | 获取统计信息 |
-| GET | /api/instances/:name/logs | 获取日志 |
-| GET | /api/instances/:name/health | 实例健康检查 |
-| POST | /api/config/reload | 重载全局配置 |
-| GET | /api/config | 获取当前配置 |
-| GET | /api/security/keystores | 获取 keystore 列表 |
-| POST | /api/security/keystores | 创建 keystore |
-| POST | /api/security/keystores/generate | 生成新 keystore |
-| GET | /api/security/keystores/:name | 获取 keystore 详情 |
-| DELETE | /api/security/keystores/:name | 删除 keystore |
-| POST | /api/security/keystores/:name/reload | 重载 keystore |
-| POST | /api/security/keystores/:name/export-csr | 导出 CSR |
-| GET | /api/security/rootcerts | 获取根证书列表 |
-| POST | /api/security/rootcerts | 添加根证书 |
-| POST | /api/security/rootcerts/generate | 生成根 CA |
-| GET | /api/security/rootcerts/:filename | 获取根证书详情 |
-| DELETE | /api/security/rootcerts/:filename | 删除根证书 |
-| POST | /api/security/rootcerts/reload | 重载所有根证书 |
-| GET | /api/system/info | 系统信息 |
-| GET | /api/system/health | 健康检查 |
+#### 4.2.1 Instance API (13个)
+
+| 方法 | 路径 | 描述 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| GET | /api/instances | 获取所有实例列表 | - | 实例数组，包含名称、状态、配置、是否启用 |
+| POST | /api/instances | 创建实例 | 实例配置对象 | 创建的实例信息 |
+| GET | /api/instances/:name | 获取实例详情 | - | 实例详细信息 |
+| PUT | /api/instances/:name | 更新实例配置 | 更新后的实例配置 | 更新后的实例信息 |
+| DELETE | /api/instances/:name | 删除实例 | - | 确认删除成功 |
+| POST | /api/instances/:name/start | 启动实例 | - | 实例状态 |
+| POST | /api/instances/:name/stop | 停止实例 | - | 实例状态 |
+| POST | /api/instances/:name/reload | 重载实例 | - | 实例状态 |
+| POST | /api/instances/:name/restart | 重启实例 | - | 实例状态 |
+| GET | /api/instances/:name/stats | 获取统计信息 | - | 统计数据对象 |
+| GET | /api/instances/:name/logs | 获取日志 | - | 日志列表 |
+| GET | /api/instances/:name/health | 实例健康检查 | - | 健康检查结果 |
+
+#### 4.2.2 Security API (12个)
+
+**Keystore API (6个):**
+
+| 方法 | 路径 | 描述 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| GET | /api/security/keystores | 获取 keystore 列表 | - | keystore 数组 |
+| POST | /api/security/keystores | 创建 keystore | keystore 配置（支持 multipart/form-data） | 创建的 keystore 信息 |
+| GET | /api/security/keystores/:name | 获取 keystore 详情 | - | keystore 详细信息 |
+| DELETE | /api/security/keystores/:name | 删除 keystore | - | 确认删除成功 |
+| POST | /api/security/keystores/generate | 生成新 keystore | keystore 生成参数 | 生成的 keystore 信息 |
+| POST | /api/security/keystores/:name/export-csr | 导出 CSR | CSR 文件（二进制流） | - 文件流下载 |
+
+**RootCert API (6个):**
+
+| 方法 | 路径 | 描述 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| GET | /api/security/rootcerts | 获取根证书列表 | - | 根证书数组（包含主题、颁发者、过期时间等） |
+| POST | /api/security/rootcerts | 添加根证书 | multipart/form-data（filename + cert） | 添加的根证书信息 |
+| GET | /api/security/rootcerts/:filename | 下载根证书（二进制流） | - | 文件流下载 |
+| DELETE | /api/security/rootcerts/:filename | 删除根证书 | - | 确认删除成功 |
+| POST | /api/security/rootcerts/generate | 生成根 CA 证书 | 根 CA 生成参数 | 生成的根 CA 信息 |
+| POST | /api/security/rootcerts/reload | 重载所有根证书 | - | 确认重载成功 |
+
+#### 4.2.3 System API (3个)
+
+| 方法 | 路径 | 描述 | 响应体 |
+|------|------|------|--------|
+| GET | /api/system/info | 获取系统信息 | 系统信息对象（操作系统、架构、内存、CPU、Goroutine 等）|
+| GET | /api/system/health | 系统健康检查 | 状态和版本信息 |
+| GET | /api/system/version | 版本信息 | 版本号 |
+| GET | /api/version | 版本信息（别名） | 版本号（同上） |
+
+#### 4.2.4 Config API (4个)
+
+| 方法 | 路径 | 描述 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| GET | /api/config | 获取当前配置 | - | 完整配置对象 |
+| POST | /api/config | 更新配置 | 配置对象 | 更新后的配置 |
+| POST | /api/config/reload | 重载配置 | - | 确认重载成功 |
+| POST | /api/config/validate | 验证配置文件 | 验证结果（支持指定或默认文件） | 验证结果 |
+
+#### 4.2.5 Logs API (4个)
+
+| 方法 | 路径 | 描述 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| GET | /api/system/logs | 列出日志文件 | - | 日志文件数组（名称、大小、修改时间、是否当前）|
+| GET | /api/system/logs/content | 读取日志内容 | - | 日志行数组（支持行数和级别过滤）|
+| GET | /api/system/logs/download/:filename | 下载单个日志文件 | - | 文件流下载 |
+| GET | /api/system/logs/download-all | 打包下载所有日志 | - | ZIP 文件流下载 |
+
+**总计：36 个 API 接口**
+
+### 4.3 配置管理设计理念
+
+#### 4.3.1 为什么不提供 config update API？
+
+TLCP Channel 不提供 `POST /api/config` 更新 API，而是要求用户通过编辑配置文件后使用 `config reload` 重载配置。这个设计基于以下考虑：
+
+**1. 原子性考虑**
+- 配置更新是复杂的多步骤操作（读取 → 验证 → 更新 → 写入 → 重载），通过 API 很难保证原子性和一致性
+- YAML 配置文件格式复杂，直接编辑更直观，可避免 API 部分更新导致配置损坏
+- 用户回滚能力：编辑配置文件后，用户可以手动回滚，API 模式增加了复杂性
+
+**2. 数据完整性**
+- 配置文件是唯一的数据源，避免 API 更新与文件状态不一致
+- 简化配置管理，减少数据不一致风险
+
+**3. 用户习惯**
+- 配置文件编辑是用户熟悉的运维方式
+- 与系统管理工具（systemd, puppet, ansible）集成方便
+
+**4. 简化设计**
+- 减少一个 API 接口，降低维护成本
+- 配置文件即真理，API 只是配置文件的视图
+
+#### 4.3.2 配置更新的正确流程
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│      配置更新的正确流程               │
+├─────────────────────────────────────────────────────┤
+│                                          │
+│  1. 使用编辑器编辑 config.yaml     │
+│                                          │
+│   2. 验证配置有效性              │
+│     → config validate                │
+│                                          │
+│  3. 重载配置                     │
+│     → config reload                 │
+│                                          │
+│  4. 验证配置已生效              │
+│     → system info                  │
+│     → config show                  │
+│                                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键操作：**
+1. 编辑 `config.yaml`
+2. `tlcpchan-cli config validate` - 验证配置文件格式正确性
+3. `tlcpchan-cli config reload` - 重载配置使配置生效
+4. `tlcpchan-cli config show` - 确认配置已更新
+
+#### 4.3.3 配置热重载机制
+
+TLCP Channel 提供配置热重载功能，无需重启服务即可使配置变更生效。
+
+**重载触发时机：**
+- 收到 `SIGHUP` 信号（推荐，Linux）
+- 手动调用 `POST /api/config/reload`
+- CLI 命令 `config reload`
+
+**重载范围：**
+- keystores 和根证书：重新扫描并重新加载到内存
+- 实例配置：根据配置重新启动/停止实例
+- 系统日志：重新初始化日志系统
+
+**热重载对运行中连接的影响：**
+- 新连接使用更新后的配置
+- 现有连接继续使用旧配置直到完成当前请求
+- 不会中断现有连接
+- 证书热更新后，新连接使用新证书
+
+**双层 Config 架构设计**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    TLCPAdapter 配置结构                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  │ 外层 Config (Outer Config)              │
+│ │   │ outerTLCPConfig (stable reference)    │     │
+│ │   - 稳定持有，listener 可以安全持有          │
+│ │   - 通过 GetConfigForClient 回调动态获取      │
+│ │   - 仅在首次 reload 时创建                   │
+│ │                                     │
+│ │   └ outerTLSConfig (stable reference)     │     │
+│   └─────────────────────────────────────────────────────────────┤
+│                                     │
+│         │ 原子指针 (并发安全读取）              │
+│   │ atomicTLCPConfig (atomic.Value)     │     │
+│   atomicTLSConfig  atomic.Value      │     │
+│                                    │
+└─────────────────────────────────────────────────────────────┘
+
+配置读取路径：│
+┌─────────────────────────────────────────────────────────────┐
+│ ┌─────────────────────────────────────────────────────────────┐
+│ 场景               │ 配置读取路径              │
+├─────────────────────────────────────────────────────────────┤
+│ Server Listener  │ 外层 Config → GetConfigForClient │     │
+│ (新连接)          │      │              │
+│                  │      │              │
+│                  │      │              │
+│   └───────────┐              │     │
+│     │      │              │
+│     │   innerTLCPConfig ────────────┐
+│     │      │              │
+└─────────────────────────────────────────────────┘
+│ (动态获取)          │              │
+│     │      │              │
+│ Client Dial          │      │              │
+│                  │ 直接从 atomic.Value 读取最新配置       │
+│                  │      │              │
+└─────────────────────────────────────────────────────────┘
+
+健康检查：          │              │
+│ 从 atomic.Value 读取，然后 Clone │     │
+│ 每次检查都 Clone 新的配置对象，不保存引用  │
+```
+
+**关键设计原则：**
+1. **先构建，再替换**：内层 Config 必须完全构建好后才能原子替换
+2. **外层 Config 稳定持有**：外层 Config 只创建一次，Listener 可以安全持有
+3. **原子操作保证并发安全**：使用 `atomic.Value` 提供无锁的并发读取能力
+4. **证书直接设置**：改用 `Certificates` 字段直接设置证书，移除 `GetCertificate` 回调
+
+### 4.4 错误处理和状态码规范
+
+#### 4.4.1 HTTP 状态码
+
+| 状态码 | 说明 | 常见原因 |
+|--------|------|----------|
+| 200 OK | 请求成功 | - |
+| 201 Created | 资源创建成功 | - |
+| 202 Accepted | 请求已接受 | - |
+| 204 No Content | 无内容（删除成功，无返回数据）| - |
+| 400 Bad Request | 请求参数错误或格式不正确 | - |
+| 401 Unauthorized | 未授权（需要 API Key 或认证）| - |
+| 403 Forbidden | 权限访问（权限不足）| - |
+| 404 Not Found | 资源不存在（文件、证书、实例等）| - |
+| 409 Conflict | 资源冲突（实例名、端口等）| - |
+| 422 Unprocessable Entity | 无法处理的请求体格式 | - |
+| 500 Internal Server Error | 服务器内部错误 | - |
+| 502 Bad Gateway | 网关错误 | - |
+
+#### 4.4.2 错误响应格式
+
+**JSON 格式：**
+```json
+{
+  "error": "错误描述",
+  "code": "错误码",
+  "details": "详细信息（可选）"
+}
+```
+
+**文本格式：**
+```
+错误描述: 无效的请求体
+```
+
+#### 4.4.3 特殊错误场景
+
+| 场景 | HTTP状态码 | 错误码 | 错误描述 |
+|------|-----------|----------|----------|
+| 端口冲突 | 409 | 端口已被占用 | - |
+| 实例名重复 | 409 | 实例名已存在 | - |
+| Keystore 不存在 | 404 | Keystore 不存在 | - |
+| 证书无效 | 400 | 证书格式错误或损坏 | - |
+| 配置验证失败 | 400 | 配置文件格式错误 | - |
+| 配置重载失败 | 500 | 配置重载失败 | - |
 
 ## 5. UI设计
 
