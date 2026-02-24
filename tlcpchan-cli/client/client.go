@@ -449,6 +449,41 @@ func (c *Client) ExportKeyStoreCSR(name string, req ExportCSRRequest) ([]byte, s
 	return respBody, filename, nil
 }
 
+func (c *Client) GetKeyStoreInstances(name string) ([]KeystoreInstance, error) {
+	data, err := c.Get("/api/security/keystores/" + url.PathEscape(name) + "/instances")
+	if err != nil {
+		return nil, err
+	}
+	var instances []KeystoreInstance
+	if err := json.Unmarshal(data, &instances); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return instances, nil
+}
+
+type KeystoreInstance struct {
+	Name     string `json:"name"`
+	Status   string `json:"status"`
+	Protocol string `json:"protocol"`
+}
+
+func (c *Client) UpdateKeyStoreParams(name string, params map[string]string) (*KeyStoreInfo, error) {
+	req := struct {
+		Params map[string]string `json:"params"`
+	}{
+		Params: params,
+	}
+	data, err := c.Put("/api/security/keystores/"+url.PathEscape(name), req)
+	if err != nil {
+		return nil, err
+	}
+	var ks KeyStoreInfo
+	if err := json.Unmarshal(data, &ks); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &ks, nil
+}
+
 type RootCertInfo struct {
 	Filename     string   `json:"filename"`
 	Subject      string   `json:"subject"`

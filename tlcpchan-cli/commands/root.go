@@ -97,7 +97,9 @@ func getCommands() map[string]Command {
 			Usage:       "keystore <子命令>",
 			SubCommands: map[string]Command{
 				"list":       {Name: "list", Description: "列出所有 keystore", Usage: "list", Run: keyStoreList},
-				"show":       {Name: "show", Description: "显示 keystore 详情", Usage: "show <name>", Run: keyStoreShow},
+				"show":       {Name: "show", Description: "显示 keystore 信息", Usage: "show <name>", Run: keyStoreShow},
+				"detail":     {Name: "detail", Description: "显示 keystore 详情（含关联实例）", Usage: "detail <name>", Run: keyStoreShowDetail},
+				"update":     {Name: "update", Description: "更新 keystore 参数", Usage: "update <name> [选项]", Run: keyStoreUpdateParams},
 				"create":     {Name: "create", Description: "创建 keystore", Usage: "create [选项]", Run: keyStoreCreate},
 				"generate":   {Name: "generate", Description: "生成 keystore（含证书）", Usage: "generate [选项]", Run: keyStoreGenerate},
 				"export-csr": {Name: "export-csr", Description: "导出证书请求(CSR)", Usage: "export-csr <name> [选项]", Run: keyStoreExportCSR},

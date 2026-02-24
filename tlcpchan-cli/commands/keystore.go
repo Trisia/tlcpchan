@@ -65,6 +65,153 @@ func keyStoreShow(args []string) error {
 	return nil
 }
 
+func keyStoreShowDetail(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("请指定 keystore 名称")
+	}
+
+	ks, err := cli.GetKeyStore(args[0])
+	if err != nil {
+		return err
+	}
+
+	if isJSONOutput() {
+		return printJSON(ks)
+	}
+
+	fmt.Println("========== Keystore 详情 ==========")
+	fmt.Printf("名称: %s\n", ks.Name)
+	fmt.Printf("类型: %s\n", ks.Type)
+	fmt.Printf("加载器类型: %s\n", ks.LoaderType)
+	fmt.Printf("受保护: %v\n", ks.Protected)
+	fmt.Printf("创建时间: %s\n", ks.CreatedAt)
+	fmt.Printf("更新时间: %s\n", ks.UpdatedAt)
+
+	fmt.Println("\n---------- 证书密钥参数 ----------")
+	if ks.Protected {
+		fmt.Println("⚠️  受保护的 keystore 不允许修改")
+	}
+	if ks.LoaderType != "file" {
+		fmt.Println("ℹ️  只有文件类型的 keystore 支持编辑参数")
+	}
+
+	fmt.Println("当前参数:")
+	for k, v := range ks.Params {
+		fmt.Printf("  %s: %s\n", k, v)
+	}
+
+	fmt.Println("\n---------- 关联实例 ----------")
+	instances, err := cli.GetKeyStoreInstances(args[0])
+	if err != nil {
+		fmt.Printf("⚠️  获取关联实例失败: %v\n", err)
+		return nil
+	}
+
+	if len(instances) == 0 {
+		fmt.Println("暂无关联实例")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "实例名称\t协议类型\t状态")
+	runningCount := 0
+	for _, inst := range instances {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", inst.Name, inst.Protocol, inst.Status)
+		if inst.Status == "running" {
+			runningCount++
+		}
+	}
+	w.Flush()
+
+	if runningCount > 0 {
+		fmt.Printf("\n⚠️  有 %d 个运行中的实例，修改参数后需要重新加载\n", runningCount)
+		fmt.Printf("使用命令: tlcpchan-cli instance reload <instance-name>\n")
+	}
+
+	return nil
+}
+
+func keyStoreUpdateParams(args []string) error {
+	fs := flagSet("update")
+	signCert := fs.String("sign-cert", "", "签名证书文件路径")
+	signKey := fs.String("sign-key", "", "签名密钥文件路径")
+	encCert := fs.String("enc-cert", "", "加密证书文件路径 (TLCP)")
+	encKey := fs.String("enc-key", "", "加密密钥文件路径 (TLCP)")
+	cert := fs.String("cert", "", "证书文件路径 (TLS)")
+	key := fs.String("key", "", "密钥文件路径 (TLS)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if len(fs.Args()) == 0 {
+		return fmt.Errorf("请指定 keystore 名称")
+	}
+	name := fs.Args()[0]
+
+	params := make(map[string]string)
+	if *signCert != "" {
+		params["sign-cert"] = *signCert
+	}
+	if *signKey != "" {
+		params["sign-key"] = *signKey
+	}
+	if *encCert != "" {
+		params["enc-cert"] = *encCert
+	}
+	if *encKey != "" {
+		params["enc-key"] = *encKey
+	}
+	if *cert != "" {
+		params["cert"] = *cert
+	}
+	if *key != "" {
+		params["key"] = *key
+	}
+
+	if len(params) == 0 {
+		return fmt.Errorf("请指定至少一个参数 (--sign-cert, --sign-key, --enc-cert, --enc-key, --cert, --key)")
+	}
+
+	ks, err := cli.UpdateKeyStoreParams(name, params)
+	if err != nil {
+		return err
+	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "keystore 参数更新成功",
+			"name":    ks.Name,
+		})
+	}
+
+	fmt.Printf("keystore %s 参数更新成功\n", ks.Name)
+
+	instances, err := cli.GetKeyStoreInstances(name)
+	if err != nil {
+		return nil
+	}
+
+	runningCount := 0
+	for _, inst := range instances {
+		if inst.Status == "running" {
+			runningCount++
+		}
+	}
+
+	if runningCount > 0 {
+		fmt.Printf("\n⚠️  警告: 有 %d 个运行中的实例引用此 keystore\n", runningCount)
+		fmt.Println("修改后需要重新加载这些实例才能生效:")
+		for _, inst := range instances {
+			if inst.Status == "running" {
+				fmt.Printf("  - tlcpchan-cli instance reload %s\n", inst.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
 func keyStoreCreate(args []string) error {
 	fs := flagSet("create")
 	name := fs.String("name", "", "keystore 名称")

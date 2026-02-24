@@ -230,19 +230,73 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
-* @api {post} /api/instances 创建实例
-* @apiName CreateInstance
-* @apiGroup Instance
-* @apiVersion 1.0.0
-*
-* @apiDescription 创建一个新的代理实例，并将配置保存到配置文件
-*
-* @apiBody {String} name 实例名称，唯一标识符，只能包含字母、数字、下划线和连字符
-* @apiBody {String} type 实例类型，可选值：server（服务端）、client（客户端）、http-server（HTTP服务端）、http-client（HTTP客户端）
-* @apiBody {String} protocol 协议类型，可选值：auto（自动检测）、tlcp（仅TLCP）、tls（仅TLS）
-* @apiBody {String} [auth=none] 认证模式，可选值：none（无认证）、one-way（单向认证）、mutual（双向认证）
-* @apiBody {String} listen 监听地址，格式为 ":port" 或 "ip:port"，例如 ":443" 或 "127.0.0.1:8443"
-* @apiBody {String} target 目标地址，格式为 "host:port"，例如 "backend.example.com:8080"
+ * validateInstanceFileKeystores 验证实例配置中 file 类型 keystore 的文件是否存在
+ *
+ * 参数:
+ *   - workDir: 工作目录，用于解析相对路径
+ *   - cfg: 实例配置
+ *
+ * 返回:
+ *   - error: 如果文件不存在则返回错误信息，否则返回 nil
+ */
+func validateInstanceFileKeystores(workDir string, cfg *config.InstanceConfig) error {
+	// 验证 TLCP keystore
+	if cfg.TLCP.Keystore != nil && cfg.TLCP.Keystore.Type == "file" {
+		for key, filePath := range cfg.TLCP.Keystore.Params {
+			if filePath == "" {
+				continue
+			}
+
+			var fullPath string
+			if !filepath.IsAbs(filePath) {
+				fullPath = filepath.Join(workDir, filePath)
+			} else {
+				fullPath = filePath
+			}
+
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				return fmt.Errorf("TLCP keystore 文件 %s 不存在", filePath)
+			}
+		}
+	}
+
+	// 验证 TLS keystore
+	if cfg.TLS.Keystore != nil && cfg.TLS.Keystore.Type == "file" {
+		for key, filePath := range cfg.TLS.Keystore.Params {
+			if filePath == "" {
+				continue
+			}
+
+			var fullPath string
+			if !filepath.IsAbs(filePath) {
+				fullPath = filepath.Join(workDir, filePath)
+			} else {
+				fullPath = filePath
+			}
+
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				return fmt.Errorf("TLS keystore 文件 %s 不存在", filePath)
+			}
+		}
+	}
+
+	return nil
+}
+
+/**
+ * @api {post} /api/instances 创建实例
+ * @apiName CreateInstance
+ * @apiGroup Instance
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 创建一个新的代理实例，并将配置保存到配置文件
+ *
+ * @apiBody {String} name 实例名称，唯一标识符，只能包含字母、数字、下划线和连字符
+ * @apiBody {String} type 实例类型，可选值：server（服务端）、client（客户端）、http-server（HTTP服务端）、http-client（HTTP客户端）
+ * @apiBody {String} protocol 协议类型，可选值：auto（自动检测）、tlcp（仅TLCP）、tls（仅TLS）
+ * @apiBody {String} [auth=none] 认证模式，可选值：none（无认证）、one-way（单向认证）、mutual（双向认证）
+ * @apiBody {String} listen 监听地址，格式为 ":port" 或 "ip:port"，例如 ":443" 或 "127.0.0.1:8443"
+ * @apiBody {String} target 目标地址，格式为 "host:port"，例如 "backend.example.com:8080"
  * @apiBody {Boolean} [enabled=true] 是否启用，true 表示创建后自动启动，false 表示创建后保持停止状态
  * @apiBody {Object} [tlcp] TLCP协议配置
  * @apiBody {Object} [tlcp.keystore] TLCP密钥存储配置
@@ -253,50 +307,50 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
  * @apiBody {String} tlcp.keystore.params.enc-cert 当type为"file"时，指定加密证书文件路径（PEM格式，可选，TLCP需要）
  * @apiBody {String} tlcp.keystore.params.enc-key 当type为"file"时，指定加密私钥文件路径（PEM格式，可选，TLCP需要）
  * @apiBody {String} [tlcp.client_auth_type=no-client-cert] TLCP客户端认证类型，可选值："no-client-cert"、"request-client-cert"、"require-any-client-cert"、"verify-client-cert-if-given"、"require-and-verify-client-cert"
-* @apiBody {String} [tlcp.min_version=1.1] TLCP最小版本，可选值："1.1"
-* @apiBody {String} [tlcp.max_version=1.1] TLCP最大版本，可选值："1.1"
-* @apiBody {String[]} [tlcp.cipher_suites] TLCP密码套件列表，可选值："ECC_SM4_CBC_SM3"、"ECC_SM4_GCM_SM3"、"ECDHE_SM4_CBC_SM3"、"ECDHE_SM4_GCM_SM3" 等
-* @apiBody {Boolean} [tlcp.session_cache=false] 是否启用会话缓存
-* @apiBody {Object} [tls] TLS协议配置
-* @apiBody {Object} [tls.keystore] TLS密钥存储配置，使用已创建的keystore
-* @apiBody {String} [tls.keystore.type=named] keystore类型，值为"named"表示引用已创建的keystore
-* @apiBody {String} tls.keystore.params.name keystore名称，必须与已创建的keystore名称一致
-* @apiBody {String} [tls.client_auth_type=no-client-cert] TLS客户端认证类型，可选值："no-client-cert"、"request-client-cert"、"require-any-client-cert"、"verify-client-cert-if-given"、"require-and-verify-client-cert"
-* @apiBody {String} [tls.min_version=1.2] TLS最小版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
-* @apiBody {String} [tls.max_version=1.3] TLS最大版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
-* @apiBody {String[]} [tls.cipher_suites] TLS密码套件列表
-* @apiBody {Boolean} [tls.session_cache=false] 是否启用会话缓存
-* @apiBody {String} [sni] SNI（Server Name Indication）服务器名称指示，用于TLS客户端连接时指定服务器名称
-*
-* @apiSuccess {String} name 实例名称
-* @apiSuccess {String} status 实例状态，创建后通常为 "created" 或 "running"
-*
-* @apiSuccessExample {json} Success-Response:
-*     HTTP/1.1 201 Created
-*     {
-*       "name": "tlcp-server",
-*       "status": "created"
-*     }
-*
- * @apiParamExample {json} Request-Example（使用命名keystore）:
+ * @apiBody {String} [tlcp.min_version=1.1] TLCP最小版本，可选值："1.1"
+ * @apiBody {String} [tlcp.max_version=1.1] TLCP最大版本，可选值："1.1"
+ * @apiBody {String[]} [tlcp.cipher_suites] TLCP密码套件列表，可选值："ECC_SM4_CBC_SM3"、"ECC_SM4_GCM_SM3"、"ECDHE_SM4_CBC_SM3"、"ECDHE_SM4_GCM_SM3" 等
+ * @apiBody {Boolean} [tlcp.session_cache=false] 是否启用会话缓存
+ * @apiBody {Object} [tls] TLS协议配置
+ * @apiBody {Object} [tls.keystore] TLS密钥存储配置，使用已创建的keystore
+ * @apiBody {String} [tls.keystore.type=named] keystore类型，值为"named"表示引用已创建的keystore
+ * @apiBody {String} tls.keystore.params.name keystore名称，必须与已创建的keystore名称一致
+ * @apiBody {String} [tls.client_auth_type=no-client-cert] TLS客户端认证类型，可选值："no-client-cert"、"request-client-cert"、"require-any-client-cert"、"verify-client-cert-if-given"、"require-and-verify-client-cert"
+ * @apiBody {String} [tls.min_version=1.2] TLS最小版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
+ * @apiBody {String} [tls.max_version=1.3] TLS最大版本，可选值："1.0"、"1.1"、"1.2"、"1.3"
+ * @apiBody {String[]} [tls.cipher_suites] TLS密码套件列表
+ * @apiBody {Boolean} [tls.session_cache=false] 是否启用会话缓存
+ * @apiBody {String} [sni] SNI（Server Name Indication）服务器名称指示，用于TLS客户端连接时指定服务器名称
+ *
+ * @apiSuccess {String} name 实例名称
+ * @apiSuccess {String} status 实例状态，创建后通常为 "created" 或 "running"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 201 Created
  *     {
  *       "name": "tlcp-server",
- *       "type": "server",
- *       "protocol": "tlcp",
- *       "listen": ":443",
- *       "target": "127.0.0.1:8080",
- *       "enabled": true,
- *       "tlcp": {
- *         "keystore": {
- *           "type": "named",
- *           "params": {
- *             "name": "my-tlcp-keystore"
- *           }
- *         },
- *         "client_auth_type": "require-and-verify-client-cert"
- *       },
- *       "client_ca": ["ca-sm2"]
+ *       "status": "created"
  *     }
+ *
+  * @apiParamExample {json} Request-Example（使用命名keystore）:
+  *     {
+  *       "name": "tlcp-server",
+  *       "type": "server",
+  *       "protocol": "tlcp",
+  *       "listen": ":443",
+  *       "target": "127.0.0.1:8080",
+  *       "enabled": true,
+  *       "tlcp": {
+  *         "keystore": {
+  *           "type": "named",
+  *           "params": {
+  *             "name": "my-tlcp-keystore"
+  *           }
+  *         },
+  *         "client_auth_type": "require-and-verify-client-cert"
+  *       },
+  *       "client_ca": ["ca-sm2"]
+  *     }
  * @apiParamExample {json} Request-Example（使用文件路径）:
  *     {
  *       "name": "tlcp-server",
@@ -314,33 +368,38 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
  *             "enc-cert": "./certs/server-enc.crt",
  *             "enc-key": "./certs/server-enc.key"
  *           }
+ *           },
+ *           "client_auth_type": "require-and-verify-client-cert"
  *         },
- *         "client_auth_type": "require-and-verify-client-cert"
- *       },
- *       "client_ca": ["ca-sm2"]
+ *         "client_ca": ["ca-sm2"]
  *     }
-*
-* @apiErrorExample {text} Error-Response:
-*     HTTP/1.1 400 Bad Request
-*     Content-Type: text/plain
-*
-*     无效的请求体: json: cannot unmarshal string into Go value of type config.InstanceConfig
-* @apiErrorExample {text} Error-Response:
-*     HTTP/1.1 400 Bad Request
-*     Content-Type: text/plain
-*
-*     实例名称不能为空
-* @apiErrorExample {text} Error-Response:
-*     HTTP/1.1 409 Conflict
-*     Content-Type: text/plain
-*
-*     实例 tlcp-server 已存在
-* @apiErrorExample {text} Error-Response:
-*     HTTP/1.1 409 Conflict
-*     Content-Type: text/plain
-*
-*     端口 8443 已被实例 'existing-instance' 使用
-* @apiErrorExample {text} Error-Response:
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     Content-Type: text/plain
+ *
+ *     无效的请求体: json: cannot unmarshal string into Go value of type config.InstanceConfig
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     Content-Type: text/plain
+ *
+ *     实例名称不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     Content-Type: text/plain
+ *
+ *     TLCP keystore 文件 ./certs/server-sign.crt 不存在
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 409 Conflict
+ *     Content-Type: text/plain
+ *
+ *     实例 tlcp-server 已存在
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 409 Conflict
+ *     Content-Type: text/plain
+ *
+ *     端口 8443 已被实例 'existing-instance' 使用
+ * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 500 Internal Server Error
  *     Content-Type: text/plain
  *
@@ -355,7 +414,7 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
  *     Content-Type: text/plain
  *
  *     初始化配置失败: 协议类型为TLS，但未提供有效的TLS配置（需要keystore配置）
-*/
+ */
 func (c *InstanceController) Create(w http.ResponseWriter, r *http.Request) {
 	var cfg config.InstanceConfig
 	if err := parseJSON(r, &cfg); err != nil {
@@ -372,6 +431,12 @@ func (c *InstanceController) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := checkPortConflict(cfg.Listen, cfg.Enabled, "", currentCfg.Instances); err != nil {
+		BadRequest(w, err.Error())
+		return
+	}
+
+	// 验证 file 类型 keystore 的文件是否存在
+	if err := validateInstanceFileKeystores(config.Get().WorkDir, &cfg); err != nil {
 		BadRequest(w, err.Error())
 		return
 	}
@@ -560,6 +625,12 @@ func (c *InstanceController) Update(w http.ResponseWriter, r *http.Request) {
 	currentCfg := config.Get()
 
 	if err := checkPortConflict(newCfg.Listen, newCfg.Enabled, name, currentCfg.Instances); err != nil {
+		BadRequest(w, err.Error())
+		return
+	}
+
+	// 验证 file 类型 keystore 的文件是否存在
+	if err := validateInstanceFileKeystores(config.Get().WorkDir, &newCfg); err != nil {
 		BadRequest(w, err.Error())
 		return
 	}

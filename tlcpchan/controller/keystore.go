@@ -334,6 +334,14 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// 如果是 file 类型，验证文件是否存在
+	if loaderType == keystore.LoaderTypeFile {
+		if err := validateFileParams(c.cfg.WorkDir, params); err != nil {
+			BadRequest(w, err.Error())
+			return
+		}
+	}
+
 	info, err := c.keyStoreMgr.Create(name, loaderType, params, protected)
 	if err != nil {
 		InternalError(w, "创建失败: "+err.Error())
@@ -1051,6 +1059,42 @@ func containsKeystoreName(param, keystoreName string) bool {
 }
 
 /**
+ * validateFileParams 验证 file 类型 keystore 的所有文件路径是否存在
+ *
+ * 参数:
+ *   - workDir: 工作目录，用于解析相对路径
+ *   - params: keystore 参数，包含文件路径
+ *
+ * 返回:
+ *   - error: 如果文件不存在则返回错误信息，否则返回 nil
+ */
+func validateFileParams(workDir string, params map[string]string) error {
+	for key, filePath := range params {
+		if filePath == "" {
+			continue
+		}
+
+		// 解析文件路径，处理相对路径
+		var fullPath string
+		if strings.HasPrefix(filePath, "./") || strings.HasPrefix(filePath, "/") {
+			fullPath = filePath
+		} else {
+			fullPath = "./" + filePath
+		}
+
+		// 如果是相对路径，相对于工作目录解析
+		if !filepath.IsAbs(fullPath) {
+			fullPath = filepath.Join(workDir, fullPath)
+		}
+
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return fmt.Errorf("文件 %s 不存在", filePath)
+		}
+	}
+	return nil
+}
+
+/**
  * getInstanceStateStatus 获取实例状态
  * 注意：这是一个简化实现，实际状态应该从实例管理器获取
  *
@@ -1153,6 +1197,14 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
 	for key, value := range reqBody.Params {
 		if value == "" {
 			BadRequest(w, fmt.Sprintf("参数 %s 不能为空", key))
+			return
+		}
+	}
+
+	// 如果是 file 类型，验证文件是否存在
+	if info.LoaderType == keystore.LoaderTypeFile {
+		if err := validateFileParams(c.cfg.WorkDir, reqBody.Params); err != nil {
+			BadRequest(w, err.Error())
 			return
 		}
 	}
