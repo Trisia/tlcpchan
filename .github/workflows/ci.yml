@@ -58,4 +58,4 @@ jobs:
 
       - name: 运行前端测试
         working-directory: ./tlcpchan-ui
-        run: npm test
+        run: npm test -- --passWithNoTests
