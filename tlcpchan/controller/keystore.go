@@ -728,8 +728,9 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 
 		signerCertPath := filepath.Join(keystoreDir, req.Name+"-ca.crt")
 		signerKeyPath := filepath.Join(keystoreDir, req.Name+"-ca.key")
-		if err := certgen.SaveCertToFile(signerCert.CertPEM, signerCert.KeyPEM, signerCertPath, signerKeyPath); err != nil {
-			InternalError(w, "保存根证书失败: "+err.Error())
+		err = certgen.SaveCertToFile(signerCert.CertPEM, signerCert.KeyPEM, signerCertPath, signerKeyPath)
+		if err != nil {
+			InternalError(w, "保存根证书失败文件: "+err.Error())
 			return
 		}
 
@@ -851,12 +852,9 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
 
 	// 根据 KeyStore 类型选择获取私钥的方式
 	var privateKey interface{}
-	var keyStoreType keystore.KeyStoreType
+	keyStoreType := ks.Type()
 
-	ksType := ks.Type()
-	keyStoreType = ksType
-
-	if ksType == keystore.KeyStoreTypeTLCP {
+	if keyStoreType == keystore.KeyStoreTypeTLCP {
 		certs, err := ks.TLCPCertificate()
 		if err != nil {
 			InternalError(w, "获取证书失败: "+err.Error())
@@ -1069,7 +1067,7 @@ func containsKeystoreName(param, keystoreName string) bool {
  *   - error: 如果文件不存在则返回错误信息，否则返回 nil
  */
 func validateFileParams(workDir string, params map[string]string) error {
-	for key, filePath := range params {
+	for _, filePath := range params {
 		if filePath == "" {
 			continue
 		}

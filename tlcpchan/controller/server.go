@@ -11,8 +11,6 @@ import (
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
-	"github.com/Trisia/tlcpchan/mcp"
-	"github.com/Trisia/tlcpchan/mcp/tools"
 	"github.com/Trisia/tlcpchan/security"
 )
 
@@ -26,7 +24,6 @@ type Server struct {
 	rootCertMgr *security.RootCertManager
 	staticDir   string
 	fileServer  http.Handler
-	mcpServer   *mcp.Server
 }
 
 // ServerOptions API服务器配置选项
@@ -92,21 +89,6 @@ func NewServer(opts ServerOptions) *Server {
 	if err != nil {
 		absStaticDir = staticDir
 	}
-
-	mcpServer := mcp.NewServer(opts.Config)
-
-	keyStoreTool := tools.NewKeyStoreManagerTool(keyStoreMgr, opts.Config, opts.ConfigPath)
-	mcpServer.RegisterTool(keyStoreTool)
-
-	certManagerTool := tools.NewCertificateManagerTool(rootCertMgr, opts.Config, opts.ConfigPath)
-	mcpServer.RegisterTool(certManagerTool)
-
-	instanceTool := tools.NewInstanceLifecycleTool(instMgr)
-	mcpServer.RegisterTool(instanceTool)
-
-	router.GET("/mcp/ws", mcpServer.HandleWebSocket)
-	log.Info("MCP服务已启用")
-
 	return &Server{
 		router:      router,
 		cfg:         opts.Config,
@@ -115,7 +97,6 @@ func NewServer(opts ServerOptions) *Server {
 		rootCertMgr: rootCertMgr,
 		staticDir:   absStaticDir,
 		fileServer:  http.FileServer(http.Dir(absStaticDir)),
-		mcpServer:   mcpServer,
 	}
 }
 
