@@ -467,6 +467,14 @@ type KeystoreInstance struct {
 	Protocol string `json:"protocol"`
 }
 
+// UpdateKeyStoreParams 更新 keystore 的参数（如证书和密钥路径的文件路径）
+// 参数：
+//   - name: keystore 名称
+//   - params: 要更新的参数键值对，如 {"sign-cert": "./keystores/new-sign.crt"}
+//
+// 返回：
+//   - *KeyStoreInfo: 更新后的 keystore 信息
+//   - error: 错误信息
 func (c *Client) UpdateKeyStoreParams(name string, params map[string]string) (*KeyStoreInfo, error) {
 	req := struct {
 		Params map[string]string `json:"params"`
@@ -479,6 +487,61 @@ func (c *Client) UpdateKeyStoreParams(name string, params map[string]string) (*K
 	}
 	var ks KeyStoreInfo
 	if err := json.Unmarshal(data, &ks); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &ks, nil
+}
+
+// UpdateKeyStoreCertificates 上传文件以更新 keystore 的证书和密钥
+// 参数：
+//   - name: keystore 名称
+//   - files: 文件映射，key 为字段名（signCert/signKey/encCert/encKey/cert/key），value 为文件内容
+//
+// 返回：
+//   - *KeyStoreInfo: 更新后的 keystore 信息
+//   - error: 错误信息
+func (c *Client) UpdateKeyStoreCertificates(name string, files map[string][]byte) (*KeyStoreInfo, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	for fieldName, fileData := range files {
+		part, err := writer.CreateFormFile(fieldName, fieldName)
+		if err != nil {
+			return nil, fmt.Errorf("创建表单字段失败: %w", err)
+		}
+		_, _ = part.Write(fileData)
+	}
+
+	_ = writer.Close()
+
+	fullURL, err := url.JoinPath(c.baseURL, "/api/security/keystores", url.PathEscape(name), "upload")
+	if err != nil {
+		return nil, fmt.Errorf("拼接URL失败: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, fullURL, &body)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("请求失败: %s - %s", resp.Status, string(respBody))
+	}
+
+	var ks KeyStoreInfo
+	if err := json.Unmarshal(respBody, &ks); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 	return &ks, nil

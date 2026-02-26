@@ -4,13 +4,12 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TLCP](https://img.shields.io/badge/TLCP-1.1-green.svg)](https://github.com/Trisia/gotlcp)
 
-## 一句话介绍
+## 介绍
 
 TLCP Channel 传输通道国密改造，无需修改现有应用。一款功能强大的 TLCP/TLS 协议代理工具，支持双协议在同一个端口并行工作，基于国密算法实现安全通信。
 
 ![Web 管理界面](docs/img/README-dashboard.png)
 
-*仪表板展示实时连接数、流量统计和实例状态*
 
 ## 功能特性
 

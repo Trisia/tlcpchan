@@ -92,9 +92,11 @@ export const keyStoreApi = {
   updateCertificates: async (name: string, data: any) => {
     const formData = new FormData()
     if (data.signCert) formData.append('signCert', data.signCert)
+    if (data.signKey) formData.append('signKey', data.signKey)
     if (data.encCert) formData.append('encCert', data.encCert)
-    
-    const res = await http.post(`/security/keystores/${name}`, formData, {
+    if (data.encKey) formData.append('encKey', data.encKey)
+
+    const res = await http.post(`/security/keystores/${name}/upload`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return res.data

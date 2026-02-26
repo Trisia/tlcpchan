@@ -636,6 +636,90 @@ tlcpchan-cli keystore create \
 keystore tls-keystore 创建成功
 ```
 
+### 5.4 更新 keystore 参数
+
+用于更新 keystore 的参数（如证书和密钥的文件路径），而不是上传文件。
+
+**参数说明：**
+
+| 参数 | 说明 | 是否必需 |
+|------|------|---------|
+| `<name>` | keystore 名称（位置参数） | 是 |
+| `--sign-cert` | 签名证书文件路径 | 否 |
+| `--sign-key` | 签名密钥文件路径 | 否 |
+| `--enc-cert` | 加密证书文件路径（TLCP） | 否 |
+| `--enc-key` | 加密密钥文件路径（TLCP） | 否 |
+
+**说明：**
+- 所有文件路径参数支持**绝对路径**和**相对路径**
+- 该命令只更新文件路径配置，不进行文件上传
+- 对于文件类型的 keystore，会自动验证文件是否存在
+
+**示例 1：更新 TLCP keystore 参数**
+
+```bash
+tlcpchan-cli keystore update tlcp-keystore \
+  --sign-cert /path/to/new-sign.crt \
+  --sign-key /path/to/new-sign.key
+```
+
+**响应示例：**
+```
+keystore tlcp-keystore 参数更新成功
+```
+
+### 5.5 上传更新 keystore 证书和密钥
+
+上传文件以更新 keystore 的证书和密钥文件。
+
+**参数说明：**
+
+| 参数 | 说明 | 是否必需 |
+|------|------|---------|
+| `<name>` | keystore 名称（位置参数） | 是 |
+| `--sign-cert` | 签名证书文件路径（TLS类型时为证书，TLCP类型时为签名证书） | 否 |
+| `--sign-key` | 签名密钥文件路径（TLS类型时为密钥，TLCP类型时为签名密钥） | 否 |
+| `--enc-cert` | 加密证书文件路径（仅TLCP类型有效） | 否 |
+| `--enc-key` | 加密密钥文件路径（仅TLCP类型有效） | 否 |
+
+**说明：**
+- 所有文件路径参数支持**绝对路径**和**相对路径**
+- TLS 类型使用 `--sign-cert` 和 `--sign-key`
+- TLCP 类型使用 `--sign-cert`、`--sign-key`、`--enc-cert`、`--enc-key`
+- 如果同时上传证书和密钥，会自动验证配对
+
+**示例 1：更新 TLS keystore 证书和密钥**
+
+```bash
+tlcpchan-cli keystore upload tls-keystore \
+  --sign-cert /path/to/new.crt \
+  --sign-key /path/to/new.key
+```
+
+**响应示例：**
+```
+keystore tls-keystore 证书和密钥更新成功
+
+⚠️  警告: 有 1 个运行中的实例引用此 keystore
+修改后需要重新加载这些实例才能生效:
+  - tlcpchan-cli instance reload my-instance
+```
+
+**示例 2：更新 TLCP keystore 证书和密钥**
+
+```bash
+tlcpchan-cli keystore upload tlcp-keystore \
+  --sign-cert /path/to/new-sign.crt \
+  --sign-key /path/to/new-sign.key \
+  --enc-cert /path/to/new-enc.crt \
+  --enc-key /path/to/new-enc.key
+```
+
+**响应示例：**
+```
+keystore tlcp-keystore 证书和密钥更新成功
+```
+
 ### 5.4 生成 keystore（含自签证书）
 
 **参数说明：**
@@ -1004,6 +1088,8 @@ CLI版本:    1.0.0
 | `list` | 列出所有 keystore | `keystore list` |
 | `show` | 显示 keystore 详情 | `keystore show <name>` |
 | `create` | 创建 keystore | `keystore create [选项]` |
+| `update` | 更新 keystore 参数 | `keystore update <name> [选项]` |
+| `upload` | 上传更新 keystore 证书和密钥 | `keystore upload <name> [选项]` |
 | `generate` | 生成 keystore（含证书） | `keystore generate [选项]` |
 | `delete` | 删除 keystore | `keystore delete <name>` |
 | `export-csr` | 导出证书请求(CSR) | `keystore export-csr <name> [选项]` |

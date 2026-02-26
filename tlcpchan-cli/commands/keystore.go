@@ -465,3 +465,102 @@ func keyStoreExportCSR(args []string) error {
 	fmt.Printf("CSR已导出到: %s\n", outputFile)
 	return nil
 }
+
+// keyStoreUploadCertificates 上传证书和密钥文件到 keystore
+// 参数：
+//   - args: 命令行参数，格式为: <keystore-name> [--sign-cert <path>] [--sign-key <path>] [--enc-cert <path>] [--enc-key <path>]
+//
+// 返回：
+//   - error: 错误信息
+func keyStoreUploadCertificates(args []string) error {
+	fs := flagSet("upload")
+	signCert := fs.String("sign-cert", "", "签名证书文件路径（TLS类型时为证书，TLCP类型时为签名证书）")
+	signKey := fs.String("sign-key", "", "签名密钥文件路径（TLS类型时为密钥，TLCP类型时为签名密钥）")
+	encCert := fs.String("enc-cert", "", "加密证书文件路径（仅TLCP类型有效）")
+	encKey := fs.String("enc-key", "", "加密密钥文件路径（仅TLCP类型有效）")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if len(fs.Args()) == 0 {
+		return fmt.Errorf("请指定 keystore 名称")
+	}
+	name := fs.Args()[0]
+
+	files := make(map[string][]byte)
+
+	if *signCert != "" {
+		data, err := os.ReadFile(*signCert)
+		if err != nil {
+			return fmt.Errorf("读取签名证书失败: %w", err)
+		}
+		files["signCert"] = data
+	}
+
+	if *signKey != "" {
+		data, err := os.ReadFile(*signKey)
+		if err != nil {
+			return fmt.Errorf("读取签名密钥失败: %w", err)
+		}
+		files["signKey"] = data
+	}
+
+	if *encCert != "" {
+		data, err := os.ReadFile(*encCert)
+		if err != nil {
+			return fmt.Errorf("读取加密证书失败: %w", err)
+		}
+		files["encCert"] = data
+	}
+
+	if *encKey != "" {
+		data, err := os.ReadFile(*encKey)
+		if err != nil {
+			return fmt.Errorf("读取加密密钥失败: %w", err)
+		}
+		files["encKey"] = data
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("请指定至少一个文件 (--sign-cert, --sign-key, --enc-cert, --enc-key)")
+	}
+
+	ks, err := cli.UpdateKeyStoreCertificates(name, files)
+	if err != nil {
+		return err
+	}
+
+	if isJSONOutput() {
+		return printJSON(map[string]interface{}{
+			"success": true,
+			"message": "keystore 证书和密钥更新成功",
+			"name":    ks.Name,
+		})
+	}
+
+	fmt.Printf("keystore %s 证书和密钥更新成功\n", ks.Name)
+
+	instances, err := cli.GetKeyStoreInstances(name)
+	if err != nil {
+		return nil
+	}
+
+	runningCount := 0
+	for _, inst := range instances {
+		if inst.Status == "running" {
+			runningCount++
+		}
+	}
+
+	if runningCount > 0 {
+		fmt.Printf("\n⚠️  警告: 有 %d 个运行实例引用此 keystore\n", runningCount)
+		fmt.Println("修改后需要重新加载这些实例才能生效:")
+		for _, inst := range instances {
+			if inst.Status == "running" {
+				fmt.Printf("  - tlcpchan-cli instance reload %s\n", inst.Name)
+			}
+		}
+	}
+
+	return nil
+}

@@ -100,6 +100,7 @@ func getCommands() map[string]Command {
 				"show":       {Name: "show", Description: "显示 keystore 信息", Usage: "show <name>", Run: keyStoreShow},
 				"detail":     {Name: "detail", Description: "显示 keystore 详情（含关联实例）", Usage: "detail <name>", Run: keyStoreShowDetail},
 				"update":     {Name: "update", Description: "更新 keystore 参数", Usage: "update <name> [选项]", Run: keyStoreUpdateParams},
+				"upload":     {Name: "upload", Description: "上传更新 keystore 证书和密钥", Usage: "upload <name> [选项]", Run: keyStoreUploadCertificates},
 				"create":     {Name: "create", Description: "创建 keystore", Usage: "create [选项]", Run: keyStoreCreate},
 				"generate":   {Name: "generate", Description: "生成 keystore（含证书）", Usage: "generate [选项]", Run: keyStoreGenerate},
 				"export-csr": {Name: "export-csr", Description: "导出证书请求(CSR)", Usage: "export-csr <name> [选项]", Run: keyStoreExportCSR},

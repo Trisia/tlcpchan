@@ -936,15 +936,17 @@ CheckInitialized()?
 | GET | /api/instances/:name/logs | 获取日志 | - | 日志列表 |
 | GET | /api/instances/:name/health | 实例健康检查 | - | 健康检查结果 |
 
-#### 4.2.2 Security API (12个)
+#### 4.2.2 Security API (13个)
 
-**Keystore API (6个):**
+**Keystore API (7个):**
 
 | 方法 | 路径 | 描述 | 请求体 | 响应体 |
 |------|------|------|--------|--------|
 | GET | /api/security/keystores | 获取 keystore 列表 | - | keystore 数组 |
 | POST | /api/security/keystores | 创建 keystore | keystore 配置（支持 multipart/form-data） | 创建的 keystore 信息 |
 | GET | /api/security/keystores/:name | 获取 keystore 详情 | - | keystore 详细信息 |
+| PUT | /api/security/keystores/:name | 更新 keystore 参数 | params 对象 | 更新后的 keystore 信息 |
+| POST | /api/security/keystores/:name/upload | 上传更新 keystore 证书和密钥 | multipart/form-data（signCert/signKey/encCert/encKey） | 更新后的 keystore 信息 |
 | DELETE | /api/security/keystores/:name | 删除 keystore | - | 确认删除成功 |
 | POST | /api/security/keystores/generate | 生成新 keystore | keystore 生成参数 | 生成的 keystore 信息 |
 | POST | /api/security/keystores/:name/export-csr | 导出 CSR | CSR 文件（二进制流） | - 文件流下载 |
@@ -987,7 +989,7 @@ CheckInitialized()?
 | GET | /api/system/logs/download/:filename | 下载单个日志文件 | - | 文件流下载 |
 | GET | /api/system/logs/download-all | 打包下载所有日志 | - | ZIP 文件流下载 |
 
-**总计：36 个 API 接口**
+**总计：37 个 API 接口**
 
 ### 4.3 配置管理设计理念
 

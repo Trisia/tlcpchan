@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -1244,4 +1245,266 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
 
 	c.log.Info("更新 keystore 参数: %s", name)
 	Success(w, updatedInfo)
+}
+
+/**
+ * @api {post} /api/security/keystores/:name/upload 上传更新证书和密钥
+ * @apiName UpdateCertificates
+ * @apiGroup Security-KeyStore
+ * @apiVersion 1.0.0
+ *
+ * @apiDescription 上传文件以更新指定 keystore 的证书和密钥。对于 TLS 类型，使用 signCert 和 signKey；对于 TLCP 类型，使用 signCert、signKey、encCert 和 encKey
+ *
+ * @apiParam {String} name keystore 名称（路径参数），唯一标识符
+ * @apiBody {File} signCert 签名证书文件（TLS类型时为证书，TLCP类型时为签名证书）
+ * @apiBody {File} signKey 签名密钥文件（TLS类型时为密钥，TLCP类型时为签名密钥）
+ * @apiBody {File} encCert 加密证书文件（仅TLCP类型有效）
+ * @apiBody {File} encKey 加密密钥文件（仅TLCP类型有效）
+ *
+ * @apiSuccess {String} name keystore 名称
+ * @apiSuccess {String} type keystore 类型
+ * @apiSuccess {String} loaderType 加载器类型
+ * @apiSuccess {Object} params 更新后的参数
+ * @apiSuccess {Boolean} protected 是否受保护
+ * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
+ * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
+ *
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 404 Not Found
+ *     keystore 不存在
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     证书与密钥不匹配
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 403 Forbidden
+ *     keystore 受保护，不允许修改
+ */
+func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.Request) {
+	name := PathParam(r, "name")
+
+	// 检查 keystore 是否存在
+	info, err := c.keyStoreMgr.Get(name)
+	if err != nil {
+		NotFound(w, "keystore 不存在")
+		return
+	}
+
+	// 检查是否为 protected 状态
+	if info.Protected {
+		BadRequest(w, "受保护的 keystore 不允许修改")
+		return
+	}
+
+	// 仅支持 file 类型的 keystore
+	if info.LoaderType != keystore.LoaderTypeFile {
+		BadRequest(w, "只有文件类型的 keystore 支持更新证书和密钥")
+		return
+	}
+
+	// 解析 multipart 表单
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		BadRequest(w, "解析表单失败: "+err.Error())
+		return
+	}
+
+	keystoreDir := filepath.Join(c.cfg.WorkDir, "keystores")
+	tempDir := filepath.Join(keystoreDir, ".temp")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		InternalError(w, "创建临时目录失败: "+err.Error())
+		return
+	}
+	defer func() {
+		os.RemoveAll(tempDir)
+	}()
+
+	// 临时文件路径映射
+	tempFiles := make(map[string]string)
+	finalFiles := make(map[string]string)
+
+	// 处理文件上传
+	isTLCP := info.Type == keystore.KeyStoreTypeTLCP
+
+	if isTLCP {
+		// 处理签名证书和密钥
+		if signCertFile, signCertData, err := handleFormFile(r, "signCert", tempDir, name, "sign", "crt"); err != nil {
+			BadRequest(w, err.Error())
+			return
+		} else if signCertFile != "" {
+			tempFiles["sign-cert"] = signCertFile
+			finalFiles["sign-cert"] = filepath.Join(keystoreDir, name+"-sign.crt")
+
+			// 如果同时上传了签名密钥，验证配对
+			if signKeyFile, signKeyData, err := handleFormFile(r, "signKey", tempDir, name, "sign", "key"); err != nil {
+				BadRequest(w, err.Error())
+				return
+			} else if signKeyFile != "" {
+				tempFiles["sign-key"] = signKeyFile
+				finalFiles["sign-key"] = filepath.Join(keystoreDir, name+"-sign.key")
+
+				if err := keystore.VerifyCertificateKeyPair(signCertData, signKeyData, true); err != nil {
+					BadRequest(w, "签名证书与密钥不匹配: "+err.Error())
+					return
+				}
+			}
+		} else if signKeyFile, _, err := handleFormFile(r, "signKey", tempDir, name, "sign", "key"); err != nil {
+			BadRequest(w, err.Error())
+			return
+		} else if signKeyFile != "" {
+			BadRequest(w, "上传签名密钥时必须同时上传签名证书")
+			return
+		}
+
+		// 处理加密证书和密钥
+		if encCertFile, encCertData, err := handleFormFile(r, "encCert", tempDir, name, "enc", "crt"); err != nil {
+			BadRequest(w, err.Error())
+			return
+		} else if encCertFile != "" {
+			tempFiles["enc-cert"] = encCertFile
+			finalFiles["enc-cert"] = filepath.Join(keystoreDir, name+"-enc.crt")
+
+			// 如果同时上传了加密密钥，验证配对
+			if encKeyFile, encKeyData, err := handleFormFile(r, "encKey", tempDir, name, "enc", "key"); err != nil {
+				BadRequest(w, err.Error())
+				return
+			} else if encKeyFile != "" {
+				tempFiles["enc-key"] = encKeyFile
+				finalFiles["enc-key"] = filepath.Join(keystoreDir, name+"-enc.key")
+
+				if err := keystore.VerifyCertificateKeyPair(encCertData, encKeyData, true); err != nil {
+					BadRequest(w, "加密证书与密钥不匹配: "+err.Error())
+					return
+				}
+			}
+		} else if encKeyFile, _, err := handleFormFile(r, "encKey", tempDir, name, "enc", "key"); err != nil {
+			BadRequest(w, err.Error())
+			return
+		} else if encKeyFile != "" {
+			BadRequest(w, "上传加密密钥时必须同时上传加密证书")
+			return
+		}
+	} else {
+		// TLS 类型
+		if certFile, certData, err := handleFormFile(r, "cert", tempDir, name, "", "crt"); err != nil {
+			BadRequest(w, err.Error())
+			return
+		} else if certFile != "" {
+			tempFiles["cert"] = certFile
+			finalFiles["cert"] = filepath.Join(keystoreDir, name+".crt")
+
+			// 如果同时上传了密钥，验证配对
+			if keyFile, keyData, err := handleFormFile(r, "key", tempDir, name, "", "key"); err != nil {
+				BadRequest(w, err.Error())
+				return
+			} else if keyFile != "" {
+				tempFiles["key"] = keyFile
+				finalFiles["key"] = filepath.Join(keystoreDir, name+".key")
+
+				if err := keystore.VerifyCertificateKeyPair(certData, keyData, false); err != nil {
+					BadRequest(w, "证书与密钥不匹配: "+err.Error())
+					return
+				}
+			}
+		} else if keyFile, _, err := handleFormFile(r, "key", tempDir, name, "", "key"); err != nil {
+			BadRequest(w, err.Error())
+			return
+		} else if keyFile != "" {
+			BadRequest(w, "上传密钥时必须同时上传证书")
+			return
+		}
+	}
+
+	if len(tempFiles) == 0 {
+		BadRequest(w, "请至少上传一个文件")
+		return
+	}
+
+	// 原子替换文件
+	for tempPath, finalPath := range finalFiles {
+		if err := os.Rename(tempPath, finalPath); err != nil {
+			InternalError(w, "文件替换失败: "+err.Error())
+			return
+		}
+
+		// 设置文件权限
+		if strings.HasSuffix(finalPath, ".key") {
+			os.Chmod(finalPath, 0600)
+		} else {
+			os.Chmod(finalPath, 0644)
+		}
+	}
+
+	// 更新配置文件中的参数
+	for i := range c.cfg.KeyStores {
+		if c.cfg.KeyStores[i].Name == name {
+			if c.cfg.KeyStores[i].Params == nil {
+				c.cfg.KeyStores[i].Params = make(map[string]string)
+			}
+			for key, finalPath := range finalFiles {
+				// 转换为相对路径
+				relPath, err := filepath.Rel(c.cfg.WorkDir, finalPath)
+				if err == nil {
+					c.cfg.KeyStores[i].Params[key] = relPath
+				}
+			}
+			break
+		}
+	}
+
+	// 保存配置文件
+	if err := config.Save(c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+
+	// 重新加载 keystore
+	updatedInfo, err := c.keyStoreMgr.Get(name)
+	if err != nil {
+		InternalError(w, "重新加载 keystore 失败: "+err.Error())
+		return
+	}
+
+	c.log.Info("更新 keystore 证书和密钥: %s", name)
+	Success(w, updatedInfo)
+}
+
+// handleFormFile 处理表单文件上传
+// 参数：
+//   - r: HTTP 请求
+//   - fieldName: 表单字段名
+//   - tempDir: 临时目录
+//   - name: keystore 名称
+//   - prefix: 文件前缀（sign/enc）
+//   - ext: 文件扩展名（crt/key）
+//
+// 返回：
+//   - string: 临时文件路径，如果没有上传文件则为空字符串
+//   - []byte: 文件内容
+//   - error: 错误信息
+func handleFormFile(r *http.Request, fieldName, tempDir, name, prefix, ext string) (string, []byte, error) {
+	file, header, err := r.FormFile(fieldName)
+	if err != nil {
+		if err == http.ErrMissingFile {
+			return "", nil, nil
+		}
+		return "", nil, fmt.Errorf("读取 %s 文件失败: %w", fieldName, err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return "", nil, fmt.Errorf("读取 %s 文件内容失败: %w", fieldName, err)
+	}
+
+	// 生成临时文件名
+	tempFileName := name + "-" + prefix + "." + ext
+	if prefix == "" {
+		tempFileName = name + "." + ext
+	}
+	tempPath := filepath.Join(tempDir, tempFileName+"."+header.Filename)
+
+	if err := os.WriteFile(tempPath, data, 0644); err != nil {
+		return "", nil, fmt.Errorf("写入临时文件失败: %w", err)
+	}
+
+	return tempPath, data, nil
 }
