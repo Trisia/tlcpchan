@@ -3,6 +3,7 @@
 .DS_Store
 output/
 ui/
+test_certs
 
 # Binaries for programs and plugins
 *.exe

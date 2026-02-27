@@ -91,3 +91,5 @@ venv
 .venv
 
 openspec
+
+test_certs
