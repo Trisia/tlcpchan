@@ -55,6 +55,10 @@ func InternalError(w http.ResponseWriter, message string) {
 	WriteError(w, http.StatusInternalServerError, message)
 }
 
+func Forbidden(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusForbidden, message)
+}
+
 func Success(w http.ResponseWriter, data interface{}) {
 	WriteJSON(w, http.StatusOK, data)
 }

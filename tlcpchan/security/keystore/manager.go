@@ -165,6 +165,42 @@ func (m *Manager) Delete(name string) error {
 	return nil
 }
 
+// Set 替换已有的 keystore 实例
+//
+// 功能：
+//
+//	更新内存中已存在的 keystore 实例，保留原有的 Protected、CreatedAt 等元信息
+//
+// 参数：
+//
+//	name - keystore 名称
+//	ks - 新的 keystore 实例
+//	params - 新的参数
+//
+// 返回：
+//
+//	error - 如果 keystore 不存在则返回错误
+//
+// 注意事项：
+//   - 该方法用于 UpdateCertificates 接口更新证书文件后重新加载 keystore
+//   - 会更新 KeyStoreInfo 中的 Params、Type 和 UpdatedAt 字段
+func (m *Manager) Set(name string, ks KeyStore, params map[string]string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	info, exists := m.keyStoreInfo[name]
+	if !exists {
+		return fmt.Errorf("keystore %s 不存在", name)
+	}
+
+	m.keyStores[name] = ks
+	info.Params = params
+	info.UpdatedAt = time.Now()
+	info.Type = ks.Type()
+
+	return nil
+}
+
 // Get 获取 keystore 元信息
 // 参数：
 //   - name: keystore 名称

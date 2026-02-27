@@ -15,12 +15,19 @@
 
 ## 构建/测试/格式化命令
 
+### 完整构建
+
+```bash
+# 在项目根目录执行
+./build.sh              # 构建所有模块（后端、CLI、前端），输出到 target/ 目录
+```
+
 ### 后端（Go）
 
 ```bash
 # 在 tlcpchan/ 目录下执行
 cd tlcpchan
-go build -o tlcpchan ./cmd/tlcpchan          # 构建核心服务
+go build -o tlcpchan                          # 构建核心服务
 go test ./... -v                              # 运行所有测试
 go test ./path/to/package -run TestName -v   # 运行单个测试
 go fmt ./...                                  # 格式化代码
@@ -34,7 +41,7 @@ go vet ./...                                  # 静态检查
 cd tlcpchan-ui
 npm install          # 安装依赖
 npm run dev          # 开发模式启动
-npm run build        # 生产构建
+npm run build        # 生产构建，输出到 ui/ 目录
 npm run test         # 运行所有测试
 npm run test:watch   # 监听模式运行测试
 ```
@@ -46,7 +53,6 @@ npm run test:watch   # 监听模式运行测试
 cd tlcpchan-cli
 go build -o tlcpchan-cli   # 构建命令行工具
 ```
-临时文件，应该在测试结束后进行清理，除非这些文件后续仍然需要
 
 ## 特殊约定
 

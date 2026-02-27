@@ -4,13 +4,13 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/Trisia/tlcpchan/security/der"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -104,17 +104,17 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 		return nil, fmt.Errorf("读取私钥文件失败: %w", err)
 	}
 
-	certBlock, _ := pem.Decode(certPEM)
-	if certBlock == nil {
-		return nil, fmt.Errorf("无法解析证书PEM块")
+	certDER, err := der.Any2DER(certPEM)
+	if err != nil {
+		return nil, fmt.Errorf("解析证书失败: %w", err)
 	}
 
-	keyBlock, _ := pem.Decode(keyPEM)
-	if keyBlock == nil {
-		return nil, fmt.Errorf("无法解析私钥PEM块")
+	keyDER, err := der.Any2DER(keyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("解析私钥失败: %w", err)
 	}
 
-	smCerts, err := smx509.ParseCertificates(certBlock.Bytes)
+	smCerts, err := smx509.ParseCertificates(certDER)
 	if err != nil || len(smCerts) == 0 {
 		return nil, fmt.Errorf("解析国密证书失败: %w", err)
 	}
@@ -126,19 +126,11 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 
 	var privateKey crypto.PrivateKey
 
-	switch keyBlock.Type {
-	case "PRIVATE KEY", "EC PRIVATE KEY":
-		privateKey, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+	privateKey, err = smx509.ParsePKCS8PrivateKey(keyDER)
+	if err != nil {
+		privateKey, err = smx509.ParseECPrivateKey(keyDER)
 		if err != nil {
-			privateKey, err = smx509.ParseECPrivateKey(keyBlock.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("解析SM2私钥失败: %w", err)
-			}
-		}
-	default:
-		privateKey, err = smx509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("解析私钥失败: %w", err)
+			return nil, fmt.Errorf("解析SM2私钥失败: %w", err)
 		}
 	}
 
@@ -166,41 +158,32 @@ func (f *FileKeyStore) loadTLSKeyPair(certPath, keyPath string) (*tlcp.Certifica
 		return nil, fmt.Errorf("读取私钥文件失败: %w", err)
 	}
 
-	certBlock, _ := pem.Decode(certPEM)
-	if certBlock == nil {
-		return nil, fmt.Errorf("无法解析证书PEM块")
+	certDER, err := der.Any2DER(certPEM)
+	if err != nil {
+		return nil, fmt.Errorf("解析证书失败: %w", err)
 	}
 
-	keyBlock, _ := pem.Decode(keyPEM)
-	if keyBlock == nil {
-		return nil, fmt.Errorf("无法解析私钥PEM块")
+	keyDER, err := der.Any2DER(keyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("解析私钥失败: %w", err)
 	}
 
-	certs, err := x509.ParseCertificates(certBlock.Bytes)
+	certs, err := x509.ParseCertificates(certDER)
 	if err != nil {
 		return nil, fmt.Errorf("解析TLS证书失败: %w", err)
 	}
 
 	var privateKey crypto.PrivateKey
 
-	switch keyBlock.Type {
-	case "RSA PRIVATE KEY":
-		privateKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	privateKey, err = x509.ParsePKCS8PrivateKey(keyDER)
+	if err != nil {
+		privateKey, err = x509.ParseECPrivateKey(keyDER)
 		if err != nil {
-			return nil, fmt.Errorf("解析RSA私钥失败: %w", err)
+			privateKey, err = x509.ParsePKCS1PrivateKey(keyDER)
+			if err != nil {
+				return nil, fmt.Errorf("解析私钥失败: %w", err)
+			}
 		}
-	case "EC PRIVATE KEY":
-		privateKey, err = x509.ParseECPrivateKey(keyBlock.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("解析EC私钥失败: %w", err)
-		}
-	case "PRIVATE KEY":
-		privateKey, err = x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("解析PKCS8私钥失败: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("不支持的私钥类型: %s", keyBlock.Type)
 	}
 
 	raw := make([][]byte, len(certs))
