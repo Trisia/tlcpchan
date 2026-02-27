@@ -1419,7 +1419,8 @@ func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.R
 	}
 
 	// 原子替换文件
-	for tempPath, finalPath := range finalFiles {
+	for key, finalPath := range finalFiles {
+		tempPath := tempFiles[key]
 		if err := os.Rename(tempPath, finalPath); err != nil {
 			InternalError(w, "文件替换失败: "+err.Error())
 			return
