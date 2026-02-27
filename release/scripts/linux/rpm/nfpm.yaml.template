@@ -41,4 +41,4 @@ scripts:
 rpm:
   signature:
     key_file: "{{GPG_KEY_FILE}}"
-    passphrase: "{{GPG_PASSPHRASE}}"
+    key_passphrase: "{{GPG_PASSPHRASE}}"
