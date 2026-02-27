@@ -38,6 +38,6 @@ scripts:
   postinstall: "{{POSTINST_PATH}}"
   preremove: "{{PRERM_PATH}}"
 deb:
-  signing:
+  signature:
     key_file: "{{GPG_KEY_FILE}}"
     passphrase: "{{GPG_PASSPHRASE}}"
