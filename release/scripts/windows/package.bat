@@ -15,14 +15,27 @@ for %%i in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fi"
 
 REM 从 tlcpchan/version/version.go 中解析版本号
 set "VERSION_FILE=%PROJECT_ROOT%\tlcpchan\version\version.go"
+set "VERSION="
 if exist "%VERSION_FILE%" (
-    for /f "usebackq tokens=2 delims==" %%a in (`findstr /r "Version" "%VERSION_FILE%"`) do (
-        set "VERSION_LINE=%%a"
+    REM 逐行读取文件，查找 Version 定义
+    for /f "usebackq tokens=*" %%L in ("%VERSION_FILE%") do (
+        set "LINE=%%L"
+        REM 检查是否包含 Version
+        echo !LINE! | findstr /c:"Version" >nul 2>&1
+        if !errorlevel! equ 0 (
+            REM 提取版本号：const Version = "1.0.0"
+            REM 先按 = 分割，取第二部分
+            for /f "tokens=2 delims==" %%V in ("!LINE!") do (
+                set "VERSION_RAW=%%V"
+            )
+            REM 去除双引号
+            set "VERSION=!VERSION_RAW:"=!"
+            REM 去除空格
+            set "VERSION=!VERSION: =!"
+            REM 去除分号
+            set "VERSION=!VERSION:;=!"
+        )
     )
-    REM 清理版本号：去除引号、空格、分号
-    set "VERSION=%VERSION_LINE:"=%"
-    set "VERSION=%VERSION: =%"
-    set "VERSION=%VERSION:;=%"
 ) else (
     echo [ERROR] version.go not found at %VERSION_FILE%!
     exit /b 1
@@ -81,16 +94,19 @@ if %WIX_FOUND% equ 0 (
     
     echo [INFO] 正在从 %WIX_URL% 下载...
     
-    REM 使用 PowerShell 下载
-    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%WIX_URL%' -OutFile '%WIX_ZIP%'}"
+    REM 使用 certutil 下载（Windows 内置）
+    certutil -urlcache -split -f "%WIX_URL%" "%WIX_ZIP%"
     
     if %ERRORLEVEL% neq 0 (
         echo [ERROR] WiX Toolset 下载失败！
+        echo [INFO] 请手动下载 WiX Toolset: %WIX_URL%
+        echo [INFO] 解压到: %WIX_DIR%
         exit /b 1
     )
     
     echo [INFO] 解压 WiX Toolset...
-    powershell -Command "& {Expand-Archive -Path '%WIX_ZIP%' -DestinationPath '%WIX_DIR%' -Force}"
+    REM 使用 tar 命令解压（Windows 10+ 内置）
+    tar -xf "%WIX_ZIP%" -C "%WIX_DIR%"
     
     if %ERRORLEVEL% neq 0 (
         echo [ERROR] WiX Toolset 解压失败！

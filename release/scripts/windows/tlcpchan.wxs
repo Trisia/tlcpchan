@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="TLCP Channel" Language="1033" Version="$(var.Version)" Manufacturer="tlcpchan" UpgradeCode="PUT-GUID-HERE">
+  <Product Id="*" Name="TLCP Channel" Language="1033" Version="$(var.Version)" Manufacturer="tlcpchan" UpgradeCode="A4A6CCD4-004F-40E7-90EF-432D5A51499A">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -21,7 +21,10 @@
   <Fragment>
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
-        <Directory Id="INSTALLFOLDER" Name="TLCP Channel" />
+        <Directory Id="INSTALLFOLDER" Name="TLCP Channel">
+          <Directory Id="KeystoresFolder" Name="keystores" />
+          <Directory Id="LogsFolder" Name="logs" />
+        </Directory>
       </Directory>
       <Directory Id="ProgramMenuFolder">
         <Directory Id="ApplicationProgramsFolder" Name="TLCP Channel" />
@@ -32,21 +35,23 @@
 
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Component Id="tlcpchan.exe" Guid="*">
-        <File Id="tlcpchan.exe" Name="tlcpchan.exe" Source="$(var.SourceDir)\tlcpchan.exe" KeyPath="yes" />
+      <Component Id="tlcpchanexe" Guid="*">
+        <File Id="tlcpchanexe" Name="tlcpchan.exe" Source="$(var.SourceDir)\tlcpchan.exe" KeyPath="yes" />
       </Component>
-      <Component Id="tlcpchan-cli.exe" Guid="*">
-        <File Id="tlcpchan-cli.exe" Name="tlcpchan-cli.exe" Source="$(var.SourceDir)\tlcpchan-cli.exe" />
+      <Component Id="tlcpchancliexe" Guid="*">
+        <File Id="tlcpchancliexe" Name="tlcpchan-cli.exe" Source="$(var.SourceDir)\tlcpchan-cli.exe" />
       </Component>
       
       <!-- 运行时空目录（首次启动时使用） -->
-      <Component Id="KeystoresFolder" Guid="*">
-        <CreateFolder Directory="INSTALLFOLDER" />
-        <CreateFolder Directory="INSTALLFOLDER" Name="keystores" />
+      <Component Id="KeystoresFolderComponent" Directory="KeystoresFolder" Guid="*">
+        <CreateFolder />
+        <RemoveFolder Id="RemoveKeystoresFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Name="keystoresfolder" Type="integer" Value="1" KeyPath="yes" />
       </Component>
-      <Component Id="LogsFolder" Guid="*">
-        <CreateFolder Directory="INSTALLFOLDER" />
-        <CreateFolder Directory="INSTALLFOLDER" Name="logs" />
+      <Component Id="LogsFolderComponent" Directory="LogsFolder" Guid="*">
+        <CreateFolder />
+        <RemoveFolder Id="RemoveLogsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Name="logsfolder" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 

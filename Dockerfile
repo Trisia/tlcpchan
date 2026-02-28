@@ -3,42 +3,28 @@
 # ============================================
 FROM golang:1.26.0-alpine3.23 AS builder-go
 
-WORKDIR /build
-
-# 复制并下载 tlcpchan 依赖
-COPY tlcpchan/go.mod tlcpchan/go.sum ./tlcpchan/
-WORKDIR /build/tlcpchan
-RUN go mod download
-
-# 复制并下载 tlcpchan-cli 依赖
-WORKDIR /build
-COPY tlcpchan-cli/go.mod tlcpchan-cli/go.sum ./tlcpchan-cli/
-WORKDIR /build/tlcpchan-cli
-RUN go mod download
-
 # 复制所有源码
-WORKDIR /build
 COPY tlcpchan/ ./tlcpchan/
 COPY tlcpchan-cli/ ./tlcpchan-cli/
 
 # 编译 tlcpchan（二进制服务）
-WORKDIR /build/tlcpchan
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan .
+WORKDIR /tlcpchan
+RUN go mod tidy
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o tlcpchan .
 
 # 编译 tlcpchan-cli（命令行工具）
-WORKDIR /build/tlcpchan-cli
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan-cli .
+WORKDIR /tlcpchan-cli
+RUN go mod tidy
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o tlcpchan-cli .
 
 # ============================================
 # 阶段 2: 构建前端静态资源
 # ============================================
 FROM node:24.14.0-alpine3.23 AS builder-frontend
 
-WORKDIR /build
-COPY tlcpchan-ui/package.json tlcpchan-ui/package-lock.json ./
-RUN npm ci
-
+WORKDIR /tlcpchan-ui
 COPY tlcpchan-ui/ ./
+RUN npm ci
 RUN npm run build
 
 # ============================================
@@ -60,11 +46,11 @@ WORKDIR /etc/tlcpchan
 RUN mkdir -p keystores rootcerts logs ui
 
 # 复制编译好的二进制文件到 /etc/tlcpchan/
-COPY --from=builder-go /build/tlcpchan/bin/tlcpchan ./
-COPY --from=builder-go /build/tlcpchan-cli/bin/tlcpchan-cli ./
+COPY --from=builder-go /tlcpchan/tlcpchan ./
+COPY --from=builder-go /tlcpchan-cli/tlcpchan-cli ./
 
 # 复制前端静态资源
-COPY --from=builder-frontend /build/ui ./ui/
+COPY --from=builder-frontend /tlcpchan-ui/ui ./ui/
 
 # 复制 trustedcerts 目录中的所有证书到 rootcerts（支持多种格式）
 COPY trustedcerts/ ./rootcerts/
