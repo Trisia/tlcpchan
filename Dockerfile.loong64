@@ -1,7 +1,11 @@
 # ============================================
+# Dockerfile.loong64 - loong64 架构专用
+# ============================================
+
+# ============================================
 # 阶段 1: 构建 Go 核心服务 和 CLI 工具（合并构建）
 # ============================================
-FROM golang:1.26-alpine3.19 AS builder-go
+FROM ghcr.io/loong64/golang:1.26.0-trixie-loong64 AS builder-go
 
 WORKDIR /build
 
@@ -23,39 +27,52 @@ COPY tlcpchan-cli/ ./tlcpchan-cli/
 
 # 编译 tlcpchan（二进制服务）
 WORKDIR /build/tlcpchan
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=loong64 go build -ldflags="-s -w" -o bin/tlcpchan .
 
 # 编译 tlcpchan-cli（命令行工具）
 WORKDIR /build/tlcpchan-cli
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan-cli .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=loong64 go build -ldflags="-s -w" -o bin/tlcpchan-cli .
 
 # ============================================
 # 阶段 2: 构建前端静态资源
 # ============================================
-FROM node:20-alpine3.18 AS builder-frontend
+FROM ghcr.io/loong64/node:24-trixie-slim AS builder-frontend
 
 WORKDIR /build
+
+# 安装依赖
 COPY tlcpchan-ui/package.json tlcpchan-ui/package-lock.json ./
 RUN npm ci
 
+# 构建前端
 COPY tlcpchan-ui/ ./
 RUN npm run build
 
 # ============================================
 # 最终运行镜像
 # ============================================
-FROM alpine:3.18
+FROM debian:trixie-slim
 
 LABEL maintainer="TLCP Channel Team"
-LABEL description="TLCP/TLS 协议代理工具"
+LABEL description="TLCP/TLS 协议代理工具 (loong64 架构)"
 
-# 安装必要的工具（ca-certificates 用于 TLS 验证）
-RUN apk add --no-cache ca-certificates tzdata
+# 安装必要的工具
+# ca-certificates: 用于 TLS 验证
+# tzdata: 用于时区设置
+# wget: 用于健康检查
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        tzdata \
+        wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# 设置时区
+# 设置时区为上海时间
 ENV TZ=Asia/Shanghai
 
-# 创建工作目录和必要的目录结构（使用 /etc/tlcpchan）
+# 创建工作目录和必要的目录结构
+# 使用 /etc/tlcpchan 作为工作目录，保持与原 Dockerfile 一致
 WORKDIR /etc/tlcpchan
 RUN mkdir -p keystores rootcerts logs ui
 
@@ -63,10 +80,10 @@ RUN mkdir -p keystores rootcerts logs ui
 COPY --from=builder-go /build/tlcpchan/bin/tlcpchan ./
 COPY --from=builder-go /build/tlcpchan-cli/bin/tlcpchan-cli ./
 
-# 复制前端静态资源
+# 复制前端静态资源到 /etc/tlcpchan/ui/
 COPY --from=builder-frontend /build/ui ./ui/
 
-# 复制 trustedcerts 目录中的所有证书到 rootcerts（支持多种格式）
+# 复制信任证书到 /etc/tlcpchan/rootcerts/
 COPY trustedcerts/ ./rootcerts/
 
 # 将 /etc/tlcpchan 添加到 PATH 环境变量
@@ -77,14 +94,19 @@ RUN ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli && \
     ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
 
-# 暴露端口（仅 20080 和 20443，不再需要 30000）
+# 暴露端口
+# 20080: HTTP API 服务端口
+# 20443: HTTPS 代理端口
 EXPOSE 20080 20443
 
 # 数据卷挂载点（持久化数据）
-# 注意：rootcerts 不使用 volume，因为我们预置了证书
+# keystores: 存储密钥和证书
+# logs: 存储日志文件
 VOLUME ["/etc/tlcpchan/keystores", "/etc/tlcpchan/logs"]
 
 # 健康检查
+# 每 30 秒检查一次，超时时间 3 秒
+# 启动后等待 5 秒开始检查，失败重试 3 次
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:20080/api/system/health || exit 1
 

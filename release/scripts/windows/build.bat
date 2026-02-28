@@ -17,13 +17,15 @@ for %%i in ("%RELEASE_DIR%\..") do set "PROJECT_ROOT=%%~fi"
 REM 从 tlcpchan/version/version.go 中解析版本号
 set "VERSION_FILE=%PROJECT_ROOT%\tlcpchan\version\version.go"
 if exist "%VERSION_FILE%" (
-    for /f "tokens=2 delims==" %%a in ('findstr /r "Version.*=" "%VERSION_FILE%"') do (
-        set "VERSION=%%a"
+    for /f "usebackq tokens=2 delims==" %%a in (`findstr /r "Version" "%VERSION_FILE%"`) do (
+        set "VERSION_LINE=%%a"
     )
-    set "VERSION=%VERSION:"=%"
+    REM 清理版本号：去除引号、空格、分号
+    set "VERSION=%VERSION_LINE:"=%"
     set "VERSION=%VERSION: =%"
+    set "VERSION=%VERSION:;=%"
 ) else (
-    echo [ERROR] version.go not found!
+    echo [ERROR] version.go not found at %VERSION_FILE%!
     exit /b 1
 )
 
@@ -64,8 +66,8 @@ mkdir "%OUTPUT_DIR%"
 REM 构建前端
 if not defined SKIP_FRONTEND (
     echo [INFO] 构建前端资源...
-    if exist "%PROJECT_ROOT%\tlcpchan-ui\web" (
-        cd "%PROJECT_ROOT%\tlcpchan-ui\web"
+    if exist "%PROJECT_ROOT%\tlcpchan-ui\package.json" (
+        cd "%PROJECT_ROOT%\tlcpchan-ui"
         if not exist "node_modules" (
             echo [INFO] 安装前端依赖...
             call npm ci
@@ -112,12 +114,7 @@ if exist "%PROJECT_ROOT%\trustedcerts" (
     xcopy /E /I /Y "%PROJECT_ROOT%\trustedcerts" "%OUTPUT_DIR%\rootcerts\"
 )
 
-REM 创建安装脚本
-echo [INFO] 创建安装脚本...
-copy "%SCRIPT_DIR%\templates\windows\install.bat" "%OUTPUT_DIR%\install.bat"
-
-REM 创建卸载脚本
-copy "%SCRIPT_DIR%\templates\windows\uninstall.bat" "%OUTPUT_DIR%\uninstall.bat"
+REM 注意：MSI 安装包将自动处理安装和卸载，无需额外的安装/卸载脚本
 
 REM 创建 zip 包
 where zip >nul 2>nul
