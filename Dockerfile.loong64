@@ -8,8 +8,8 @@
 FROM ghcr.io/loong64/golang:1.26.0-trixie-loong64 AS builder-go
 
 # 复制所有源码
-COPY tlcpchan/ ./tlcpchan/
-COPY tlcpchan-cli/ ./tlcpchan-cli/
+COPY tlcpchan/ /tlcpchan
+COPY tlcpchan-cli/ /tlcpchan-cli
 
 # 编译 tlcpchan（二进制服务）
 WORKDIR /tlcpchan
@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=loong64 go build -ldflags="-s -w" -o tlcpcha
 FROM ghcr.io/loong64/node:24-trixie-slim AS builder-frontend
 
 WORKDIR /tlcpchan-ui
-COPY tlcpchan-ui/ ./
+COPY tlcpchan-ui/ /tlcpchan-ui
 RUN npm ci
 RUN npm run build
 
