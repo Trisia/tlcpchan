@@ -63,14 +63,14 @@ bash release/scripts/macos/build.sh
 
 ## 支持的平台和架构
 
-| 操作系统 | 架构 | 打包格式 | 打包脚本位置 |
-|---------|------|---------|-------------|
-| Linux | amd64 | tar.gz, deb, rpm | linux/deb/package.sh, linux/rpm/package.sh |
-| Linux | arm64 | tar.gz, deb, rpm | 同上 |
-| Linux | loong64 | tar.gz, deb, rpm | 同上 |
-| macOS | amd64 | tar.gz, app | macos/build.sh |
-| macOS | arm64 | tar.gz, app | macos/build.sh |
-| Windows | amd64 | zip, msi (需WiX) | windows/package.bat |
+| 操作系统 | 架构（CPU厂家） | 打包格式 |
+|---------|----------------|---------|
+| **统信UOS** 20 | x86_64 (Intel/AMD)、**ARM64 (飞腾)**、**LoongArch64 (龙芯)** | tar.gz, deb, rpm |
+| **银河麒麟** V10 | x86_64 (Intel/AMD)、**ARM64 (飞腾)**、**LoongArch64 (龙芯)** | tar.gz, deb, rpm |
+| Ubuntu 18.04+ | x86_64 (Intel/AMD)、ARM64 (ARM) | tar.gz, deb, rpm |
+| CentOS 7+ | x86_64 (Intel/AMD)、ARM64 (ARM) | tar.gz, deb, rpm |
+| macOS 12 | x86_64 (Intel)、ARM64 (Apple Silicon) | tar.gz, app |
+| Windows 10+ | x86_64 (Intel/AMD) | zip, msi (需WiX) |
 
 ## 构建流程
 

@@ -52,6 +52,17 @@ TLCP（Transport Layer Cryptography Protocol）是中国国家密码管理局制
 3. 启用访问控制
 4. 定期备份密钥库和配置文件
 
+## 系统适配
+
+| 操作系统 | 支持的架构（CPU厂家） | 支持说明 |
+|---------|---------------------|---------|
+| **统信UOS** 20 | **飞腾ARM**、**龙芯LoongArch64**、x86_64 (Intel/AMD) | ✓ 国产化环境完整适配 |
+| **银河麒麟** V10 | **飞腾ARM**、**龙芯LoongArch64**、x86_64 (Intel/AMD) | ✓ 国产化环境完整适配 |
+| Ubuntu 18.04+ | x86_64 (Intel/AMD)、ARM64 (ARM) | ✓ |
+| CentOS 7+ | x86_64 (Intel/AMD)、ARM64 (ARM) | ✓ |
+| Windows 10+ | x86_64 (Intel/AMD) | ✓ |
+| macOS 12 | x86_64 (Intel)、ARM64 (Apple Silicon) | ✓ |
+
 ## 技术栈
 
 - **后端**: Go 1.26+, [gotlcp](https://github.com/Trisia/gotlcp)
