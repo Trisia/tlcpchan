@@ -4,8 +4,8 @@
 FROM golang:1.26.0-alpine3.23 AS builder-go
 
 # 复制所有源码
-COPY tlcpchan/ ./tlcpchan/
-COPY tlcpchan-cli/ ./tlcpchan-cli/
+COPY tlcpchan/ /tlcpchan/
+COPY tlcpchan-cli/ /tlcpchan-cli/
 
 # 编译 tlcpchan（二进制服务）
 WORKDIR /tlcpchan
@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o tlcpchan-cli .
 FROM node:24.14.0-alpine3.23 AS builder-frontend
 
 WORKDIR /tlcpchan-ui
-COPY tlcpchan-ui/ ./
+COPY tlcpchan-ui/ /tlcpchan-ui
 RUN npm ci
 RUN npm run build
 
