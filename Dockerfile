@@ -1,7 +1,7 @@
 # ============================================
 # 阶段 1: 构建 Go 核心服务 和 CLI 工具（合并构建）
 # ============================================
-FROM golang:1.26-alpine3.19 AS builder-go
+FROM golang:1.26.0-alpine3.23 AS builder-go
 
 WORKDIR /build
 
@@ -32,7 +32,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/tlcpchan-cli .
 # ============================================
 # 阶段 2: 构建前端静态资源
 # ============================================
-FROM node:20-alpine3.18 AS builder-frontend
+FROM node:24.14.0-alpine3.23 AS builder-frontend
 
 WORKDIR /build
 COPY tlcpchan-ui/package.json tlcpchan-ui/package-lock.json ./
@@ -44,7 +44,7 @@ RUN npm run build
 # ============================================
 # 最终运行镜像
 # ============================================
-FROM alpine:3.18
+FROM alpine:3.23
 
 LABEL maintainer="TLCP Channel Team"
 LABEL description="TLCP/TLS 协议代理工具"
