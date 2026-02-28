@@ -172,10 +172,10 @@ echo [INFO] 编译 WiX 源文件...
 set "CANDLE_CMD=%CANDLE% -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%""
 
 if %HAS_UI% equ 1 (
-    set "CANDLE_CMD=%CANDLE_CMD% "%BUILD_DIR%\ui.wxs""
+    set "CANDLE_CMD=%CANDLE_CMD% "%BUILD_DIR%\ui.wxs" -dSourceDir=%SOURCE_DIR%"
 )
 if %HAS_ROOTCERTS% equ 1 (
-    set "CANDLE_CMD=%CANDLE_CMD% "%BUILD_DIR%\rootcerts.wxs""
+    set "CANDLE_CMD=%CANDLE_CMD% "%BUILD_DIR%\rootcerts.wxs" -dSourceDir=%SOURCE_DIR%"
 )
 
 %CANDLE_CMD%
