@@ -40,5 +40,8 @@ scripts:
   preremove: "{{PRERM_RPM_PATH}}"
 rpm:
   signature:
-    key_file: "{{GPG_KEY_FILE}}"
-    key_passphrase: "{{GPG_PASSPHRASE}}"
+    # GPG 私钥文件路径（通过环境变量 NFPM_SIGN_KEY_FILE 设置）
+    # 如果设置了该环境变量，包将会被签名；如果不设置，则不签名
+    key_file: "${NFPM_SIGN_KEY_FILE}"
+    # GPG 密钥密码（通过环境变量 NFPM_PASSPHRASE 或 NFPM_RPM_PASSPHRASE 设置）
+    # 注意：这里不需要设置，nfpm 会自动从环境变量读取

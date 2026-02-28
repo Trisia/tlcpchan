@@ -18,9 +18,17 @@ DIST_DIR="$PROJECT_ROOT/dist"
 
 ARCHES=("amd64" "arm64" "loong64")
 
-# GPG 配置（从环境变量读取）
+# GPG 签名配置
+# 通过环境变量控制签名：
+# - GPG_PRIVATE_KEY: base64 编码的 GPG 私钥内容
+# - GPG_PASSPHRASE: GPG 密钥密码（会被自动映射到 NFPM_PASSPHRASE）
+# 如果不设置 GPG_PRIVATE_KEY，则不会对包进行签名
 GPG_PRIVATE_KEY="${GPG_PRIVATE_KEY:-}"
-GPG_PASSPHRASE="${GPG_PASSPHRASE:-}"
+
+# 将 GPG_PASSPHRASE 映射到 NFPM_PASSPHRASE，兼容 GitHub Actions 的配置
+if [ -n "$GPG_PASSPHRASE" ]; then
+    export NFPM_PASSPHRASE="$GPG_PASSPHRASE"
+fi
 
 log_info() {
     echo -e "\033[0;32m[INFO]\033[0m $1"
@@ -43,23 +51,24 @@ create_nfpm_config() {
     fi
     
     # 创建 GPG 密钥文件（如果提供了 GPG_PRIVATE_KEY）
-    local gpg_key_file=""
-    local gpg_passphrase=""
+    # 并设置环境变量让 nfpm 使用
+    local export_sign_key=""
     if [ -n "$GPG_PRIVATE_KEY" ]; then
-        gpg_key_file="$BUILD_DIR/gpg-key-${arch}.asc"
+        local gpg_key_file="$BUILD_DIR/gpg-key-${arch}.asc"
         echo "$GPG_PRIVATE_KEY" | base64 -d > "$gpg_key_file"
-        gpg_passphrase="$GPG_PASSPHRASE"
+        export_sign_key="export NFPM_SIGN_KEY_FILE=\"$gpg_key_file\""
     fi
     
-    # 先替换 linux-{{ARCH}} 为 linux-$arch，再替换其他变量
+    # 保存签名环境变量到临时文件
+    echo "$export_sign_key" > "$BUILD_DIR/nfpm-env-$arch.sh"
+    
+    # 替换模板变量（不替换签名相关变量，由环境变量控制）
     sed -e "s|linux-{{ARCH}}|linux-$arch|g" \
         -e "s|{{ARCH}}|$package_arch|g" \
         -e "s|{{VERSION}}|$VERSION|g" \
         -e "s|{{BUILD_DIR}}|$BUILD_DIR|g" \
         -e "s|{{POSTINST_PATH}}|$BUILD_DIR/postinst.sh|g" \
         -e "s|{{PRERM_PATH}}|$BUILD_DIR/prerm.sh|g" \
-        -e "s|{{GPG_KEY_FILE}}|$gpg_key_file|g" \
-        -e "s|{{GPG_PASSPHRASE}}|$gpg_passphrase|g" \
         "$SCRIPT_DIR/nfpm.yaml.template" > "$BUILD_DIR/nfpm-$arch.yaml"
 }
 
@@ -81,6 +90,19 @@ build_deb() {
     log_info "构建 $arch deb 包..."
     
     create_nfpm_config "$arch"
+    
+    # 加载签名环境变量（如果存在）
+    if [ -f "$BUILD_DIR/nfpm-env-$arch.sh" ]; then
+        source "$BUILD_DIR/nfpm-env-$arch.sh"
+        
+        # 检查是否启用了签名
+        if [ -n "$NFPM_SIGN_KEY_FILE" ]; then
+            log_info "  - 启用 GPG 签名（密钥文件: $NFPM_SIGN_KEY_FILE）"
+        else
+            log_info "  - 不进行 GPG 签名"
+        fi
+    fi
+    
     nfpm package -f "$BUILD_DIR/nfpm-$arch.yaml" -p deb -t "$DIST_DIR"
     
     local package_arch=$arch
@@ -94,6 +116,13 @@ main() {
     log_info "========================================"
     log_info "  TLCP Channel Debian 打包"
     log_info "  版本: $VERSION"
+    
+    # 检查是否启用 GPG 签名
+    if [ -n "$GPG_PRIVATE_KEY" ]; then
+        log_info "  GPG 签名: 已启用"
+    else
+        log_info "  GPG 签名: 未启用"
+    fi
     log_info "========================================"
     
     mkdir -p "$BUILD_DIR"
