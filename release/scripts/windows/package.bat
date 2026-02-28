@@ -10,9 +10,8 @@ echo ========================================
 
 REM 设置目录
 set "SCRIPT_DIR=%~dp0"
-set "RELEASE_DIR=%SCRIPT_DIR%.."
-for %%i in ("%RELEASE_DIR%") do set "RELEASE_DIR=%%~fi"
-for %%i in ("%RELEASE_DIR%\..") do set "PROJECT_ROOT=%%~fi"
+set "PROJECT_ROOT=%SCRIPT_DIR%..\..\.."
+for %%i in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fi"
 
 REM 从 tlcpchan/version/version.go 中解析版本号
 set "VERSION_FILE=%PROJECT_ROOT%\tlcpchan\version\version.go"

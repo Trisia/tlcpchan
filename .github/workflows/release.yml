@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号（例如: 1.0.0）'
+        description: '版本号（例如: v1.0.0）'
         required: true
         type: string
 
@@ -15,7 +15,7 @@ env:
   DOCKER_REGISTRY: docker.io
   GHCR_REGISTRY: ghcr.io
   DOCKER_REPOSITORY: cliven/tlcpchan
-  GHCR_REPOSITORY: Trisia/tlcpchan
+  GHCR_REPOSITORY: trisia/tlcpchan
 
 jobs:
   build:
@@ -321,8 +321,8 @@ jobs:
           
           #### GitHub Container Registry
           ```bash
-          docker pull ghcr.io/Trisia/tlcpchan:${{ steps.get_version.outputs.version }}
-          docker pull ghcr.io/Trisia/tlcpchan:latest
+          docker pull ghcr.io/trisia/tlcpchan:${{ steps.get_version.outputs.version }}
+          docker pull ghcr.io/trisia/tlcpchan:latest
           ```
           
           ### 📖 安装指南
