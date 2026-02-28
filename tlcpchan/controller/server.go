@@ -14,7 +14,7 @@ import (
 	"github.com/Trisia/tlcpchan/security"
 )
 
-// Server API服务器，提供RESTful API接口和UI静态文件服务
+// Server API服务器，提供RESTful API接口、UI静态文件服务和MCP服务
 type Server struct {
 	httpServer  *http.Server
 	router      *Router
@@ -24,6 +24,7 @@ type Server struct {
 	rootCertMgr *security.RootCertManager
 	staticDir   string
 	fileServer  http.Handler
+	mcpCtrl     *MCPController
 }
 
 // ServerOptions API服务器配置选项
@@ -81,6 +82,21 @@ func NewServer(opts ServerOptions) *Server {
 	systemCtrl.RegisterRoutes(router)
 	logsCtrl.RegisterRoutes(router)
 
+	// 创建 MCP 控制器
+	var mcpCtrl *MCPController
+	if opts.Config.MCP.Enabled {
+		var mcpErr error
+		mcpCtrl, mcpErr = NewMCPController(&opts)
+		if mcpErr != nil {
+			log.Error("创建 MCP 控制器失败: %v", mcpErr)
+		} else {
+			mcpCtrl.RegisterRoutes(func(pattern string, handler http.HandlerFunc) {
+				router.GET(pattern, handler)
+				router.POST(pattern, handler)
+			})
+		}
+	}
+
 	staticDir := opts.StaticDir
 	if staticDir == "" {
 		staticDir = "./ui"
@@ -97,6 +113,7 @@ func NewServer(opts ServerOptions) *Server {
 		rootCertMgr: rootCertMgr,
 		staticDir:   absStaticDir,
 		fileServer:  http.FileServer(http.Dir(absStaticDir)),
+		mcpCtrl:     mcpCtrl,
 	}
 }
 
@@ -152,12 +169,28 @@ func (s *Server) Start(addr string) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// 启动 MCP 控制器
+	if s.mcpCtrl != nil {
+		ctx := context.Background()
+		if err := s.mcpCtrl.Start(ctx); err != nil {
+			s.log.Error("启动 MCP 控制器失败: %v", err)
+			return err
+		}
+	}
+
 	s.log.Info("API服务器启动: %s", addr)
 	return s.httpServer.ListenAndServe()
 }
 
 // Stop 停止API服务器
 func (s *Server) Stop(ctx context.Context) error {
+	// 停止 MCP 控制器
+	if s.mcpCtrl != nil {
+		if err := s.mcpCtrl.Stop(); err != nil {
+			s.log.Error("停止 MCP 控制器失败: %v", err)
+		}
+	}
+
 	if s.httpServer == nil {
 		return nil
 	}

@@ -1,0 +1,309 @@
+package controller
+
+import (
+	"context"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"sync"
+
+	"github.com/gorilla/websocket"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// WSHandler WebSocket 处理器
+//
+// 用于处理 WebSocket 类型的 MCP 传输连接
+type WSHandler struct {
+	server      *mcp.Server
+	upgrader    websocket.Upgrader
+	activeConns map[string]*wsConn
+	mu          sync.Mutex
+}
+
+// wsConn WebSocket 连接封装
+type wsConn struct {
+	conn      *websocket.Conn
+	readChan  chan jsonrpc.Message
+	writeChan chan []byte
+	sessionID string
+	closeOnce sync.Once
+	closeChan chan struct{}
+}
+
+// NewWSHandler 创建新的 WebSocket 处理器
+//
+// 参数:
+//   - server: MCP 服务器实例
+//
+// 返回:
+//   - *WSHandler: WebSocket 处理器实例
+//
+// 注意:
+//   - 使用默认的 Upgrader 配置
+//   - 支持所有来源的连接请求（生产环境建议限制）
+func NewWSHandler(server *mcp.Server) *WSHandler {
+	return &WSHandler{
+		server: server,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				// 允许所有来源，生产环境应限制
+				return true
+			},
+		},
+		activeConns: make(map[string]*wsConn),
+	}
+}
+
+// ServeHTTP 处理 HTTP 请求并升级为 WebSocket 连接
+//
+// 参数:
+//   - w: HTTP 响应写入器
+//   - r: HTTP 请求
+//
+// 注意:
+//   - 升级连接为 WebSocket
+//   - 创建新的 wsConn 封装
+//   - 启动读写 goroutine
+func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// 升级 HTTP 连接为 WebSocket
+	wsConn, err := h.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("WebSocket 升级失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 生成会话 ID
+	sessionID := generateSessionID()
+
+	// 创建 WebSocket 连接封装
+	conn := &wsConn{
+		conn:      wsConn,
+		readChan:  make(chan jsonrpc.Message, 100),
+		writeChan: make(chan []byte, 100),
+		sessionID: sessionID,
+		closeChan: make(chan struct{}),
+	}
+
+	// 注册连接
+	h.mu.Lock()
+	h.activeConns[sessionID] = conn
+	h.mu.Unlock()
+
+	// 启动读 goroutine
+	go h.readLoop(conn)
+
+	// 启动写 goroutine
+	go h.writeLoop(conn)
+
+	// 连接服务器
+	ss, err := h.server.Connect(r.Context(), &wsTransport{conn: conn}, nil)
+	if err != nil {
+		h.logError(r.Context(), fmt.Errorf("连接 MCP 服务器失败: %w", err))
+		conn.Close()
+		return
+	}
+	defer ss.Close()
+
+	h.logInfo(r.Context(), "WebSocket 连接建立", "sessionID", sessionID)
+
+	// 等待连接关闭
+	<-conn.closeChan
+
+	// 清理连接
+	h.mu.Lock()
+	delete(h.activeConns, sessionID)
+	h.mu.Unlock()
+
+	h.logInfo(r.Context(), "WebSocket 连接关闭", "sessionID", sessionID)
+}
+
+// readLoop 从 WebSocket 读取消息并转发到读取通道
+//
+// 参数:
+//   - conn: WebSocket 连接封装
+//
+// 注意:
+//   - 持续读取 WebSocket 消息
+//   - 解析为 JSON-RPC 消息
+//   - 发送到读取通道
+func (h *WSHandler) readLoop(conn *wsConn) {
+	defer close(conn.readChan)
+
+	for {
+		select {
+		case <-conn.closeChan:
+			return
+		default:
+		}
+
+		_, data, err := conn.conn.ReadMessage()
+		if err != nil {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				h.logError(context.Background(), fmt.Errorf("读取消息失败: %w", err))
+			}
+			conn.Close()
+			return
+		}
+
+		// 解析 JSON-RPC 消息
+		msg, err := mcp.DecodeMessage(data)
+		if err != nil {
+			h.logError(context.Background(), fmt.Errorf("解析消息失败: %w", err))
+			continue
+		}
+
+		// 发送到读取通道
+		select {
+		case conn.readChan <- msg:
+		case <-conn.closeChan:
+			return
+		}
+	}
+}
+
+// writeLoop 从写入通道读取消息并发送到 WebSocket
+//
+// 参数:
+//   - conn: WebSocket 连接封装
+//
+// 注意:
+//   - 持续从写入通道读取
+//   - 发送到 WebSocket
+func (h *WSHandler) writeLoop(conn *wsConn) {
+	for {
+		select {
+		case data := <-conn.writeChan:
+			err := conn.conn.WriteMessage(websocket.TextMessage, data)
+			if err != nil {
+				h.logError(context.Background(), fmt.Errorf("写入消息失败: %w", err))
+				conn.Close()
+				return
+			}
+		case <-conn.closeChan:
+			return
+		}
+	}
+}
+
+// Close 关闭 WebSocket 处理器
+//
+// 注意:
+//   - 关闭所有活跃连接
+func (h *WSHandler) Close() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for _, conn := range h.activeConns {
+		conn.Close()
+	}
+
+	return nil
+}
+
+// wsTransport 实现 mcp.Transport 接口
+type wsTransport struct {
+	conn *wsConn
+}
+
+// Connect 连接到 WebSocket 传输层
+//
+// 参数:
+//   - ctx: 上下文
+//
+// 返回:
+//   - mcp.Connection: MCP 连接实例
+//   - error: 连接失败时返回错误
+func (t *wsTransport) Connect(ctx context.Context) (mcp.Connection, error) {
+	return &wsConnection{conn: t.conn}, nil
+}
+
+// wsConnection 实现 mcp.Connection 接口
+type wsConnection struct {
+	conn *wsConn
+}
+
+// Read 从连接读取消息
+//
+// 参数:
+//   - ctx: 上下文
+//
+// 返回:
+//   - jsonrpc.Message: JSON-RPC 消息
+//   - error: 读取失败时返回错误
+func (c *wsConnection) Read(ctx context.Context) (jsonrpc.Message, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case msg := <-c.conn.readChan:
+		return msg, nil
+	case <-c.conn.closeChan:
+		return nil, fmt.Errorf("连接已关闭")
+	}
+}
+
+// Write 向连接写入消息
+//
+// 参数:
+//   - ctx: 上下文
+//   - msg: JSON-RPC 消息
+//
+// 返回:
+//   - error: 写入失败时返回错误
+func (c *wsConnection) Write(ctx context.Context, msg jsonrpc.Message) error {
+	data, err := mcp.EncodeMessage(msg)
+	if err != nil {
+		return fmt.Errorf("编码消息失败: %w", err)
+	}
+
+	select {
+	case c.conn.writeChan <- data:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.conn.closeChan:
+		return fmt.Errorf("连接已关闭")
+	}
+}
+
+// Close 关闭连接
+//
+// 返回:
+//   - error: 关闭失败时返回错误
+func (c *wsConnection) Close() error {
+	return c.conn.Close()
+}
+
+// SessionID 返回会话 ID
+//
+// 返回:
+//   - string: 会话 ID
+func (c *wsConnection) SessionID() string {
+	return c.conn.sessionID
+}
+
+// Close 关闭 WebSocket 连接
+//
+// 返回:
+//   - error: 关闭失败时返回错误
+func (c *wsConn) Close() error {
+	var err error
+	c.closeOnce.Do(func() {
+		close(c.closeChan)
+		err = c.conn.Close()
+	})
+	return err
+}
+
+// logInfo 记录信息日志
+func (h *WSHandler) logInfo(ctx context.Context, msg string, keyvals ...any) {
+	// TODO: 使用控制器日志记录器
+}
+
+// logError 记录错误日志
+func (h *WSHandler) logError(ctx context.Context, err error) {
+	// TODO: 使用控制器日志记录器
+}

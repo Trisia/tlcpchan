@@ -13,12 +13,10 @@ COPY tlcpchan-cli/ ./tlcpchan-cli/
 
 # 编译 tlcpchan（二进制服务）
 WORKDIR /tlcpchan
-RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=loong64 go build -ldflags="-s -w" -o tlcpchan .
 
-# 编译 tlcpchan-cli（命令行工具）
+# 编译 tlcpchan-cli（命令行工具 fancier）
 WORKDIR /tlcpchan-cli
-RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=loong64 go build -ldflags="-s -w" -o tlcpchan-cli .
 
 # ============================================

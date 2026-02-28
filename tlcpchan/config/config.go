@@ -48,8 +48,20 @@ func ParseProtocolType(s string) ProtocolType {
 
 // MCPConfig MCP服务配置
 type MCPConfig struct {
+	// Enabled 是否启用MCP服务
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// APIKey MCP服务API密钥，为空表示无需认证
 	APIKey string `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+	// ServerInfo MCP服务器信息
+	ServerInfo MCPServerInfo `yaml:"server_info,omitempty" json:"serverInfo,omitempty"`
+}
+
+// MCPServerInfo MCP服务器信息
+type MCPServerInfo struct {
+	// Name 服务器名称
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
+	// Version 版本号
+	Version string `yaml:"version,omitempty" json:"version,omitempty"`
 }
 
 // Config 主配置结构，包含服务端配置、代理实例列表和证书目录
