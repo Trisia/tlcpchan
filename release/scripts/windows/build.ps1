@@ -1,7 +1,7 @@
-# TLCP Channel Windows 构建脚本
-# 支持在 Windows 环境下构建 TLCP Channel
+# TLCP Channel Windows Build Script
+# Build TLCP Channel in Windows environment
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  TLCP Channel Windows 构建脚本" -ForegroundColor Cyan
+Write-Host "  TLCP Channel Windows Build Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # 设置目录
@@ -28,21 +28,21 @@ $BuildDir = Join-Path $ProjectRoot "build"
 $DistDir = Join-Path $ProjectRoot "dist"
 $OutputDir = Join-Path $BuildDir "windows-amd64"
 
-Write-Host "[INFO] 版本: $Version" -ForegroundColor Green
-Write-Host "[INFO] 项目根目录: $ProjectRoot" -ForegroundColor Green
-Write-Host "[INFO] 输出目录: $OutputDir" -ForegroundColor Green
+Write-Host "[INFO] Version: $Version" -ForegroundColor Green
+Write-Host "[INFO] Project Root: $ProjectRoot" -ForegroundColor Green
+Write-Host "[INFO] Output Directory: $OutputDir" -ForegroundColor Green
 
 # 检查 Go 是否安装
 $GoCmd = Get-Command go -ErrorAction SilentlyContinue
 if (-not $GoCmd) {
-    Write-Host "[ERROR] Go 未安装，请先安装 Go 1.26+" -ForegroundColor Red
+    Write-Host "[ERROR] Go is not installed, please install Go 1.26+" -ForegroundColor Red
     exit 1
 }
 
 # 检查 Node.js 是否安装
 $NodeCmd = Get-Command node -ErrorAction SilentlyContinue
 if (-not $NodeCmd) {
-    Write-Host "[WARN] Node.js 未安装，请先安装" -ForegroundColor Yellow
+    Write-Host "[WARN] Node.js is not installed, please install it first" -ForegroundColor Yellow
     exit 1
 }
 
@@ -50,7 +50,7 @@ if (-not $NodeCmd) {
 
 # 创建目录
 if (Test-Path $OutputDir) {
-    Write-Host "[INFO] 清理旧的构建文件..." -ForegroundColor Green
+    Write-Host "[INFO] Cleaning old build files..." -ForegroundColor Green
     Remove-Item -Path $OutputDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
@@ -58,16 +58,16 @@ New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 # 构建前端
 $FrontendPackageJson = Join-Path $ProjectRoot "tlcpchan-ui\package.json"
 if (Test-Path $FrontendPackageJson) {
-    Write-Host "[INFO] 构建前端资源..." -ForegroundColor Green
+    Write-Host "[INFO] Building frontend resources..." -ForegroundColor Green
     Push-Location (Join-Path $ProjectRoot "tlcpchan-ui")
         
     $NodeModules = Join-Path (Get-Location) "node_modules"
     if (-not (Test-Path $NodeModules)) {
-        Write-Host "[INFO] 安装前端依赖..." -ForegroundColor Green
+        Write-Host "[INFO] Installing frontend dependencies..." -ForegroundColor Green
         npm ci
         if ($LASTEXITCODE -ne 0) {
             Pop-Location
-            Write-Host "[ERROR] npm ci 失败!" -ForegroundColor Red
+            Write-Host "[ERROR] npm ci failed!" -ForegroundColor Red
             exit 1
         }
     }
@@ -75,19 +75,19 @@ if (Test-Path $FrontendPackageJson) {
     npm run build
     if ($LASTEXITCODE -ne 0) {
         Pop-Location
-        Write-Host "[ERROR] npm run build 失败!" -ForegroundColor Red
+        Write-Host "[ERROR] npm run build failed!" -ForegroundColor Red
         exit 1
     }
         
     Pop-Location
 }
 else {
-    Write-Host "[WARN] 前端目录不存在，跳过前端构建" -ForegroundColor Yellow
+    Write-Host "[WARN] Frontend directory does not exist, skipping frontend build" -ForegroundColor Yellow
 }
 
 
 # 编译 tlcpchan
-Write-Host "[INFO] 编译 tlcpchan..." -ForegroundColor Green
+Write-Host "[INFO] Compiling tlcpchan..." -ForegroundColor Green
 $Env:GOOS = "windows"
 $Env:GOARCH = "amd64"
 $Env:CGO_ENABLED = "0"
@@ -95,18 +95,18 @@ Push-Location (Join-Path $ProjectRoot "tlcpchan")
 go build -ldflags="-s -w" -o (Join-Path $OutputDir "tlcpchan.exe") .
 if ($LASTEXITCODE -ne 0) {
     Pop-Location
-    Write-Host "[ERROR] tlcpchan 编译失败!" -ForegroundColor Red
+    Write-Host "[ERROR] tlcpchan compilation failed!" -ForegroundColor Red
     exit 1
 }
 Pop-Location
 
 # 编译 tlcpchan-cli
-Write-Host "[INFO] 编译 tlcpchan-cli..." -ForegroundColor Green
+Write-Host "[INFO] Compiling tlcpchan-cli..." -ForegroundColor Green
 Push-Location (Join-Path $ProjectRoot "tlcpchan-cli")
 go build -ldflags="-s -w" -o (Join-Path $OutputDir "tlcpchan-cli.exe") .
 if ($LASTEXITCODE -ne 0) {
     Pop-Location
-    Write-Host "[ERROR] tlcpchan-cli 编译失败!" -ForegroundColor Red
+    Write-Host "[ERROR] tlcpchan-cli compilation failed!" -ForegroundColor Red
     exit 1
 }
 Pop-Location
@@ -114,27 +114,27 @@ Pop-Location
 # 复制前端资源
 $FrontendUiDir = Join-Path $ProjectRoot "tlcpchan-ui\ui"
 if (Test-Path $FrontendUiDir) {
-    Write-Host "[INFO] 复制前端资源..." -ForegroundColor Green
+    Write-Host "[INFO] Copying frontend resources..." -ForegroundColor Green
     Copy-Item -Path $FrontendUiDir -Destination (Join-Path $OutputDir "ui") -Recurse -Force
 }
 
 # 复制信任证书
 $TrustedCertsDir = Join-Path $ProjectRoot "trustedcerts"
 if (Test-Path $TrustedCertsDir) {
-    Write-Host "[INFO] 复制信任证书..." -ForegroundColor Green
+    Write-Host "[INFO] Copying trusted certificates..." -ForegroundColor Green
     Copy-Item -Path $TrustedCertsDir -Destination (Join-Path $OutputDir "rootcerts") -Recurse -Force
 }
 
 # 创建 zip 包
-Write-Host "[INFO] 创建 zip 包..." -ForegroundColor Green
+Write-Host "[INFO] Creating zip package..." -ForegroundColor Green
 New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
 $ZipPath = Join-Path $DistDir "tlcpchan_${Version}_windows_amd64.zip"
 Compress-Archive -Path (Join-Path $BuildDir "windows-amd64") -DestinationPath $ZipPath -Force
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[WARN] zip 包创建失败，跳过" -ForegroundColor Yellow
+    Write-Host "[WARN] Failed to create zip package, skipping" -ForegroundColor Yellow
 }
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  构建完成" -ForegroundColor Green
-Write-Host "  输出目录: $OutputDir " -ForegroundColor Green
+Write-Host "  Build completed" -ForegroundColor Green
+Write-Host "  Output directory: $OutputDir " -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
