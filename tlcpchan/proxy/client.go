@@ -30,6 +30,7 @@ type ClientProxy struct {
 	shutdownChan    chan struct{}
 	mu              sync.Mutex
 	running         bool
+	stopped         bool
 
 	protocolCache map[string]protocolCacheEntry
 	cacheMu       sync.RWMutex
@@ -93,22 +94,27 @@ func (p *ClientProxy) Start() error {
 }
 
 func (p *ClientProxy) acceptLoop() {
+	p.mu.Lock()
+	shutdown := p.shutdownChan
+	p.mu.Unlock()
+
 	for {
 		select {
-		case <-p.shutdownChan:
+		case <-shutdown:
 			return
 		default:
 		}
 
 		conn, err := p.listener.Accept()
 		if err != nil {
-			select {
-			case <-p.shutdownChan:
+			p.mu.Lock()
+			if p.stopped {
+				p.mu.Unlock()
 				return
-			default:
-				p.logger.Error("接受连接失败: %v", err)
-				continue
 			}
+			p.mu.Unlock()
+			p.logger.Error("接受连接失败: %v", err)
+			continue
 		}
 
 		p.stats.IncrementConnections()
@@ -203,6 +209,7 @@ func (p *ClientProxy) Stop() error {
 
 	p.logger.Info("停止客户端代理: %s", p.cfg.Name)
 
+	p.stopped = true
 	close(p.shutdownChan)
 
 	if p.listener != nil {
