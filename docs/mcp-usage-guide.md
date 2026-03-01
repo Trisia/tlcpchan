@@ -61,9 +61,6 @@ TLCP Channel MCP 提供了以下 5 类共 18 个工具：
 mcp:
   enabled: true
   api_key: ""  # 留空则开放访问
-  server_info:
-    name: "tlcpchan-mcp"
-    version: "1.0.0"
 ```
 
 ### 2.2 配置参数说明
@@ -93,9 +90,6 @@ server:
 mcp:
   enabled: true
   api_key: "your-secret-api-key"  # 生产环境建议设置
-  server_info:
-    name: "tlcpchan-mcp"
-    version: "1.0.0"
 
 instances:
   - name: "proxy-example"
@@ -486,11 +480,6 @@ curl -X GET "http://localhost:20080/api/mcp/sse" \
 
 ### 6.1 API Key 管理
 
-#### 生产环境
-- **必须设置强密钥**：使用至少 32 位的随机字符串
-- **定期更换**：建议每 3-6 个月更换一次 API Key
-- **安全存储**：使用密钥管理系统或环境变量存储，不要硬编码在代码中
-
 #### 开发环境
 - 可以留空 `api_key` 以便快速测试
 - 确保开发环境不暴露到公网
@@ -705,15 +694,3 @@ asyncio.run(health_monitor())
 - [MCP 协议规范](https://modelcontextprotocol.io/)
 - [go-mcp SDK](https://github.com/modelcontextprotocol/go-sdk)
 - [gotlcp 库](https://github.com/Trisia/gotlcp)
-
-### 9.2 支持与反馈
-
-如有问题或建议，请通过以下方式联系：
-
-- GitHub Issues: [tlcpchan/issues](https://github.com/Trisia/tlcpchan/issues)
-- 邮件: support@example.com
-
----
-
-**最后更新**: 2025-02-27
-**版本**: 1.0.0

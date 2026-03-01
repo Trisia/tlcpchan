@@ -128,7 +128,7 @@ func testLoadAndSave(t *testing.T) {
 		},
 	}
 
-	data, err := cfgMarshal(cfg1)
+	data, err := yaml.Marshal(cfg1)
 	if err != nil {
 		t.Fatalf("序列化配置失败: %v", err)
 	}
@@ -169,10 +169,6 @@ func testLoadAndSave(t *testing.T) {
 	}
 }
 
-func cfgMarshal(cfg *Config) ([]byte, error) {
-	return yaml.Marshal(cfg)
-}
-
 func TestMCPConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -189,17 +185,11 @@ server:
 mcp:
   enabled: false
   api_key: ""
-  server_info:
-    name: "tlcpchan-mcp"
-    version: "1.0.0"
 `,
 			wantErr: false,
 			validate: func(t *testing.T, cfg *Config) {
 				if cfg.MCP.Enabled {
 					t.Error("期望 MCP 为禁用状态")
-				}
-				if cfg.MCP.ServerInfo.Name != "tlcpchan-mcp" {
-					t.Errorf("期望服务器名称 'tlcpchan-mcp', 实际 '%s'", cfg.MCP.ServerInfo.Name)
 				}
 			},
 		},
@@ -212,9 +202,6 @@ server:
 mcp:
   enabled: true
   api_key: "test-secret-key-12345"
-  server_info:
-    name: "my-mcp-server"
-    version: "2.0.0"
 `,
 			wantErr: false,
 			validate: func(t *testing.T, cfg *Config) {
@@ -223,12 +210,6 @@ mcp:
 				}
 				if cfg.MCP.APIKey != "test-secret-key-12345" {
 					t.Errorf("期望 API Key 'test-secret-key-12345', 实际 '%s'", cfg.MCP.APIKey)
-				}
-				if cfg.MCP.ServerInfo.Name != "my-mcp-server" {
-					t.Errorf("期望服务器名称 'my-mcp-server', 实际 '%s'", cfg.MCP.ServerInfo.Name)
-				}
-				if cfg.MCP.ServerInfo.Version != "2.0.0" {
-					t.Errorf("期望版本 '2.0.0', 实际 '%s'", cfg.MCP.ServerInfo.Version)
 				}
 			},
 		},
@@ -273,9 +254,6 @@ instances:
 mcp:
   enabled: true
   api_key: "secret-key"
-  server_info:
-    name: "tlcpchan-mcp"
-    version: "1.0.0"
 `,
 			wantErr: false,
 			validate: func(t *testing.T, cfg *Config) {
@@ -327,9 +305,6 @@ server:
 mcp:
   enabled: true
   api_key: "test-api-key-123"
-  server_info:
-    name: "test-server"
-    version: "1.5.0"
 `
 
 	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
@@ -347,9 +322,6 @@ mcp:
 	}
 	if cfg.MCP.APIKey != "test-api-key-123" {
 		t.Errorf("期望 API Key 'test-api-key-123', 实际 '%s'", cfg.MCP.APIKey)
-	}
-	if cfg.MCP.ServerInfo.Name != "test-server" {
-		t.Errorf("期望服务器名称 'test-server', 实际 '%s'", cfg.MCP.ServerInfo.Name)
 	}
 
 	Init(cfg, configPath)

@@ -76,8 +76,9 @@ TLCP（Transport Layer Cryptography Protocol）是中国国家密码管理局制
 ## 相关资源
 
 - **文档**: [详细使用文档](docs/design.md)
-- **MCP 使用指南**: [Model Context Protocol 使用指南](docs/mcp-usage-guide.md)
 - **UI 用户手册**: [Web 管理界面使用指南](tlcpchan-ui/docs/README.md)
+- **CLI 用户手册**: [CLI 管理使用指南](tlcpchan-cli/README.md)
+- **MCP 使用指南**: [Model Context Protocol 使用指南](docs/mcp-usage-guide.md)
 - **API 文档**: [RESTful API 文档](docs/api.md)
 
 ## MCP 快速开始
@@ -90,7 +91,6 @@ mcp:
   api_key: "your-secret-key"
   server_info:
     name: "tlcpchan-mcp"
-    version: "1.0.0"
 ```
 
 详细使用方法请参考 [MCP 使用指南](docs/mcp-usage-guide.md)。

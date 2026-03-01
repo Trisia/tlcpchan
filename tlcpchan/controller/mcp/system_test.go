@@ -16,10 +16,6 @@ func TestMCPSystemTools(t *testing.T) {
 	cfg := &config.Config{
 		MCP: config.MCPConfig{
 			Enabled: true,
-			ServerInfo: config.MCPServerInfo{
-				Name:    "test-mcp",
-				Version: "1.0.0",
-			},
 		},
 	}
 
@@ -99,19 +95,15 @@ func TestMCPSystemTools(t *testing.T) {
 	})
 }
 
-// TestHandleGetSystemInfo_VersionOverride 测试版本号覆盖功能
+// TestHandleGetSystemInfo_VersionOverride 测试版本号验证
 //
 // 测试要点:
-//   - 验证版本号从 version.Version 获取，不受配置中的版本号影响
+//   - 验证版本号从 version.Version 获取
 func TestHandleGetSystemInfo_VersionOverride(t *testing.T) {
-	// 创建测试配置，配置中的版本号与实际版本号不同
+	// 创建测试配置
 	cfg := &config.Config{
 		MCP: config.MCPConfig{
 			Enabled: true,
-			ServerInfo: config.MCPServerInfo{
-				Name:    "test-mcp",
-				Version: "2.0.0", // 配置中的版本号
-			},
 		},
 	}
 
@@ -140,11 +132,6 @@ func TestHandleGetSystemInfo_VersionOverride(t *testing.T) {
 		t.Fatalf("调用 get_system_info 失败: %v", err)
 	}
 
-	// 验证版本号不等于配置中的版本号
-	if output.Version == cfg.MCP.ServerInfo.Version {
-		t.Errorf("版本号不应等于配置中的版本号，得到: %s", output.Version)
-	}
-
 	// 版本号应该是 "1.0.0"（从 version.Version 获取）
 	expectedVersion := "1.0.0"
 	if output.Version != expectedVersion {
@@ -166,10 +153,6 @@ func TestHandleGetSystemStats_NoInstances(t *testing.T) {
 	cfg := &config.Config{
 		MCP: config.MCPConfig{
 			Enabled: true,
-			ServerInfo: config.MCPServerInfo{
-				Name:    "test-mcp",
-				Version: "1.0.0",
-			},
 		},
 	}
 
@@ -236,10 +219,6 @@ func TestHandleGetSystemStats_WithInstances(t *testing.T) {
 	cfg := &config.Config{
 		MCP: config.MCPConfig{
 			Enabled: true,
-			ServerInfo: config.MCPServerInfo{
-				Name:    "test-mcp",
-				Version: "1.0.0",
-			},
 		},
 	}
 

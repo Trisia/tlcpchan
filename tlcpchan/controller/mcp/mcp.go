@@ -11,6 +11,7 @@ import (
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
+	"github.com/Trisia/tlcpchan/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -73,15 +74,9 @@ func NewMCPController(opts *ServerOptions) (*MCPController, error) {
 		return c, nil
 	}
 
-	// 设置默认服务器信息
-	serverName := opts.Config.MCP.ServerInfo.Name
-	if serverName == "" {
-		serverName = "tlcpchan-mcp"
-	}
-	serverVersion := opts.Config.MCP.ServerInfo.Version
-	if serverVersion == "" {
-		serverVersion = "1.0.0"
-	}
+	// 设置服务器信息（名称和版本号固定）
+	serverName := "tlcpchan"
+	serverVersion := version.Version
 
 	// 创建 MCP SDK 服务器
 	server := mcpsdk.NewServer(
