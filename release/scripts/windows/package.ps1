@@ -25,6 +25,13 @@ if (-not $Version) {
     exit 1
 }
 
+# 确保版本号格式符合 WiX 要求（应为 x.x.x.x 格式）
+$VersionParts = $Version -split '\.'
+if ($VersionParts.Count -eq 3) {
+    # 如果版本是 x.x.x，添加 .0 变为 x.x.x.0
+    $Version = $Version + ".0"
+}
+
 $BuildDir = Join-Path $ProjectRoot "build"
 $DistDir = Join-Path $ProjectRoot "dist"
 $SourceDir = Join-Path $BuildDir "windows-amd64"
@@ -40,24 +47,15 @@ Write-Host "[INFO] WiX Directory: $WixDir" -ForegroundColor Green
 $TlcpchanExe = Join-Path $SourceDir "tlcpchan.exe"
 if (-not (Test-Path $TlcpchanExe)) {
     Write-Host "[INFO] Source files do not exist, running build.bat to build first..." -ForegroundColor Green
-    & (Join-Path $ScriptDir "build.bat")
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] build.bat execution failed!" -ForegroundColor Red
+    & (Join-Path $ScriptDir "build.ps1")
+    if (-not $?) {
+        Write-Host "[ERROR] build.ps1 execution failed!" -ForegroundColor Red
         exit 1
     }
 }
 
-# 检查 WiX Toolset 是否存在
-$Candle = Get-Command candle -ErrorAction SilentlyContinue
-if ($Candle) {
-    $CandleExe = "candle"
-    $LightExe = "light"
-    $HeatExe = "heat"
-} elseif (Test-Path (Join-Path $WixDir "candle.exe")) {
-    $CandleExe = Join-Path $WixDir "candle.exe"
-    $LightExe = Join-Path $WixDir "light.exe"
-    $HeatExe = Join-Path $WixDir "heat.exe"
-} else {
+# 检查 WiX 工具集是否存在，不存在则下载
+if (-not (Test-Path $WixDir)) {
     Write-Host "[INFO] WiX Toolset not found, starting download..." -ForegroundColor Green
     
     # 创建 WiX 目录
@@ -68,34 +66,17 @@ if ($Candle) {
     $WixZip = Join-Path $WixDir "wix311-binaries.zip"
     
     Write-Host "[INFO] Downloading from $WixUrl ..." -ForegroundColor Green
-    
-    # 使用 Invoke-WebRequest 下载
     Invoke-WebRequest -Uri $WixUrl -OutFile $WixZip
     
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] Failed to download WiX Toolset!" -ForegroundColor Red
-        Write-Host "[INFO] Please manually download WiX Toolset: $WixUrl" -ForegroundColor Yellow
-        Write-Host "[INFO] Extract to: $WixDir" -ForegroundColor Yellow
-        exit 1
-    }
-    
     Write-Host "[INFO] Extracting WiX Toolset..." -ForegroundColor Green
-    # 使用 Expand-Archive 解压
     Expand-Archive -Path $WixZip -DestinationPath $WixDir -Force
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] Failed to extract WiX Toolset!" -ForegroundColor Red
-        exit 1
-    }
-    
-    # 清理 zip 文件
-    Remove-Item -Path $WixZip -Force
-    
-    $CandleExe = Join-Path $WixDir "candle.exe"
-    $LightExe = Join-Path $WixDir "light.exe"
     
     Write-Host "[INFO] WiX Toolset installation completed!" -ForegroundColor Green
 }
+
+$CandleExe = Join-Path $WixDir "candle.exe"
+$LightExe = Join-Path $WixDir "light.exe"
+$HeatExe = Join-Path $WixDir "heat.exe"
 
 # 创建输出目录
 New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
@@ -113,14 +94,21 @@ if (-not $HasRootCerts) {
     Write-Host "[WARN] rootcerts directory does not exist: $RootCertsDir, skipping trusted certificates packaging" -ForegroundColor Yellow
 }
 
+# 更新 .wxs 文件中的版本号占位符
+Write-Host "[INFO] Updating version placeholder in WiX source file..." -ForegroundColor Green
+$WxsContent = Get-Content $WxsFile -Raw
+# 替换 $Version 和 $(var.Version) 两种占位符
+$WxsContent = $WxsContent -replace '\$Version', $Version
+$WxsContent = $WxsContent -replace '\$\(var\.Version\)', $Version
+Set-Content -Path $WxsFile -Value $WxsContent -Encoding UTF8
+
 # 使用 heat 生成 ui 目录结构的 XML 片段
 $WxsFiles = @()
 if ($HasUi) {
     Write-Host "[INFO] Generating directory tree and WiX fragment for UI directory" -ForegroundColor Green
-    Get-ChildItem -Path $UiDir -Recurse | Format-Table FullName
     
     $UiWxsFile = Join-Path $BuildDir "ui.wxs"
-    $HeatExe dir $UiDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -var var.SourceDir -srd -out $UiWxsFile
+    & $HeatExe dir $UiDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -var var.DistUI -out $UiWxsFile
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] heat.exe failed to generate ui.wxs!" -ForegroundColor Red
@@ -132,12 +120,11 @@ if ($HasUi) {
 # 使用 heat 生成 rootcerts 目录结构的 XML 片段
 if ($HasRootCerts) {
     Write-Host "[INFO] Generating directory tree and WiX fragment for trusted certificates directory..." -ForegroundColor Green
-    Get-ChildItem -Path $RootCertsDir -Recurse | Format-Table FullName
     
     $RootCertsWxsFile = Join-Path $BuildDir "rootcerts.wxs"
-    & $HeatExe dir $RootCertsDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg RootCertComponents -var var.SourceDir -srd -out $RootCertsWxsFile
+    & $HeatExe dir $RootCertsDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg RootCertComponents -var var.DistRootCerts -out $RootCertsWxsFile
     
-    if ($LASTEXITCODE -ne 0) {
+    if (-not $?) {
         Write-Host "[ERROR] heat.exe failed to generate rootcerts.wxs!" -ForegroundColor Red
         exit 1
     }
@@ -146,15 +133,13 @@ if ($HasRootCerts) {
 
 # 编译 WiX 源文件
 Write-Host "[INFO] Compiling WiX source files..." -ForegroundColor Green
-
-$WixObjectFiles = @()
-& $CandleExe -nologo -dVersion=$Version -dSourceDir=$SourceDir -out "$BuildDir\" $WxsFile $WxsFiles
-
-if ($LASTEXITCODE -ne 0) {
+& $CandleExe -nologo -dSourceDir="$SourceDir" -dDistUI="$UiDir" -dDistRootCerts="$RootCertsDir" -out "$BuildDir\" $WxsFile $WxsFiles
+if (-not $?) {
     Write-Host "[ERROR] candle.exe compilation failed!" -ForegroundColor Red
     exit 1
 }
 
+$WixObjectFiles = @()
 $WixObjectFiles += Join-Path $BuildDir "tlcpchan.wixobj"
 if ($HasUi) {
     $WixObjectFiles += Join-Path $BuildDir "ui.wixobj"
@@ -163,14 +148,15 @@ if ($HasRootCerts) {
     $WixObjectFiles += Join-Path $BuildDir "rootcerts.wixobj"
 }
 
-# 链接生成 MSI
+# 链接生成 MSI - 关键修复：添加 -b 参数指定源文件路径
 Write-Host "[INFO] Generating MSI installer..." -ForegroundColor Green
 
 $MsiPath = Join-Path $DistDir "tlcpchan_${Version}_windows_amd64.msi"
 & $LightExe -sw1076 -nologo -out $MsiPath $WixObjectFiles -ext WixUIExtension
 
-if ($LASTEXITCODE -ne 0) {
+if (-not $?) {
     Write-Host "[ERROR] light.exe linking failed!" -ForegroundColor Red
+    Write-Host "Error details: $LASTEXITCODE" -ForegroundColor Red
     exit 1
 }
 
