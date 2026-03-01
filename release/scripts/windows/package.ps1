@@ -16,8 +16,9 @@ if (-not (Test-Path $VersionFile)) {
     exit 1
 }
 
-$Version = Select-String -Path $VersionFile -Pattern 'Version\s*=\s*"([^"]+)"' | 
-           ForEach-Object { $_.Matches.Groups[1].Value }
+$Match = Select-String -Path $VersionFile -Pattern 'Version\s*=\s*"([^"]+)"' -AllMatches | 
+         Select-Object -First 1
+$Version = if ($Match) { $Match.Matches[0].Groups[1].Value } else { $null }
 
 if (-not $Version) {
     Write-Host "[ERROR] Failed to parse version from version.go!" -ForegroundColor Red
@@ -147,7 +148,6 @@ if ($HasRootCerts) {
 Write-Host "[INFO] 编译 WiX 源文件..." -ForegroundColor Green
 
 $WixObjectFiles = @()
-&TlcpchanWixobj = Join-Path $BuildDir "tlcpchan.wixobj"
 & $CandleExe -nologo -dVersion=$Version -dSourceDir=$SourceDir -out "$BuildDir\" $WxsFile $WxsFiles
 
 if ($LASTEXITCODE -ne 0) {
