@@ -88,9 +88,7 @@ TLCP（Transport Layer Cryptography Protocol）是中国国家密码管理局制
 ```yaml
 mcp:
   enabled: true
-  api_key: "your-secret-key"
-  server_info:
-    name: "tlcpchan-mcp"
+  api_key: "your-secret-key" # 空表示不需要认证
 ```
 
 详细使用方法请参考 [MCP 使用指南](docs/mcp-usage-guide.md)。
