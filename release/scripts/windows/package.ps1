@@ -7,7 +7,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 # 设置目录
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..\..\")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..\..\..\")).Path
 $VersionFile = Join-Path $ProjectRoot "tlcpchan\version\version.go"
 
 # 解析版本号
@@ -17,7 +17,7 @@ if (-not (Test-Path $VersionFile)) {
 }
 
 $Match = Select-String -Path $VersionFile -Pattern 'Version\s*=\s*"([^"]+)"' -AllMatches | 
-         Select-Object -First 1
+Select-Object -First 1
 $Version = if ($Match) { $Match.Matches[0].Groups[1].Value } else { $null }
 
 if (-not $Version) {
@@ -116,11 +116,11 @@ if (-not $HasRootCerts) {
 # 使用 heat 生成 ui 目录结构的 XML 片段
 $WxsFiles = @()
 if ($HasUi) {
-    Write-Host "[INFO] 生成 UI 目录的目录树和 WiX 片段..." -ForegroundColor Green
+    Write-Host "[INFO] 生成UI目录的目录树和WiX片段" -ForegroundColor Green
     Get-ChildItem -Path $UiDir -Recurse | Format-Table FullName
     
     $UiWxsFile = Join-Path $BuildDir "ui.wxs"
-    & $HeatExe dir $UiDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -var var.SourceDir -srd -out $UiWxsFile
+    $HeatExe dir $UiDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -var var.SourceDir -srd -out $UiWxsFile
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] heat.exe 生成 ui.wxs 失败！" -ForegroundColor Red
@@ -138,7 +138,7 @@ if ($HasRootCerts) {
     & $HeatExe dir $RootCertsDir -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg RootCertComponents -var var.SourceDir -srd -out $RootCertsWxsFile
     
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] heat.exe 生成 rootcerts.wxs 失败！" -ForegroundColor Red
+        Write-Host "[ERROR] heat.exe 生成 rootcerts.wxs 失败!" -ForegroundColor Red
         exit 1
     }
     $WxsFiles += $RootCertsWxsFile
@@ -151,7 +151,7 @@ $WixObjectFiles = @()
 & $CandleExe -nologo -dVersion=$Version -dSourceDir=$SourceDir -out "$BuildDir\" $WxsFile $WxsFiles
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] candle.exe 编译失败！" -ForegroundColor Red
+    Write-Host "[ERROR] candle.exe 编译失败!" -ForegroundColor Red
     exit 1
 }
 
@@ -170,7 +170,7 @@ $MsiPath = Join-Path $DistDir "tlcpchan_${Version}_windows_amd64.msi"
 & $LightExe -sw1076 -nologo -out $MsiPath $WixObjectFiles -ext WixUIExtension
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] light.exe 链接失败！" -ForegroundColor Red
+    Write-Host "[ERROR] light.exe 链接失败!" -ForegroundColor Red
     exit 1
 }
 
@@ -186,6 +186,6 @@ if ($HasRootCerts) {
 }
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  MSI 打包完成！" -ForegroundColor Green
+Write-Host "  MSI 打包完成!" -ForegroundColor Green
 Write-Host "  输出文件: $MsiPath" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
