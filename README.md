@@ -44,9 +44,7 @@ docker run -d \
 
 - **Web 管理界面**: http://localhost:20080
 
-从 GitHub Releases 下载最新版本安装包和二进制程序：
-
-- [https://github.com/Trisia/tlcpchan/releases](https://github.com/Trisia/tlcpchan/releases)
+从 GitHub Releases 下载最新版本安装包和二进制程序：[https://github.com/Trisia/tlcpchan/releases](https://github.com/Trisia/tlcpchan/releases)
 
 ## 代理模式
 
@@ -56,6 +54,19 @@ docker run -d \
 | client | TCP → TLCP/TLS | 访问国密服务，让普通应用连接国密服务 |
 | http-server | HTTPS → HTTP | HTTP 服务国密化，将 Web 服务升级为 HTTPS（支持国密） |
 | http-client | HTTP → HTTPS | 客户端国密适配，让 HTTP 客户端访问国密 HTTPS 服务 |
+
+## MCP 快速开始
+
+启用 MCP 服务后，可以通过 Model Context Protocol 让 AI 助手管理 TLCP Channel：
+
+```yaml
+mcp:
+  enabled: true
+  api_key: "your-secret-key" # 空表示不需要认证
+```
+
+详细使用方法请参考 [MCP 使用指南](docs/mcp-usage-guide.md)。
+
 
 ## 常见问题
 
@@ -103,23 +114,12 @@ TLCP（Transport Layer Cryptography Protocol）是中国国家密码管理局制
 
 ## 相关资源
 
-- **文档**: [详细使用文档](docs/design.md)
-- **UI 用户手册**: [Web 管理界面使用指南](tlcpchan-ui/docs/README.md)
+- **设计文档**: [详细设计文档](docs/design.md)
+- **UI 用户手册**: [Web 管理界面使用指南](tlcpchan-ui/README.md)
 - **CLI 用户手册**: [CLI 管理使用指南](tlcpchan-cli/README.md)
 - **MCP 使用指南**: [Model Context Protocol 使用指南](docs/mcp-usage-guide.md)
 - **API 文档**: [RESTful API 文档](docs/api.md)
 
-## MCP 快速开始
-
-启用 MCP 服务后，可以通过 Model Context Protocol 让 AI 助手管理 TLCP Channel：
-
-```yaml
-mcp:
-  enabled: true
-  api_key: "your-secret-key" # 空表示不需要认证
-```
-
-详细使用方法请参考 [MCP 使用指南](docs/mcp-usage-guide.md)。
 
 ## 致谢
 
