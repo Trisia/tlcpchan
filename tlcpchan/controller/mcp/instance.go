@@ -1,14 +1,19 @@
-package controller
+package mcp
 
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/proxy"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ListInstancesInput 列出实例输入（无参数）
@@ -152,11 +157,11 @@ type CheckInstanceHealthOutput struct {
 //   - input: 列出实例输入参数（无参数）
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - ListInstancesOutput: 实例列表
 //   - error: 操作失败时返回错误
-func (c *MCPController) handleListInstances(_ context.Context, _ *mcp.CallToolRequest, input ListInstancesInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleListInstances(_ context.Context, _ *mcpsdk.CallToolRequest, input ListInstancesInput) (
+	*mcpsdk.CallToolResult,
 	ListInstancesOutput,
 	error,
 ) {
@@ -182,11 +187,11 @@ func (c *MCPController) handleListInstances(_ context.Context, _ *mcp.CallToolRe
 //   - input: 获取实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - GetInstanceOutput: 实例详细信息
 //   - error: 实例不存在时返回错误
-func (c *MCPController) handleGetInstance(_ context.Context, _ *mcp.CallToolRequest, input GetInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input GetInstanceInput) (
+	*mcpsdk.CallToolResult,
 	GetInstanceOutput,
 	error,
 ) {
@@ -210,11 +215,11 @@ func (c *MCPController) handleGetInstance(_ context.Context, _ *mcp.CallToolRequ
 //   - input: 创建实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - CreateInstanceOutput: 创建的实例信息
 //   - error: 创建失败时返回错误
-func (c *MCPController) handleCreateInstance(_ context.Context, _ *mcp.CallToolRequest, input CreateInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleCreateInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input CreateInstanceInput) (
+	*mcpsdk.CallToolResult,
 	CreateInstanceOutput,
 	error,
 ) {
@@ -269,11 +274,11 @@ func (c *MCPController) handleCreateInstance(_ context.Context, _ *mcp.CallToolR
 //   - input: 更新实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - UpdateInstanceOutput: 更新后的实例信息
 //   - error: 更新失败时返回错误
-func (c *MCPController) handleUpdateInstance(_ context.Context, _ *mcp.CallToolRequest, input UpdateInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleUpdateInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input UpdateInstanceInput) (
+	*mcpsdk.CallToolResult,
 	UpdateInstanceOutput,
 	error,
 ) {
@@ -341,11 +346,11 @@ func (c *MCPController) handleUpdateInstance(_ context.Context, _ *mcp.CallToolR
 //   - input: 删除实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - DeleteInstanceOutput: 删除确认
 //   - error: 删除失败时返回错误
-func (c *MCPController) handleDeleteInstance(_ context.Context, _ *mcp.CallToolRequest, input DeleteInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleDeleteInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input DeleteInstanceInput) (
+	*mcpsdk.CallToolResult,
 	DeleteInstanceOutput,
 	error,
 ) {
@@ -385,11 +390,11 @@ func (c *MCPController) handleDeleteInstance(_ context.Context, _ *mcp.CallToolR
 //   - input: 启动实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - InstanceStatusOutput: 启动状态
 //   - error: 启动失败时返回错误
-func (c *MCPController) handleStartInstance(_ context.Context, _ *mcp.CallToolRequest, input StartInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleStartInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input StartInstanceInput) (
+	*mcpsdk.CallToolResult,
 	InstanceStatusOutput,
 	error,
 ) {
@@ -414,11 +419,11 @@ func (c *MCPController) handleStartInstance(_ context.Context, _ *mcp.CallToolRe
 //   - input: 停止实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - InstanceStatusOutput: 停止状态
 //   - error: 停止失败时返回错误
-func (c *MCPController) handleStopInstance(_ context.Context, _ *mcp.CallToolRequest, input StopInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleStopInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input StopInstanceInput) (
+	*mcpsdk.CallToolResult,
 	InstanceStatusOutput,
 	error,
 ) {
@@ -443,11 +448,11 @@ func (c *MCPController) handleStopInstance(_ context.Context, _ *mcp.CallToolReq
 //   - input: 重启实例输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - InstanceStatusOutput: 重启状态
 //   - error: 重启失败时返回错误
-func (c *MCPController) handleRestartInstance(_ context.Context, _ *mcp.CallToolRequest, input RestartInstanceInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleRestartInstance(_ context.Context, _ *mcpsdk.CallToolRequest, input RestartInstanceInput) (
+	*mcpsdk.CallToolResult,
 	InstanceStatusOutput,
 	error,
 ) {
@@ -473,11 +478,11 @@ func (c *MCPController) handleRestartInstance(_ context.Context, _ *mcp.CallTool
 //   - input: 获取实例统计输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - GetInstanceStatsOutput: 统计信息
 //   - error: 获取失败时返回错误
-func (c *MCPController) handleGetInstanceStats(_ context.Context, _ *mcp.CallToolRequest, input GetInstanceStatsInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetInstanceStats(_ context.Context, _ *mcpsdk.CallToolRequest, input GetInstanceStatsInput) (
+	*mcpsdk.CallToolResult,
 	GetInstanceStatsOutput,
 	error,
 ) {
@@ -498,11 +503,11 @@ func (c *MCPController) handleGetInstanceStats(_ context.Context, _ *mcp.CallToo
 //   - input: 检查实例健康输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - CheckInstanceHealthOutput: 健康检查结果
 //   - error: 检查失败时返回错误
-func (c *MCPController) handleCheckInstanceHealth(_ context.Context, _ *mcp.CallToolRequest, input CheckInstanceHealthInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleCheckInstanceHealth(_ context.Context, _ *mcpsdk.CallToolRequest, input CheckInstanceHealthInput) (
+	*mcpsdk.CallToolResult,
 	CheckInstanceHealthOutput,
 	error,
 ) {
@@ -549,7 +554,7 @@ func (c *MCPController) handleCheckInstanceHealth(_ context.Context, _ *mcp.Call
 //   - 在 NewMCPController 中调用此函数
 func (c *MCPController) registerInstanceTools() {
 	// 1. list_instances - 获取所有代理实例的列表信息
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "list_instances",
 		Description: "获取所有代理实例的列表信息",
 		InputSchema: map[string]any{
@@ -588,7 +593,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleListInstances)
 
 	// 2. get_instance - 获取指定实例的详细信息
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_instance",
 		Description: "获取指定实例的详细信息",
 		InputSchema: map[string]any{
@@ -621,7 +626,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleGetInstance)
 
 	// 3. create_instance - 创建新的代理实例
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "create_instance",
 		Description: "创建新的代理实例",
 		InputSchema: map[string]any{
@@ -650,7 +655,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleCreateInstance)
 
 	// 4. update_instance - 更新实例配置，支持热重载
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "update_instance",
 		Description: "更新实例配置，支持热重载",
 		InputSchema: map[string]any{
@@ -687,7 +692,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleUpdateInstance)
 
 	// 5. delete_instance - 删除指定实例
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "delete_instance",
 		Description: "删除指定实例",
 		InputSchema: map[string]any{
@@ -712,7 +717,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleDeleteInstance)
 
 	// 6. start_instance - 启动指定实例
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "start_instance",
 		Description: "启动指定实例",
 		InputSchema: map[string]any{
@@ -737,7 +742,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleStartInstance)
 
 	// 7. stop_instance - 停止指定实例
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "stop_instance",
 		Description: "停止指定实例",
 		InputSchema: map[string]any{
@@ -762,7 +767,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleStopInstance)
 
 	// 8. restart_instance - 重启指定实例
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "restart_instance",
 		Description: "重启指定实例",
 		InputSchema: map[string]any{
@@ -787,7 +792,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleRestartInstance)
 
 	// 9. get_instance_stats - 获取实例运行统计信息
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_instance_stats",
 		Description: "获取实例运行统计信息",
 		InputSchema: map[string]any{
@@ -812,7 +817,7 @@ func (c *MCPController) registerInstanceTools() {
 	}, c.handleGetInstanceStats)
 
 	// 10. check_instance_health - 检查实例健康状态
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "check_instance_health",
 		Description: "检查实例健康状态",
 		InputSchema: map[string]any{
@@ -864,5 +869,132 @@ func (c *MCPController) registerInstanceTools() {
 		},
 	}, c.handleCheckInstanceHealth)
 
-	c.log.Info("已注册 10 个实例管理 MCP 工具")
+	c.log.Info("已已注册 10 个实例管理 MCP 工具")
+}
+
+// checkPortConflict 检查实例端口是否与已启用的其他实例冲突
+//
+// 参数:
+//   - listen: 监听地址，格式为 ":port" 或 "ip:port"
+//   - enabled: 实例是否启用
+//   - excludeName: 需要排除的实例名称（编辑时使用），创建时传空字符串
+//   - instances: 所有实例配置列表
+//
+// 返回:
+//   - error: 端口冲突时返回错误信息，包含冲突的实例名称；无冲突返回 nil
+func checkPortConflict(listen string, enabled bool, excludeName string, instances []config.InstanceConfig) error {
+	if !enabled {
+		return nil
+	}
+
+	targetPort, err := parseListenPort(listen)
+	if err != nil {
+		return fmt.Errorf("无效的监听地址: %w", err)
+	}
+
+	for _, inst := range instances {
+		if inst.Name == excludeName {
+			continue
+		}
+		if !inst.Enabled {
+			continue
+		}
+
+		instPort, err := parseListenPort(inst.Listen)
+		if err != nil {
+			continue
+		}
+
+		if instPort == targetPort {
+			return fmt.Errorf("端口 %d 已被实例 '%s' 使用", targetPort, inst.Name)
+		}
+	}
+
+	return nil
+}
+
+// parseListenPort 解析监听地址，提取端口号
+//
+// 参数:
+//   - listen: 监听地址，格式为 ":port" 或 "ip:port"，例如 ":443" 或 "127.0.0.1:8443"
+//
+// 返回:
+//   - int: 端口号
+//   - error: 解析失败时返回错误
+func parseListenPort(listen string) (int, error) {
+	if listen == "" {
+		return 0, fmt.Errorf("监听地址不能为空")
+	}
+
+	_, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return 0, fmt.Errorf("解析监听地址失败: %w", err)
+	}
+
+	if strings.HasPrefix(port, ":") {
+		port = port[1:]
+	}
+
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return 0, fmt.Errorf("无效的端口号: %w", err)
+	}
+
+	if portNum <= 0 || portNum > 65535 {
+		return 0, fmt.Errorf("端口号超出有效范围 (1-65535): %d", portNum)
+	}
+
+	return portNum, nil
+}
+
+// validateInstanceFileKeystores 验证实例配置中 file 类型 keystore 的文件是否存在
+//
+// 参数:
+//   - workDir: 工作目录，用于解析相对路径
+//   - cfg: 实例配置
+//
+// 返回:
+//   - error: 如果文件不存在则返回错误信息，否则返回 nil
+func validateInstanceFileKeystores(workDir string, cfg *config.InstanceConfig) error {
+	// 验证 TLCP keystore
+	if cfg.TLCP.Keystore != nil && cfg.TLCP.Keystore.Type == "file" {
+		for _, filePath := range cfg.TLCP.Keystore.Params {
+			if filePath == "" {
+				continue
+			}
+
+			var fullPath string
+			if !filepath.IsAbs(filePath) {
+				fullPath = filepath.Join(workDir, filePath)
+			} else {
+				fullPath = filePath
+			}
+
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				return fmt.Errorf("TLCP keystore 文件 %s 不存在", filePath)
+			}
+		}
+	}
+
+	// 验证 TLS keystore
+	if cfg.TLS.Keystore != nil && cfg.TLS.Keystore.Type == "file" {
+		for _, filePath := range cfg.TLS.Keystore.Params {
+			if filePath == "" {
+				continue
+			}
+
+			var fullPath string
+			if !filepath.IsAbs(filePath) {
+				fullPath = filepath.Join(workDir, filePath)
+			} else {
+				fullPath = filePath
+			}
+
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				return fmt.Errorf("TLS keystore 文件 %s 不存在", filePath)
+			}
+		}
+	}
+
+	return nil
 }

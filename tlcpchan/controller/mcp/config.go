@@ -1,11 +1,11 @@
-package controller
+package mcp
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/Trisia/tlcpchan/config"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // GetConfigInput 获取配置输入参数（无参数）
@@ -49,15 +49,15 @@ type ReloadConfigOutput struct {
 //   - input: 获取配置输入参数（无参数）
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - GetConfigOutput: 获取配置输出参数，包含当前配置
 //   - error: 获取失败时返回错误
 //
 // 注意:
 //   - 此工具不需要任何参数
 //   - 直接返回全局配置对象
-func (c *MCPController) handleGetConfig(_ context.Context, _ *mcp.CallToolRequest, input GetConfigInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetConfig(_ context.Context, _ *mcpsdk.CallToolRequest, input GetConfigInput) (
+	*mcpsdk.CallToolResult,
 	GetConfigOutput,
 	error,
 ) {
@@ -72,7 +72,7 @@ func (c *MCPController) handleGetConfig(_ context.Context, _ *mcp.CallToolReques
 //   - input: 更新配置输入参数，包含新配置
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - UpdateConfigOutput: 更新配置输出参数，包含更新后的配置
 //   - error: 更新失败时返回错误
 //
@@ -80,8 +80,8 @@ func (c *MCPController) handleGetConfig(_ context.Context, _ *mcp.CallToolReques
 //   - 先验证新配置的有效性
 //   - 验证通过后保存配置到文件
 //   - 最后更新全局配置对象
-func (c *MCPController) handleUpdateConfig(_ context.Context, _ *mcp.CallToolRequest, input UpdateConfigInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleUpdateConfig(_ context.Context, _ *mcpsdk.CallToolRequest, input UpdateConfigInput) (
+	*mcpsdk.CallToolResult,
 	UpdateConfigOutput,
 	error,
 ) {
@@ -110,15 +110,15 @@ func (c *MCPController) handleUpdateConfig(_ context.Context, _ *mcp.CallToolReq
 //   - input: 重新加载配置输入参数，包含可选的配置文件路径
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - ReloadConfigOutput: 重新加载配置输出参数，包含重新加载后的配置
 //   - error: 重新加载失败时返回错误
 //
 // 注意:
 //   - 如果未提供 ConfigPath，使用当前配置文件路径
 //   - 重新加载会从文件读取并初始化全局配置
-func (c *MCPController) handleReloadConfig(_ context.Context, _ *mcp.CallToolRequest, input ReloadConfigInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleReloadConfig(_ context.Context, _ *mcpsdk.CallToolRequest, input ReloadConfigInput) (
+	*mcpsdk.CallToolResult,
 	ReloadConfigOutput,
 	error,
 ) {
@@ -146,7 +146,7 @@ func (c *MCPController) handleReloadConfig(_ context.Context, _ *mcp.CallToolReq
 //   - 注册后客户端可以通过 MCP 协议调用这些工具
 func (c *MCPController) registerConfigTools() {
 	// 注册 get_config 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_config",
 		Description: "获取当前系统配置",
 		InputSchema: map[string]any{
@@ -165,7 +165,7 @@ func (c *MCPController) registerConfigTools() {
 	}, c.handleGetConfig)
 
 	// 注册 update_config 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "update_config",
 		Description: "更新系统配置",
 		InputSchema: map[string]any{
@@ -190,7 +190,7 @@ func (c *MCPController) registerConfigTools() {
 	}, c.handleUpdateConfig)
 
 	// 注册 reload_config 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "reload_config",
 		Description: "重新加载配置文件",
 		InputSchema: map[string]any{

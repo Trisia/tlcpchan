@@ -1,4 +1,4 @@
-package controller
+package mcp
 
 import (
 	"context"
@@ -7,8 +7,10 @@ import (
 
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/version"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+var startTime = time.Now()
 
 // GetSystemInfoInput 获取系统信息输入（无参数）
 type GetSystemInfoInput struct{}
@@ -50,7 +52,7 @@ type GetSystemStatsOutput struct {
 //   - input: 获取系统信息输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - GetSystemInfoOutput: 获取系统信息输出参数
 //   - error: 处理失败时返回错误
 //
@@ -59,8 +61,8 @@ type GetSystemStatsOutput struct {
 //   - Go 版本从 runtime.Version() 获取
 //   - 操作系统和架构从 runtime 包获取
 //   - 运行时长从全局启动时间计算
-func (c *MCPController) handleGetSystemInfo(_ context.Context, _ *mcp.CallToolRequest, input GetSystemInfoInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetSystemInfo(_ context.Context, _ *mcpsdk.CallToolRequest, input GetSystemInfoInput) (
+	*mcpsdk.CallToolResult,
 	GetSystemInfoOutput,
 	error,
 ) {
@@ -83,7 +85,7 @@ func (c *MCPController) handleGetSystemInfo(_ context.Context, _ *mcp.CallToolRe
 //   - input: 获取系统统计输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - GetSystemStatsOutput: 获取系统统计输出参数
 //   - error: 处理失败时返回错误
 //
@@ -92,8 +94,8 @@ func (c *MCPController) handleGetSystemInfo(_ context.Context, _ *mcp.CallToolRe
 //   - 内存使用量从 runtime 获取已分配内存
 //   - 总连接数为所有实例的累计连接数之和
 //   - 活跃实例数为运行中的实例数量
-func (c *MCPController) handleGetSystemStats(_ context.Context, _ *mcp.CallToolRequest, input GetSystemStatsInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetSystemStats(_ context.Context, _ *mcpsdk.CallToolRequest, input GetSystemStatsInput) (
+	*mcpsdk.CallToolResult,
 	GetSystemStatsOutput,
 	error,
 ) {
@@ -138,7 +140,7 @@ func (c *MCPController) handleGetSystemStats(_ context.Context, _ *mcp.CallToolR
 //   - 注册 get_system_info 工具，获取系统基本信息
 //   - 注册 get_system_stats 工具，获取系统统计信息
 func (c *MCPController) registerSystemTools() {
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_system_info",
 		Description: "获取系统信息（版本、Go版本、操作系统、架构、运行时长）",
 		InputSchema: map[string]any{
@@ -172,7 +174,7 @@ func (c *MCPController) registerSystemTools() {
 		},
 	}, c.handleGetSystemInfo)
 
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_system_stats",
 		Description: "获取系统统计信息（CPU使用率、内存使用、总连接数、活跃实例数）",
 		InputSchema: map[string]any{

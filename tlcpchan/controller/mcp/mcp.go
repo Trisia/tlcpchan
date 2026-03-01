@@ -1,4 +1,4 @@
-package controller
+package mcp
 
 import (
 	"context"
@@ -11,8 +11,24 @@ import (
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// ServerOptions MCP 控制器配置选项
+type ServerOptions struct {
+	// Config 系统配置
+	Config *config.Config
+	// ConfigPath 配置文件路径
+	ConfigPath string
+	// KeyStoreManager 密钥存储管理器
+	KeyStoreManager *security.KeyStoreManager
+	// RootCertManager 根证书管理器
+	RootCertManager *security.RootCertManager
+	// InstanceManager 实例管理器
+	InstanceManager *instance.Manager
+	// StaticDir 静态文件目录
+	StaticDir string
+}
 
 // MCPController MCP 控制器
 type MCPController struct {
@@ -21,8 +37,8 @@ type MCPController struct {
 	keyStoreMgr *security.KeyStoreManager
 	rootCertMgr *security.RootCertManager
 	configPath  string
-	server      *mcp.Server
-	sseHandler  *mcp.SSEHandler
+	server      *mcpsdk.Server
+	sseHandler  *mcpsdk.SSEHandler
 	log         *logger.Logger
 	mu          sync.RWMutex
 	started     bool
@@ -68,8 +84,8 @@ func NewMCPController(opts *ServerOptions) (*MCPController, error) {
 	}
 
 	// 创建 MCP SDK 服务器
-	server := mcp.NewServer(
-		&mcp.Implementation{
+	server := mcpsdk.NewServer(
+		&mcpsdk.Implementation{
 			Name:    serverName,
 			Version: serverVersion,
 		},
@@ -79,7 +95,7 @@ func NewMCPController(opts *ServerOptions) (*MCPController, error) {
 	c.server = server
 
 	// 创建 SSE Handler
-	c.sseHandler = mcp.NewSSEHandler(func(r *http.Request) *mcp.Server {
+	c.sseHandler = mcpsdk.NewSSEHandler(func(r *http.Request) *mcpsdk.Server {
 		return server
 	}, nil)
 

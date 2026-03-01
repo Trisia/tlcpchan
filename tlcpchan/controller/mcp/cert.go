@@ -1,4 +1,4 @@
-package controller
+package mcp
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Trisia/tlcpchan/security/rootcert"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ListRootCertsInput 列出根证书输入（无参数）
@@ -69,17 +69,17 @@ type RemoveRootCertOutput struct {
 // 注意:
 //   - 注册 3 个根证书管理工具
 func (c *MCPController) registerRootCertTools() {
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "list_root_certs",
 		Description: "获取系统中的所有根证书列表",
 	}, c.handleListRootCerts)
 
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "add_root_cert",
 		Description: "添加新的根证书到系统",
 	}, c.handleAddRootCert)
 
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "remove_root_cert",
 		Description: "从系统中删除指定的根证书",
 	}, c.handleRemoveRootCert)
@@ -100,8 +100,8 @@ func (c *MCPController) registerRootCertTools() {
 // 注意:
 //   - 调用 RootCertManager.List() 获取所有证书
 //   - 将证书信息转换为输出格式
-func (c *MCPController) handleListRootCerts(ctx context.Context, req *mcp.CallToolRequest, input ListRootCertsInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleListRootCerts(ctx context.Context, req *mcpsdk.CallToolRequest, input ListRootCertsInput) (
+	*mcpsdk.CallToolResult,
 	ListRootCertsOutput,
 	error,
 ) {
@@ -133,8 +133,8 @@ func (c *MCPController) handleListRootCerts(ctx context.Context, req *mcp.CallTo
 //   - 验证文件名和内容不为空
 //   - 调用 RootCertManager.Add() 添加证书
 //   - 获取添加的证书信息返回
-func (c *MCPController) handleAddRootCert(ctx context.Context, req *mcp.CallToolRequest, input AddRootCertInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleAddRootCert(ctx context.Context, req *mcpsdk.CallToolRequest, input AddRootCertInput) (
+	*mcpsdk.CallToolResult,
 	AddRootCertOutput,
 	error,
 ) {
@@ -194,8 +194,8 @@ func (c *MCPController) handleAddRootCert(ctx context.Context, req *mcp.CallTool
 // 注意:
 //   - 验证文件名不为空
 //   - 调用 RootCertManager.Delete() 删除证书
-func (c *MCPController) handleRemoveRootCert(ctx context.Context, req *mcp.CallToolRequest, input RemoveRootCertInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleRemoveRootCert(ctx context.Context, req *mcpsdk.CallToolRequest, input RemoveRootCertInput) (
+	*mcpsdk.CallToolResult,
 	RemoveRootCertOutput,
 	error,
 ) {

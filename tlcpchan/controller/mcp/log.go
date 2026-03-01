@@ -1,4 +1,4 @@
-package controller
+package mcp
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // LogEntry 日志条目
@@ -45,7 +45,7 @@ type GetSystemLogsOutput struct {
 //   - input: 获取系统日志输入参数
 //
 // 返回:
-//   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+//   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
 //   - GetSystemLogsOutput: 获取系统日志输出参数，包含日志条目列表
 //   - error: 处理失败时返回时返回错误
 //
@@ -53,15 +53,15 @@ type GetSystemLogsOutput struct {
 //   - 从配置中读取日志文件路径
 //   - 支持按行数和日志级别过滤
 //   - 解析日志行并结构化返回
-func (c *MCPController) handleGetSystemLogs(_ context.Context, _ *mcp.CallToolRequest, input GetSystemLogsInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetSystemLogs(_ context.Context, _ *mcpsdk.CallToolRequest, input GetSystemLogsInput) (
+	*mcpsdk.CallToolResult,
 	GetSystemLogsOutput,
 	error,
 ) {
 	if c.config.Server.Log == nil || c.config.Server.Log.File == "" {
-		result := &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{
+		result := &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{
+				&mcpsdk.TextContent{
 					Text: "日志文件未配置",
 				},
 			},
@@ -97,9 +97,9 @@ func (c *MCPController) handleGetSystemLogs(_ context.Context, _ *mcp.CallToolRe
 
 	linesText, err := tailLines(logFile, lines, levelFilter)
 	if err != nil {
-		result := &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{
+		result := &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{
+				&mcpsdk.TextContent{
 					Text: fmt.Sprintf("读取日志文件失败: %v", err),
 				},
 			},
@@ -220,7 +220,7 @@ func parseLogLine(line string) LogEntry {
 //   - 注册 get_system_logs 工具
 //   - 工具由 MCPController 的 handleGetSystemLogs 处理
 func (c *MCPController) registerLogTools() {
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_system_logs",
 		Description: "获取系统日志（历史日志文件）",
 		InputSchema: map[string]any{

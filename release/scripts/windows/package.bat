@@ -142,43 +142,45 @@ if exist "%SOURCE_DIR%\rootcerts" (
 )
 
 REM 使用 heat 生成 ui 目录结构的 XML 片段
-set "UI_WXS_ARG="
 if %HAS_UI% equ 1 (
-    echo [INFO] 生成 UI 目录的 WiX 片段...
-    "%HEAT%" dir "%SOURCE_DIR%\ui" -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -out "%BUILD_DIR%\ui.wxs"
+    echo [INFO] 生成 UI 目录的目录树和 WiX 片段...
+    tree /F "%SOURCE_DIR%\ui"
+    "%HEAT%" dir "%SOURCE_DIR%\ui" -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg UiComponents -var var.SourceDir -srd -out "%BUILD_DIR%\ui.wxs"
+    type "%BUILD_DIR%\ui.wxs"
     
     if %ERRORLEVEL% neq 0 (
         echo [ERROR] heat.exe 生成 ui.wxs 失败！
         exit /b 1
     )
-    set "UI_WXS_ARG=%BUILD_DIR%\ui.wxs %BUILD_DIR%\ui.wixobj"
 )
 
 REM 使用 heat 生成 rootcerts 目录结构的 XML 片段
-set "ROOTCERTS_WXS_ARG="
 if %HAS_ROOTCERTS% equ 1 (
-    echo [INFO] 生成信任证书目录的 WiX 片段...
-    "%HEAT%" dir "%SOURCE_DIR%\rootcerts" -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg RootCertComponents -out "%BUILD_DIR%\rootcerts.wxs"
+    echo [INFO] 生成信任证书目录的目录树和 WiX 片段...
+    tree /F "%SOURCE_DIR%\rootcerts"
+    "%HEAT%" dir "%SOURCE_DIR%\rootcerts" -gg -scom -sreg -sfrag -sw5150 -dr INSTALLFOLDER -cg RootCertComponents -var var.SourceDir -srd -out "%BUILD_DIR%\rootcerts.wxs"
+    type "%BUILD_DIR%\rootcerts.wxs"
     
     if %ERRORLEVEL% neq 0 (
         echo [ERROR] heat.exe 生成 rootcerts.wxs 失败！
         exit /b 1
     )
-    set "ROOTCERTS_WXS_ARG=%BUILD_DIR%\rootcerts.wxs %BUILD_DIR%\rootcerts.wixobj"
 )
 
 REM 编译 WiX 源文件
 echo [INFO] 编译 WiX 源文件...
-set "CANDLE_CMD=%CANDLE% -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%""
 
 if %HAS_UI% equ 1 (
-    set "CANDLE_CMD=%CANDLE_CMD% "%BUILD_DIR%\ui.wxs" -dSourceDir=%SOURCE_DIR%"
+    if %HAS_ROOTCERTS% equ 1 (
+        "%CANDLE%" -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%" "%BUILD_DIR%\ui.wxs" "%BUILD_DIR%\rootcerts.wxs"
+    ) else (
+        "%CANDLE%" -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%" "%BUILD_DIR%\ui.wxs"
+    )
+) else if %HAS_ROOTCERTS% equ 1 (
+    "%CANDLE%" -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%" "%BUILD_DIR%\rootcerts.wxs"
+) else (
+    "%CANDLE%" -nologo -dVersion=%VERSION% -dSourceDir=%SOURCE_DIR% -out "%BUILD_DIR%\\" "%WXS_FILE%"
 )
-if %HAS_ROOTCERTS% equ 1 (
-    set "CANDLE_CMD=%CANDLE_CMD% "%BUILD_DIR%\rootcerts.wxs" -dSourceDir=%SOURCE_DIR%"
-)
-
-%CANDLE_CMD%
 
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] candle.exe 编译失败！
@@ -187,17 +189,18 @@ if %ERRORLEVEL% neq 0 (
 
 REM 链接生成 MSI
 echo [INFO] 生成 MSI 安装包...
-set "LIGHT_CMD=%LIGHT% -sw1076 -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj""
 
 if %HAS_UI% equ 1 (
-    set "LIGHT_CMD=%LIGHT_CMD% "%BUILD_DIR%\ui.wixobj""
+    if %HAS_ROOTCERTS% equ 1 (
+        "%LIGHT%" -sw1076 -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj" "%BUILD_DIR%\ui.wixobj" "%BUILD_DIR%\rootcerts.wixobj" -ext WixUIExtension
+    ) else (
+        "%LIGHT%" -sw1076 -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj" "%BUILD_DIR%\ui.wixobj" -ext WixUIExtension
+    )
+) else if %HAS_ROOTCERTS% equ 1 (
+    "%LIGHT%" -sw1076 -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj" "%BUILD_DIR%\rootcerts.wixobj" -ext WixUIExtension
+) else (
+    "%LIGHT%" -sw1076 -nologo -out "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.msi" "%BUILD_DIR%\tlcpchan.wixobj" -ext WixUIExtension
 )
-if %HAS_ROOTCERTS% equ 1 (
-    set "LIGHT_CMD=%LIGHT_CMD% "%BUILD_DIR%\rootcerts.wixobj""
-)
-
-set "LIGHT_CMD=%LIGHT_CMD% -ext WixUIExtension"
-%LIGHT_CMD%
 
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] light.exe 链接失败！

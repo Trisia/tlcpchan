@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Trisia/tlcpchan/config"
+	"github.com/Trisia/tlcpchan/controller/mcp"
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security"
@@ -24,7 +25,7 @@ type Server struct {
 	rootCertMgr *security.RootCertManager
 	staticDir   string
 	fileServer  http.Handler
-	mcpCtrl     *MCPController
+	mcpCtrl     *mcp.MCPController
 }
 
 // ServerOptions API服务器配置选项
@@ -83,10 +84,18 @@ func NewServer(opts ServerOptions) *Server {
 	logsCtrl.RegisterRoutes(router)
 
 	// 创建 MCP 控制器
-	var mcpCtrl *MCPController
+	var mcpCtrl *mcp.MCPController
 	if opts.Config.MCP.Enabled {
 		var mcpErr error
-		mcpCtrl, mcpErr = NewMCPController(&opts)
+		mcpOpts := &mcp.ServerOptions{
+			Config:          opts.Config,
+			ConfigPath:      opts.ConfigPath,
+			KeyStoreManager: opts.KeyStoreManager,
+			RootCertManager: opts.RootCertManager,
+			InstanceManager: instMgr,
+			StaticDir:       opts.StaticDir,
+		}
+		mcpCtrl, mcpErr = mcp.NewMCPController(mcpOpts)
 		if mcpErr != nil {
 			log.Error("创建 MCP 控制器失败: %v", mcpErr)
 		} else {

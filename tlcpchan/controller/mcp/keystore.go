@@ -1,4 +1,4 @@
-package controller
+package mcp
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/security/keystore"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ListKeystoresInput 列出密钥存储输入（无参数)
@@ -86,7 +86,7 @@ type DeleteKeystoreOutput struct {
  *   - input: 列出密钥存储输入参数（无参数）
  *
  * 返回:
- *   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+ *   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
  *   - ListKeystoresOutput: 列出密钥存储输出参数，包含密钥存储列表
  *   - error: 列出失败时返回错误
  *
@@ -94,8 +94,8 @@ type DeleteKeystoreOutput struct {
  *   - 此工具不需要任何参数
  *   - 返回系统中所有配置的密钥库列表
  */
-func (c *MCPController) handleListKeystores(_ context.Context, _ *mcp.CallToolRequest, input ListKeystoresInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleListKeystores(_ context.Context, _ *mcpsdk.CallToolRequest, input ListKeystoresInput) (
+	*mcpsdk.CallToolResult,
 	ListKeystoresOutput,
 	error,
 ) {
@@ -112,7 +112,7 @@ func (c *MCPController) handleListKeystores(_ context.Context, _ *mcp.CallToolRe
  *   - input: 获取密钥存储详情输入参数，包含密钥存储名称
  *
  * 返回:
- *   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+ *   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
  *   - GetKeystoreOutput: 获取密钥存储详情输出参数，包含密钥存储详细信息
  *   - error: 获取失败时返回错误
  *
@@ -120,8 +120,8 @@ func (c *MCPController) handleListKeystores(_ context.Context, _ *mcp.CallToolRe
  *   - 必须提供密钥存储名称
  *   - 如果密钥存储不存在，返回错误
  */
-func (c *MCPController) handleGetKeystore(_ context.Context, _ *mcp.CallToolRequest, input GetKeystoreInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleGetKeystore(_ context.Context, _ *mcpsdk.CallToolRequest, input GetKeystoreInput) (
+	*mcpsdk.CallToolResult,
 	GetKeystoreOutput,
 	error,
 ) {
@@ -146,7 +146,7 @@ func (c *MCPController) handleGetKeystore(_ context.Context, _ *mcp.CallToolRequ
  *   - input: 创建密钥存储输入参数，包含名称、加载器类型、参数和受保护标志
  *
  * 返回:
- *   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+ *   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
  *   - CreateKeystoreOutput: 创建密钥存储输出参数，包含创建的密钥存储信息
  *   - error: 创建失败时返回错误
  *
@@ -155,8 +155,8 @@ func (c *MCPController) handleGetKeystore(_ context.Context, _ *mcp.CallToolRequ
  *   - 如果是 file 类型，会验证文件是否存在
  *   - 创建成功后会自动更新配置文件
  */
-func (c *MCPController) handleCreateKeystore(_ context.Context, _ *mcp.CallToolRequest, input CreateKeystoreInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleCreateKeystore(_ context.Context, _ *mcpsdk.CallToolRequest, input CreateKeystoreInput) (
+	*mcpsdk.CallToolResult,
 	CreateKeystoreOutput,
 	error,
 ) {
@@ -209,7 +209,7 @@ func (c *MCPController) handleCreateKeystore(_ context.Context, _ *mcp.CallToolR
  *   - input: 更新密钥存储输入参数，包含名称和要更新的参数
  *
  * 返回:
- *   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+ *   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
  *   - UpdateKeystoreOutput: 更新密钥存储输出参数，包含更新后的密钥存储信息
  *   - error: 更新失败时返回错误
  *
@@ -218,8 +218,8 @@ func (c *MCPController) handleCreateKeystore(_ context.Context, _ *mcp.CallToolR
  *   - 受保护的 keystore 不允许修改
  *   - 更新成功后会自动保存配置文件
  */
-func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcp.CallToolRequest, input UpdateKeystoreInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcpsdk.CallToolRequest, input UpdateKeystoreInput) (
+	*mcpsdk.CallToolResult,
 	UpdateKeystoreOutput,
 	error,
 ) {
@@ -293,7 +293,7 @@ func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcp.CallToolR
  *   - input: 删除密钥存储输入参数，包含密钥存储名称
  *
  * 返回:
- *   - *mcp.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
+ *   - *mcpsdk.CallToolResult: MCP 工具调用结果（可以为 nil，SDK 自动处理）
  *   - DeleteKeystoreOutput: 删除密钥存储输出参数，包含删除成功标志
  *   - error: 删除失败时返回错误
  *
@@ -302,8 +302,8 @@ func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcp.CallToolR
  *   - 受保护的 keystore 不允许删除
  *   - 删除成功后会自动更新配置文件
  */
-func (c *MCPController) handleDeleteKeystore(_ context.Context, _ *mcp.CallToolRequest, input DeleteKeystoreInput) (
-	*mcp.CallToolResult,
+func (c *MCPController) handleDeleteKeystore(_ context.Context, _ *mcpsdk.CallToolRequest, input DeleteKeystoreInput) (
+	*mcpsdk.CallToolResult,
 	DeleteKeystoreOutput,
 	error,
 ) {
@@ -348,7 +348,7 @@ func (c *MCPController) handleDeleteKeystore(_ context.Context, _ *mcp.CallToolR
  */
 func (c *MCPController) registerKeystoreTools() {
 	// 注册 list_keystores 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "list_keystores",
 		Description: "获取所有密钥存储（keystore）的列表信息",
 		InputSchema: map[string]any{
@@ -400,7 +400,7 @@ func (c *MCPController) registerKeystoreTools() {
 	}, c.handleListKeystores)
 
 	// 注册 get_keystore 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "get_keystore",
 		Description: "获取指定名称的密钥存储（keystore）的详细信息",
 		InputSchema: map[string]any{
@@ -425,7 +425,7 @@ func (c *MCPController) registerKeystoreTools() {
 	}, c.handleGetKeystore)
 
 	// 注册 create_keystore 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "create_keystore",
 		Description: "创建新的密钥存储（keystore），创建成功后会自动更新配置文件",
 		InputSchema: map[string]any{
@@ -462,7 +462,7 @@ func (c *MCPController) registerKeystoreTools() {
 	}, c.handleCreateKeystore)
 
 	// 注册 update_keystore 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "update_keystore",
 		Description: "更新指定密钥存储（keystore）的参数（如证书和密钥路径），更新后自动保存配置",
 		InputSchema: map[string]any{
@@ -491,7 +491,7 @@ func (c *MCPController) registerKeystoreTools() {
 	}, c.handleUpdateKeystore)
 
 	// 注册 delete_keystore 工具
-	mcp.AddTool(c.server, &mcp.Tool{
+	mcpsdk.AddTool(c.server, &mcpsdk.Tool{
 		Name:        "delete_keystore",
 		Description: "删除指定的密钥存储（keystore），删除后会自动更新配置文件",
 		InputSchema: map[string]any{
