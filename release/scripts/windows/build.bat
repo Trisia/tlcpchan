@@ -115,16 +115,12 @@ if exist "%PROJECT_ROOT%\trustedcerts" (
 
 REM 注意：MSI 安装包将自动处理安装和卸载，无需额外的安装/卸载脚本
 
-REM 创建 zip 包
-where zip >nul 2>nul
-if %ERRORLEVEL% equ 0 (
-    echo [INFO] 创建 zip 包...
-    if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
-    cd "%BUILD_DIR%"
-    zip -r "%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.zip" "windows-amd64"
-    cd "%PROJECT_ROOT%"
-) else (
-    echo [WARN] zip 命令不可用，跳过 zip 打包
+REM 创建 zip 包（使用 PowerShell）
+echo [INFO] 创建 zip 包...
+if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
+powershell -Command "Compress-Archive -Path '%BUILD_DIR%\windows-amd64' -DestinationPath '%DIST_DIR%\tlcpchan_%VERSION%_windows_amd64.zip' -Force"
+if %ERRORLEVEL% neq 0 (
+    echo [WARN] zip 包创建失败，跳过
 )
 
 echo ========================================
