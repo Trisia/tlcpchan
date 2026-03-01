@@ -120,7 +120,7 @@ jobs:
         shell: cmd
         run: |
           cd release\scripts\windows
-          call package.bat
+          call package.ps1
 
       - name: 上传 MSI 包
         uses: actions/upload-artifact@v4

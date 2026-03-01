@@ -26,8 +26,8 @@ release/
 │   │   ├── com.trisia.tlcpchan.plist
 │   │   └── tlcpchan-wrapper
 │   └── windows/            # Windows打包配置
-│       ├── build.bat       # Windows构建脚本
-│       ├── package.bat     # Windows打包脚本
+│       ├── build.ps1       # Windows构建脚本
+│       ├── package.ps1     # Windows打包脚本
 │       └── tlcpchan.wxs    # WiX安装程序配置
 └── systemd/               # systemd服务文件
     └── tlcpchan.service   # systemd服务配置
@@ -58,7 +58,7 @@ bash release/scripts/linux/rpm/package.sh
 # macOS应用包
 bash release/scripts/macos/build.sh
 
-# Windows MSI需要在Windows环境运行 package.bat
+# Windows MSI需要在Windows环境运行 package.ps1
 ```
 
 ## 支持的平台和架构
@@ -192,14 +192,14 @@ dist/tlcpchan-<version>-macOS.zip
 ### Windows 包
 
 ```batch
-REM 需要在 Windows 环境下执行
+# 需要在 Windows 环境下执行
 cd release\scripts\windows
 
-REM 构建
-build.bat
+# 构建
+build.ps1
 
-REM 打包（需要 WiX Toolset）
-package.bat
+# 打包（需要 WiX Toolset）
+package.ps1
 ```
 
 ## 发布包内容

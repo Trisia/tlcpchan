@@ -74,7 +74,7 @@ release() {
     fi
     
     if [ -d "$PROJECT_ROOT/build/windows-amd64" ]; then
-        log_warn "Windows MSI 包需要在 Windows 环境下使用 package.bat 生成"
+        log_warn "Windows MSI 包需要在 Windows 环境下使用 package.ps1 生成"
     fi
     
     log_info "========================================"
