@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # TLCP 核心服务依赖
+  - package-ecosystem: "gomod"
+    directory: "/tlcpchan"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "gitee.com/Trisia/gotlcp"
+      - dependency-name: "github.com/emmansun/gmsm"
+    versioning-strategy: "increase"
+    groups:
+      tlcp-dependencies:
+        patterns:
+          - "gitee.com/Trisia/gotlcp"
+          - "github.com/emmansun/gmsm"
+
+  # TLCP CLI 依赖
+  - package-ecosystem: "gomod"
+    directory: "/tlcpchan-cli"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "gitee.com/Trisia/gotlcp"
+      - dependency-name: "github.com/emmansun/gmsm"
+    versioning-strategy: "increase"
+    groups:
+      tlcp-dependencies:
+        patterns:
+          - "gitee.com/Trisia/gotlcp"
+          - "github.com/emmansun/gmsm"

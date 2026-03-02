@@ -1,12 +1,25 @@
 # TLCP Channel
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TLCP](https://img.shields.io/badge/TLCP-1.1-green.svg)](https://github.com/Trisia/gotlcp)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Trisia/tlcpchan)](https://goreportcard.com/report/github.com/Trisia/tlcpchan)
+[![Documentation](https://pkg.go.dev/badge/github.com/Trisia/tlcpchan.svg)](https://pkg.go.dev/github.com/Trisia/tlcpchan)
+[![Release](https://img.shields.io/github/release/Trisia/tlcpchan/all.svg)](https://github.com/Trisia/tlcpchan/releases)
+[![Stargazers over time](https://starchart.cc/Trisia/tlcpchan.svg?variant=adaptive)](https://starchart.cc/Trisia/tlcpchan)
+[![Linux](https://img.shields.io/badge/Linux-FCC634?style=flat&logo=linux&logoColor=black)]()
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat&logo=windows&logoColor=white)]()
+[![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)]()
+[![x86_64](https://img.shields.io/badge/x86__64-blue.svg)]()
+[![ARM64](https://img.shields.io/badge/ARM64-green.svg)]()
+[![LoongArch64](https://img.shields.io/badge/LoongArch64-orange.svg)]()
+[![MCP AI Agent](https://img.shields.io/badge/MCP%20AI%20Agent-Supported-purple.svg)](docs/mcp-usage-guide.md)
 
 ## 介绍
 
 TLCP Channel 传输通道国密改造，无需修改现有应用。一款功能强大的 TLCP/TLS 协议代理工具，支持双协议在同一个端口并行工作，基于国密算法实现安全通信。
+
+> ⚠️ **重要提示**：使用本项目前请先阅读 [免责声明](DISCLAIMER.md)
 
 ![Web 管理界面](docs/img/README-dashboard.png)
 
@@ -114,6 +127,7 @@ TLCP（Transport Layer Cryptography Protocol）是中国国家密码管理局制
 
 ## 相关资源
 
+- **免责声明**: [免责声明](DISCLAIMER.md)
 - **设计文档**: [详细设计文档](docs/design.md)
 - **UI 用户手册**: [Web 管理界面使用指南](tlcpchan-ui/README.md)
 - **CLI 用户手册**: [CLI 管理使用指南](tlcpchan-cli/README.md)
