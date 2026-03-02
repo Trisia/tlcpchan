@@ -1,5 +1,9 @@
 # TLCP Channel
 
+<div align="center">
+  <img src="docs/img/logo.svg" width="128" alt="TLCP Channel Logo">
+</div>
+
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TLCP](https://img.shields.io/badge/TLCP-1.1-green.svg)](https://github.com/Trisia/gotlcp)

@@ -3,6 +3,7 @@
     <el-drawer v-model="mobileMenuOpen" direction="ltr" size="240px" class="mobile-drawer" :with-header="false">
       <div class="mobile-drawer-content">
         <div class="logo">
+          <img src="/logo.svg" alt="TLCP Channel Logo" class="logo-image" />
           <h1>TLCP Channel</h1>
         </div>
         <el-menu :default-active="route.path" router background-color="#1d1e1f" text-color="#bfcbd9"
@@ -49,6 +50,7 @@
 
     <el-aside width="220px" class="aside desktop-aside">
       <div class="logo">
+        <img src="/logo.svg" alt="TLCP Channel Logo" class="logo-image" />
         <h1>TLCP Channel</h1>
       </div>
       <el-menu :default-active="route.path" router background-color="#1d1e1f" text-color="#bfcbd9"
@@ -143,6 +145,12 @@ const mobileMenuOpen = ref(false)
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid #3a3b3c;
+  gap: 10px;
+}
+
+.logo-image {
+  width: 32px;
+  height: 32px;
 }
 
 .logo h1 {

@@ -1,0 +1,33 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <title>TLCP Channel Logo - 国密安全传输通道</title>
+  <desc>图标展示了一个蓝色的水平管道，中间有一个加密保护的包裹，象征着安全的TLCP/TLS数据传输通道</desc>
+  
+  <defs>
+    <linearGradient id="pipeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="packageGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E3A8A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <path d="M4 48 Q4 44 8 44 L120 44 Q124 44 124 48 L124 50 L4 50 Z" fill="url(#pipeGradient)" />
+  <path d="M4 78 Q4 82 8 82 L120 82 Q124 82 124 78 L124 76 L4 76 Z" fill="url(#pipeGradient)" />
+  <rect x="4" y="50" width="120" height="26" rx="2" fill="url(#pipeGradient)" opacity="0.8" />
+  <rect x="48" y="52" width="32" height="22" rx="2" fill="url(#packageGradient)" />
+  <path d="M48 52 L64 56 L80 52" stroke="#60A5FA" stroke-width="1.5" fill="none" />
+  <path d="M48 52 L48 60" stroke="#60A5FA" stroke-width="1.5" />
+  <path d="M80 52 L80 60" stroke="#60A5FA" stroke-width="1.5" />
+  <path d="M64 62 L64 72 C64 72 60 70 60 65 L60 62 Z" fill="#60A5FA" />
+  <path d="M64 62 L64 72 C64 72 68 70 68 65 L68 62 Z" fill="#60A5FA" />
+  <circle cx="64" cy="66" r="2" fill="#1E40AF" />
+  <rect x="63" y="66" width="2" height="3" fill="#1E40AF" />
+  <path d="M12 64 L20 60 L20 68 Z" fill="#93C5FD" />
+  <path d="M116 64 L108 60 L108 68 Z" fill="#93C5FD" />
+  <line x1="28" y1="63" x2="38" y2="63" stroke="#93C5FD" stroke-width="1" opacity="0.6" />
+  <line x1="32" y1="66" x2="42" y2="66" stroke="#93C5FD" stroke-width="1" opacity="0.4" />
+  <line x1="90" y1="63" x2="100" y2="63" stroke="#93C5FD" stroke-width="1" opacity="0.6" />
+  <line x1="86" y1="66" x2="96" y2="66" stroke="#93C5FD" stroke-width="1" opacity="0.4" />
+</svg>
