@@ -117,10 +117,7 @@ jobs:
         run: npm run build
 
       - name: 构建并打包 MSI
-        shell: cmd
-        run: |
-          cd release\scripts\windows
-          call package.ps1
+        run: ./release/scripts/windows/package.ps1
 
       - name: 上传 MSI 包
         uses: actions/upload-artifact@v4
