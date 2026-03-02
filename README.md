@@ -1,7 +1,7 @@
 # TLCP Channel
 
 <div align="center">
-  <img src="docs/img/logo.svg" width="128" alt="TLCP Channel Logo">
+  <img src="icon.png" width="128" alt="TLCP Channel Logo">
 </div>
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
