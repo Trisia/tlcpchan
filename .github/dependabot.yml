@@ -8,7 +8,6 @@ updates:
     allow:
       - dependency-name: "gitee.com/Trisia/gotlcp"
       - dependency-name: "github.com/emmansun/gmsm"
-    versioning-strategy: "increase"
     groups:
       tlcp-dependencies:
         patterns:
@@ -23,7 +22,6 @@ updates:
     allow:
       - dependency-name: "gitee.com/Trisia/gotlcp"
       - dependency-name: "github.com/emmansun/gmsm"
-    versioning-strategy: "increase"
     groups:
       tlcp-dependencies:
         patterns:
