@@ -10,7 +10,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Trisia/tlcpchan)](https://goreportcard.com/report/github.com/Trisia/tlcpchan)
 [![Documentation](https://pkg.go.dev/badge/github.com/Trisia/tlcpchan.svg)](https://pkg.go.dev/github.com/Trisia/tlcpchan)
 [![Release](https://img.shields.io/github/release/Trisia/tlcpchan/all.svg)](https://github.com/Trisia/tlcpchan/releases)
-[![Stargazers over time](https://starchart.cc/Trisia/tlcpchan.svg?variant=adaptive)](https://starchart.cc/Trisia/tlcpchan)
 [![Linux](https://img.shields.io/badge/Linux-FCC634?style=flat&logo=linux&logoColor=black)]()
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat&logo=windows&logoColor=white)]()
 [![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)]()
