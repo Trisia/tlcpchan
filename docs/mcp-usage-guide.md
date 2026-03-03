@@ -527,7 +527,7 @@ server {
 - 日志目录应设置为 `700`（仅所有者可访问）
 
 ```bash
-chmod 600 /etc/tlcpchan/config/config.yaml
+chmod 600 /etc/tlcpchan/config.yaml
 chmod 700 /etc/tlcpchan/logs
 ```
 
@@ -540,7 +540,7 @@ chmod 700 /etc/tlcpchan/logs
 sudo useradd -r -s /bin/false tlcpchan
 
 # 使用专用用户运行
-sudo -u tlcpchan ./tlcpchan -c /etc/tlcpchan/config/config.yaml
+sudo -u tlcpchan ./tlcpchan -c /etc/tlcpchan/config.yaml
 ```
 
 ### 6.4 日志审计

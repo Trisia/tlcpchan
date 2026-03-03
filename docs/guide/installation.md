@@ -445,8 +445,8 @@ fi
 ### 1. 配置文件
 
 配置文件位于：
-- Linux/macOS: `/etc/tlcpchan/config/config.yaml`
-- Docker: 挂载到 `/etc/tlcpchan/config/config.yaml`
+- Linux/macOS: `/etc/tlcpchan/config.yaml`
+- Docker: 挂载到 `/etc/tlcpchan/config.yaml`
 
 ### 2. 启动服务
 
@@ -572,7 +572,7 @@ docker volume rm tlcpchan-keystores tlcpchan-logs
 sudo journalctl -u tlcpchan -n 50
 
 # 检查配置文件
-sudo cat /etc/tlcpchan/config/config.yaml
+sudo cat /etc/tlcpchan/config.yaml
 
 # 手动启动查看详细错误
 sudo /etc/tlcpchan/tlcpchan

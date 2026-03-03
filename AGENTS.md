@@ -134,7 +134,7 @@ logger.Error("连接失败", zap.Error(err), zap.String("remote", remoteAddr))
 
 ### 配置管理
 
-- 配置文件使用 YAML 格式，默认路径 `/etc/tlcpchan/config/config.yaml`
+- 配置文件使用 YAML 格式，默认路径 `/etc/tlcpchan/config.yaml`
 - 支持环境变量覆盖配置项
 - 工作目录：Linux 为 `/etc/tlcpchan`，Windows 为程序所在目录
 
