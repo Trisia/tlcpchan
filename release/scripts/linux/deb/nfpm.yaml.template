@@ -26,6 +26,11 @@ contents:
     dst: "/usr/lib/systemd/system/tlcpchan.service"
     file_info:
       mode: 0644
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/config.yaml"
+    dst: "/etc/tlcpchan/config.yaml"
+    file_info:
+      mode: 0644
+    config_type: "noreplace"
   - dst: "/etc/tlcpchan/keystores"
     type: dir
     file_info:

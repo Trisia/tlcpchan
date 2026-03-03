@@ -27,6 +27,19 @@ if [ -f "$SCRIPT_DIR/tlcpchan.service" ]; then
     cp "$SCRIPT_DIR/tlcpchan.service" /usr/lib/systemd/system/
 fi
 
+# 复制默认配置文件（如果不存在）
+echo "[INFO] 处理配置文件..."
+if [ -f "$SCRIPT_DIR/config.yaml" ]; then
+    if [ ! -f "/etc/tlcpchan/config.yaml" ]; then
+        cp "$SCRIPT_DIR/config.yaml" /etc/tlcpchan/
+        echo "[INFO] 已安装默认配置文件"
+    else
+        echo "[INFO] 检测到已有配置文件，跳过覆盖"
+    fi
+else
+    echo "[WARN] 未找到默认配置文件"
+fi
+
 # 设置权限
 echo "[INFO] 设置权限..."
 chmod +x /etc/tlcpchan/tlcpchan

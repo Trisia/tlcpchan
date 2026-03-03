@@ -15,6 +15,14 @@ ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan
 ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpchan-cli
 ln -sf /etc/tlcpchan/tlcpchan-cli /usr/bin/tlcpc
 
+# 处理默认配置文件（仅在全新安装时创建）
+if [ "$1" = "1" ]; then
+    if [ ! -f "/etc/tlcpchan/config.yaml" ] && [ -f "/etc/tlcpchan/config.yaml.rpmnew" ]; then
+        mv "/etc/tlcpchan/config.yaml.rpmnew" "/etc/tlcpchan/config.yaml"
+        echo "[INFO] 已安装默认配置文件"
+    fi
+fi
+
 # 重新加载 systemd
 systemctl daemon-reload 2>/dev/null || true
 
