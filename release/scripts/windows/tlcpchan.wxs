@@ -2,9 +2,21 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*" Name="TLCP Channel" Language="1033" Version="1.0.1.0" Manufacturer="tlcpchan"
     UpgradeCode="A4A6CCD4-004F-40E7-90EF-432D5A51499A">
-    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
-    <MediaTemplate EmbedCab="yes" />
+    <Package
+      InstallerVersion="500"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Description="TLCP/TLS Proxy Channel"
+      ReadOnly="yes" />
+
+    <MajorUpgrade
+      AllowDowngrades="no"
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+      Schedule="afterInstallExecute"
+      IgnoreRemoveFailure="yes" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Feature Id="ProductFeature" Title="TLCP Channel" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
@@ -83,4 +95,5 @@
     </Component>
   </Fragment>
 </Wix>
+
 
