@@ -164,7 +164,7 @@ main() {
     
     cleanup
     # 暂时跳过前端构建以快速测试
-    # build_frontend
+    build_frontend
     
     for platform in "${PLATFORMS[@]}"; do
         IFS=":" read -r os arch <<< "$platform"

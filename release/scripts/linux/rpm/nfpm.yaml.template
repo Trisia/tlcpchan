@@ -23,6 +23,9 @@ contents:
   - src: "{{BUILD_DIR}}/linux-{{ARCH}}/rootcerts"
     dst: "/etc/tlcpchan/rootcerts"
     type: tree
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/ui"
+    dst: "/etc/tlcpchan/ui"
+    type: tree
   - src: "{{BUILD_DIR}}/linux-{{ARCH}}/tlcpchan.service"
     dst: "/usr/lib/systemd/system/tlcpchan.service"
     file_info:

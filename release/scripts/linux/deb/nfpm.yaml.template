@@ -30,6 +30,9 @@ contents:
     dst: "/etc/tlcpchan/config.yaml"
     file_info:
       mode: 0644
+  - src: "{{BUILD_DIR}}/linux-{{ARCH}}/ui"
+    dst: "/etc/tlcpchan/ui"
+    type: tree
   - dst: "/etc/tlcpchan/keystores"
     type: dir
     file_info:
