@@ -342,14 +342,14 @@ func Load(path string) (*Config, error) {
 //   - cfg: 配置实例
 //
 // 返回:
-//   - error: 序列化或写入失败时返回错误，或未初始化配置文件路径
+//   - error: 序列化或写入失败时返回错误
 func Save(cfg *Config) error {
 	configMutex.RLock()
 	path := globalConfigPath
 	configMutex.RUnlock()
 
 	if path == "" {
-		return fmt.Errorf("未初始化配置文件路径，请先调用 Init 函数")
+		return fmt.Errorf("未初始化配置文件路径")
 	}
 
 	data, err := yaml.Marshal(cfg)

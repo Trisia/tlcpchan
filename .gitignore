@@ -75,6 +75,7 @@ release/scripts/preremove.sh
 
 # WiX Toolset（自动下载）
 release/scripts/windows/wix-toolset/
+release/scripts/windows/rsrc/
 
 # 环境变量
 .env
