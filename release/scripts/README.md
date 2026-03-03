@@ -90,7 +90,7 @@ bash release/scripts/macos/build.sh
 grep -E 'version\s*=' tlcpchan/main.go
 
 # 更新版本：编辑 tlcpchan/main.go 中的 version 变量
-# 例如：var version = "1.0.0"
+# 例如：var version = "1.0.1"
 ```
 
 ## 清理构建产物

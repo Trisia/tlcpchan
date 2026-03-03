@@ -69,8 +69,6 @@ mcp:
 |------|------|------|------|
 | `enabled` | boolean | 是 | 是否启用 MCP 服务 |
 | `api_key` | string | 否 | API 密钥，留空则无需认证 |
-| `server_info.name` | string | 否 | 服务器名称，默认 "tlcpchan-mcp" |
-| `server_info.version` | string | 否 | 版本号，默认 "1.0.0" |
 
 ### 2.3 完整配置示例
 
@@ -146,7 +144,7 @@ async function connectToMCP() {
   // 创建客户端
   const client = new Client({
     "name": "tlcpchan-client",
-    "version": "1.0.0"
+    "version": "1.0.1"
   }, {
     capabilities: {}
   });

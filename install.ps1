@@ -99,7 +99,7 @@ function Get-LatestVersion {
 function Build-DownloadUrl {
     param([string]$Version)
 
-    # MSI version format: add .0 suffix (e.g., 1.0.0 -> 1.0.0.0)
+    # MSI version format: add .0 suffix (e.g., 1.0.1 -> 1.0.1.0)
     $msiVersion = "${Version}.0"
     $filename = "tlcpchan_${msiVersion}_windows_amd64.msi"
     $url = "https://github.com/${RepoOwner}/${RepoName}/releases/download/v${Version}/${filename}"

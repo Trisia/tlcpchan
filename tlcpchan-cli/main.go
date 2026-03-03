@@ -6,7 +6,7 @@ import (
 	"github.com/Trisia/tlcpchan-cli/commands"
 )
 
-var version = "1.0.0"
+var version = "1.0.1"
 
 func main() {
 	if err := commands.Execute(version); err != nil {

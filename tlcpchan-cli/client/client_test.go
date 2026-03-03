@@ -13,7 +13,7 @@ func TestClient_GetVersion(t *testing.T) {
 		version     string
 		wantVersion string
 	}{
-		{"默认版本", "1.0.0", "1.0.0"},
+		{"默认版本", "1.0.1", "1.0.1"},
 		{"开发版本", "dev", "dev"},
 		{"语义版本", "2.1.3", "2.1.3"},
 	}
@@ -82,7 +82,7 @@ func TestClient_HealthCheck(t *testing.T) {
 
 		resp := map[string]string{
 			"status":  "healthy",
-			"version": "1.0.0",
+			"version": "1.0.1",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
@@ -99,8 +99,8 @@ func TestClient_HealthCheck(t *testing.T) {
 		t.Errorf("状态应为 healthy, 实际为 %s", health.Status)
 	}
 
-	if health.Version != "1.0.0" {
-		t.Errorf("版本应为 1.0.0, 实际为 %s", health.Version)
+	if health.Version != "1.0.1" {
+		t.Errorf("版本应为 1.0.1, 实际为 %s", health.Version)
 	}
 }
 

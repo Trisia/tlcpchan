@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号（例如: v1.0.0）'
+        description: '版本号（例如: v1.0.1）'
         required: true
         type: string
 

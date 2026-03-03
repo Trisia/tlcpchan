@@ -133,7 +133,7 @@ func TestHandleGetSystemInfo_VersionOverride(t *testing.T) {
 	}
 
 	// 版本号应该是 "1.0.0"（从 version.Version 获取）
-	expectedVersion := "1.0.0"
+	expectedVersion := "1.0.1"
 	if output.Version != expectedVersion {
 		t.Errorf("版本号应为 %s，实际得到: %s", expectedVersion, output.Version)
 	}
