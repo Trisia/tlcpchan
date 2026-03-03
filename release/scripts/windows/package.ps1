@@ -152,7 +152,7 @@ if ($HasRootCerts) {
 Write-Host "[INFO] Generating MSI installer..." -ForegroundColor Green
 
 $MsiPath = Join-Path $DistDir "tlcpchan_${Version}_windows_amd64.msi"
-& $LightExe -sw1076 -nologo -out $MsiPath $WixObjectFiles -ext WixUIExtension
+& $LightExe -sw1076 -nologo -b "$SourceDir" -out $MsiPath $WixObjectFiles -ext WixUIExtension
 
 if (-not $?) {
     Write-Host "[ERROR] light.exe linking failed!" -ForegroundColor Red
