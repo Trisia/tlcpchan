@@ -72,6 +72,9 @@
       <Component Id="tlcpchancliexe" Guid="*">
         <File Id="tlcpchancliexe" Name="tlcpchan-cli.exe" Source="$(var.SourceDir)\tlcpchan-cli.exe" />
       </Component>
+      <Component Id="configyaml" Guid="*">
+        <File Id="configyaml" Name="config.yaml" Source="$(var.SourceDir)\config.yaml" />
+      </Component>
     </ComponentGroup>
 
     <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="*">

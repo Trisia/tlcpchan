@@ -117,7 +117,7 @@ grep -E 'version\s*=' tlcpchan/main.go
 
 ```bash
 # nfpm: 用于生成 .deb/.rpm 包
-go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.43.0
+go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.45.0
 
 # WiX Toolset: 仅在 Windows 上用于生成 MSI 安装包
 # 下载地址: https://wixtoolset.org/

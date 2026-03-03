@@ -201,6 +201,13 @@ if (Test-Path $TrustedCertsDir) {
     Copy-Item -Path $TrustedCertsDir -Destination (Join-Path $OutputDir "rootcerts") -Recurse -Force
 }
 
+# 复制默认配置文件
+$ConfigFile = Join-Path $ProjectRoot "release\config.yaml"
+if (Test-Path $ConfigFile) {
+    Write-Host "[INFO] Copying default config file..." -ForegroundColor Green
+    Copy-Item -Path $ConfigFile -Destination (Join-Path $OutputDir "config.yaml") -Force
+}
+
 # 创建 zip 包
 Write-Host "[INFO] Creating zip package..." -ForegroundColor Green
 New-Item -ItemType Directory -Path $DistDir -Force | Out-Null

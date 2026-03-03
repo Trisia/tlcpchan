@@ -45,7 +45,7 @@ create_app_bundle() {
     # 复制资源文件
     cp -r "$BUILD_DIR/darwin-$arch/ui" "$app_dir/Contents/Resources/"
     cp -r "$BUILD_DIR/darwin-$arch/rootcerts" "$app_dir/Contents/Resources/"
-    cp "$BUILD_DIR/darwin-$arch/config.yaml.example" "$app_dir/Contents/Resources/"
+    cp "$BUILD_DIR/darwin-$arch/config.yaml" "$app_dir/Contents/Resources/"
     
     # 创建 .tar.gz 和 .zip
     cd "$BUILD_DIR/macos-$arch"

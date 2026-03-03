@@ -102,8 +102,11 @@ build_platform() {
         cp -r "$PROJECT_ROOT/trustedcerts" "$output_dir/rootcerts"
     fi
     
+    # 复制默认配置文件
+    if [ -f "$RELEASE_DIR/config.yaml" ]; then
+        cp "$RELEASE_DIR/config.yaml" "$output_dir/"
+    fi
 
-    
     # 对于 Linux 平台，添加 systemd 服务文件和安装/卸载脚本
     if [ "$os" = "linux" ]; then
         if [ -f "$RELEASE_DIR/systemd/tlcpchan.service" ]; then

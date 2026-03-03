@@ -94,6 +94,13 @@ if (-not $HasRootCerts) {
     Write-Host "[WARN] rootcerts directory does not exist: $RootCertsDir, skipping trusted certificates packaging" -ForegroundColor Yellow
 }
 
+# 检查 config.yaml 是否存在
+$ConfigFile = Join-Path $SourceDir "config.yaml"
+$HasConfig = Test-Path $ConfigFile
+if (-not $HasConfig) {
+    Write-Host "[WARN] config.yaml does not exist: $ConfigFile, skipping config file packaging" -ForegroundColor Yellow
+}
+
 # 更新 .wxs 文件中的版本号占位符
 Write-Host "[INFO] Updating version placeholder in WiX source file..." -ForegroundColor Green
 $WxsContent = Get-Content $WxsFile -Raw

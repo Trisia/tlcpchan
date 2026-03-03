@@ -38,7 +38,7 @@ log_info() {
 check_nfpm() {
     if ! command -v nfpm &> /dev/null; then
         log_info "nfpm 未安装，正在安装..."
-        go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.43.0
+        go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.45.0
     fi
 }
 

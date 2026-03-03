@@ -1,0 +1,68 @@
+# TLCP Channel 默认配置文件
+# 
+# 该文件是 TLCP Channel 的主配置文件，包含服务端配置、代理实例列表和密钥存储配置
+# 
+# 配置说明:
+# - server: 服务端配置，包含 API、UI 和日志设置
+# - keystores: 密钥存储配置列表
+# - instances: 代理实例配置列表，每个实例代表一个独立的代理服务
+# - mcp: MCP 服务配置（可选）
+
+# 服务端配置
+server:
+  # API 服务配置
+  api:
+    # API 服务监听地址，格式: "host:port" 或 ":port"
+    # 示例: ":20080" 表示监听所有网卡的 20080 端口
+    address: ":20080"
+  
+  # 日志配置（可选）
+  log:
+    # 日志级别，可选值: "debug", "info", "warn", "error"
+    level: "info"
+    # 日志文件路径，为空则仅输出到控制台
+    file: "./logs/tlcpchan.log"
+    # 单个日志文件最大大小，单位: MB
+    max-size: 100
+    # 保留的旧日志文件最大数量，单位: 个
+    max-backups: 5
+    # 保留旧日志文件的最大天数，单位: 天
+    max-age: 30
+    # 是否压缩旧日志文件
+    compress: true
+    # 是否启用日志
+    enabled: true
+
+# 密钥存储配置列表
+keystores:
+  # 示例: 使用默认自动生成的密钥存储
+  # - name: "default"
+  #   type: "auto"
+  #   params:
+  #     workdir: "./keystores"
+
+# 代理实例配置列表
+# 示例: 创建一个 TLCP 服务端代理实例
+# instances:
+#   - name: "example-tlcp-server"
+#     type: "server"
+#     listen: ":8443"
+#     target: "192.168.1.100:443"
+#     protocol: "tlcp"
+#     enabled: false
+#     tlcp:
+#       client-auth-type: "no-client-cert"
+#       min-version: "1.1"
+#       max-version: "1.1"
+#       keystore:
+#         name: "default"
+#         type: "auto"
+#         params:
+#           workdir: "./keystores"
+
+# MCP 服务配置（可选）
+# mcp:
+#   # 是否启用 MCP 服务
+#   enabled: false
+#   # MCP 服务 API 密钥，为空表示无需认证
+#   api_key: ""
