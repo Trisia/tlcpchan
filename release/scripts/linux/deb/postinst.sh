@@ -6,9 +6,10 @@ if ! getent passwd tlcpchan > /dev/null; then
     useradd -r -s /bin/false -d /etc/tlcpchan tlcpchan
 fi
 
-# 设置权限
-chown -R tlcpchan:tlcpchan /etc/tlcpchan/keystores 2>/dev/null || true
-chown -R tlcpchan:tlcpchan /etc/tlcpchan/logs 2>/dev/null || true
+# # 设置权限
+# chown -R tlcpchan:tlcpchan /etc/tlcpchan/keystores 2>/dev/null || true
+# chown -R tlcpchan:tlcpchan /etc/tlcpchan/logs 2>/dev/null || true
+# chown -R tlcpchan:tlcpchan /etc/tlcpchan/rootcerts 2>/dev/null || true
 
 # 创建软链接到 /usr/bin
 ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan

@@ -103,7 +103,8 @@ build_deb() {
         fi
     fi
     
-    nfpm package -f "$BUILD_DIR/nfpm-$arch.yaml" -p deb -t "$DIST_DIR"
+    nfpm_cmd=$(command -v nfpm || echo "$HOME/go/bin/nfpm")
+    "$nfpm_cmd" package -f "$BUILD_DIR/nfpm-$arch.yaml" -p deb -t "$DIST_DIR"
     
     local package_arch=$arch
     if [ "$arch" = "loong64" ]; then

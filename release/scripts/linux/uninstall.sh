@@ -39,14 +39,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     rm -rf /etc/tlcpchan
 fi
 
-# 询问是否删除用户
-read -p "是否删除 tlcpchan 用户? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "[INFO] 删除 tlcpchan 用户..."
-    userdel tlcpchan 2>/dev/null || true
-fi
-
 echo "========================================"
 echo "  卸载完成！"
 echo "========================================"

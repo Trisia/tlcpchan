@@ -107,7 +107,8 @@ build_rpm() {
         fi
     fi
     
-    nfpm package -f "$BUILD_DIR/nfpm-rpm-$arch.yaml" -p rpm -t "$DIST_DIR"
+    nfpm_cmd=$(command -v nfpm || echo "$HOME/go/bin/nfpm")
+    "$HOME/go/bin/nfpm" package -f "$BUILD_DIR/nfpm-rpm-$arch.yaml" -p rpm -t "$DIST_DIR"
     
     local package_arch=$arch
     if [ "$arch" = "amd64" ]; then

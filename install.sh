@@ -236,32 +236,20 @@ install_via_package_manager() {
         return 1
     fi
 
-    # 使用包管理器安装
-    echo -e "📦 使用 ${pkg_manager} 安装..."
+    # 直接使用 dpkg 或 rpm 安装（无依赖）
+    echo -e "📦 正在安装..."
     echo ""
 
     case "$pkg_manager" in
         apt)
-            if ! apt install -y "$output_path"; then
-                print_error "apt 安装失败"
+            if ! dpkg -i "$output_path"; then
+                print_error "dpkg 安装失败"
                 return 1
             fi
             ;;
-        dnf)
-            if ! dnf install -y "$output_path"; then
-                print_error "dnf 安装失败"
-                return 1
-            fi
-            ;;
-        yum)
-            if ! yum install -y "$output_path"; then
-                print_error "yum 安装失败"
-                return 1
-            fi
-            ;;
-        zypper)
-            if ! zypper install --non-interactive "$output_path"; then
-                print_error "zypper 安装失败"
+        dnf|yum|zypper)
+            if ! rpm -i "$output_path"; then
+                print_error "rpm 安装失败"
                 return 1
             fi
             ;;

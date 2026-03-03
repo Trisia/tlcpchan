@@ -7,12 +7,6 @@ echo "========================================"
 echo "  TLCP Channel 安装脚本"
 echo "========================================"
 
-# 创建 tlcpchan 用户
-if ! getent passwd tlcpchan > /dev/null; then
-    echo "[INFO] 创建 tlcpchan 用户..."
-    useradd -r -s /bin/false -d /etc/tlcpchan tlcpchan
-fi
-
 # 创建目录
 echo "[INFO] 创建目录..."
 mkdir -p /etc/tlcpchan
@@ -35,8 +29,6 @@ fi
 
 # 设置权限
 echo "[INFO] 设置权限..."
-chown -R tlcpchan:tlcpchan /etc/tlcpchan/keystores
-chown -R tlcpchan:tlcpchan /etc/tlcpchan/logs
 chmod +x /etc/tlcpchan/tlcpchan
 chmod +x /etc/tlcpchan/tlcpchan-cli
 
