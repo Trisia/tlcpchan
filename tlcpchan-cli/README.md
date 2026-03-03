@@ -539,12 +539,12 @@ tlcpchan-cli config validate
 **示例 2：验证指定配置文件**
 
 ```bash
-tlcpchan-cli config validate -f /etc/tlcpchan/config/config.yaml
+tlcpchan-cli config validate -f /etc/tlcpchan/config.yaml
 ```
 
 **响应示例：**
 ```
-配置文件 /etc/tlcpchan/config/config.yaml 格式有效
+配置文件 /etc/tlcpchan/config.yaml 格式有效
 ```
 
 ---
