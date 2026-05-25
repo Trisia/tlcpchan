@@ -1,7 +1,7 @@
 gitee.com/Trisia/gotlcp v1.4.5 h1:HHrqt97cHA58Mrp52VInKWBMY9fQ8ibNHtrBbm55AjU=
 gitee.com/Trisia/gotlcp v1.4.5/go.mod h1:QWh/12GrBcvmAek8gqoBKNFD1phIYmYE3gRUumvnhQw=
-github.com/emmansun/gmsm v0.42.0 h1:4lKCm4uay1ZjzJmdOzxCZHa4WvIbz64Z3NEJn9itMHg=
-github.com/emmansun/gmsm v0.42.0/go.mod h1:FD1EQk4XcSMkahZFzNwFoI/uXzAlODB9JVsJ9G5N7Do=
+github.com/emmansun/gmsm v0.43.0 h1:uiT92B9Ge99oxK1qT+LEls2OqX7WinGGNzUGF1hIZ4A=
+github.com/emmansun/gmsm v0.43.0/go.mod h1:FD1EQk4XcSMkahZFzNwFoI/uXzAlODB9JVsJ9G5N7Do=
 github.com/golang-jwt/jwt/v5 v5.3.0 h1:pv4AsKCKKZuqlgs5sUmn4x8UlGa0kEVt/puTpKx9vvo=
 github.com/golang-jwt/jwt/v5 v5.3.0/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
