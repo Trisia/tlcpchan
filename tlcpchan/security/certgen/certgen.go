@@ -298,7 +298,7 @@ func GenerateTLSRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
 //
 // 参数：
 //
-//	signerCert - 签发者（根 CA）证书
+//	signerCert - 签发者（根 CA）证书，必须是 smx509 解析得到的证书对象
 //	signerKey - 签发者（根 CA）私钥
 //	signCfg - 签名证书配置
 //	        - 如果 CommonName 为空，默认使用 "tlcp-sign"
@@ -319,7 +319,9 @@ func GenerateTLSRootCA(cfg CertGenConfig) (*GeneratedCert, error) {
 //   - 两个证书都使用 SM2 算法
 //   - 签名证书具有 KeyUsageDigitalSignature 权限
 //   - 加密证书具有 KeyUsageKeyEncipherment | KeyUsageDataEncipherment 权限
-func GenerateTLCPPair(signerCert *x509.Certificate, signerKey crypto.PrivateKey, signCfg, encCfg CertGenConfig) (signCert, encCert *GeneratedCert, err error) {
+//   - gmsm v0.44.0 起 smx509.Certificate 与 x509.Certificate 是相互独立的结构体，
+//     无法互转，因此签发者证书统一使用 *smx509.Certificate
+func GenerateTLCPPair(signerCert *smx509.Certificate, signerKey crypto.PrivateKey, signCfg, encCfg CertGenConfig) (signCert, encCert *GeneratedCert, err error) {
 	if signCfg.CommonName == "" {
 		signCfg.CommonName = "tlcp-sign"
 	}
@@ -361,7 +363,7 @@ func GenerateTLCPPair(signerCert *x509.Certificate, signerKey crypto.PrivateKey,
 //
 // 参数：
 //
-//	signerCert - 签发者（根 CA）证书（标准库 x509.Certificate 类型）
+//	signerCert - 签发者（根 CA）证书（smx509.Certificate 类型）
 //	signerKey - 签发者（根 CA）私钥
 //	cfg - 证书配置
 //	keyUsage - 密钥用途
@@ -369,21 +371,16 @@ func GenerateTLCPPair(signerCert *x509.Certificate, signerKey crypto.PrivateKey,
 // 返回值：
 //
 //	*GeneratedCert - 包含证书 PEM 和私钥 PEM 的结果
-//	error - 错误信息，包括密钥生成失败、签发者证书解析失败、证书创建失败、私钥序列化失败等
+//	error - 错误信息，包括密钥生成失败、证书创建失败、私钥序列化失败等
 //
 // 注意事项：
 //   - 这是一个内部辅助函数
 //   - 使用 SM2 算法生成密钥对
 //   - IsCA 设置为 false，表示这不是一个 CA 证书
-func generateTLCPCert(signerCert *x509.Certificate, signerKey crypto.PrivateKey, cfg CertGenConfig, keyUsage smx509.KeyUsage) (*GeneratedCert, error) {
+func generateTLCPCert(signerCert *smx509.Certificate, signerKey crypto.PrivateKey, cfg CertGenConfig, keyUsage smx509.KeyUsage) (*GeneratedCert, error) {
 	priv, err := sm2.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("生成SM2密钥失败: %w", err)
-	}
-
-	smSignerCert, err := smx509.ParseCertificate(signerCert.Raw)
-	if err != nil {
-		return nil, fmt.Errorf("解析签发者证书失败: %w", err)
 	}
 
 	notBefore := time.Now()
@@ -427,7 +424,7 @@ func generateTLCPCert(signerCert *x509.Certificate, signerKey crypto.PrivateKey,
 		IsCA:                  false,
 	}
 
-	certBytes, err := smx509.CreateCertificate(rand.Reader, template, smSignerCert, &priv.PublicKey, signerKey)
+	certBytes, err := smx509.CreateCertificate(rand.Reader, template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
 		return nil, fmt.Errorf("创建证书失败: %w", err)
 	}
@@ -641,14 +638,15 @@ func SaveCertToFile(certPEM, keyPEM []byte, certPath, keyPath string) error {
 //
 // 返回值：
 //
-//	*x509.Certificate - 解析后的证书对象
+//	*smx509.Certificate - 解析后的证书对象（国密与标准证书通用）
 //	crypto.PrivateKey - 解析后的 SM2 私钥对象
 //	error - 错误信息，包括文件读取失败、PEM 解析失败、证书/私钥解析失败等
 //
 // 注意事项：
 //   - 支持 "EC PRIVATE KEY" 和 "PRIVATE KEY" (PKCS8) 格式的私钥
-//   - 优先使用国密 smx509 库解析
-func LoadTLCPCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
+//   - 使用国密 smx509 库解析证书；gmsm v0.44.0 起 smx509.Certificate 与
+//     x509.Certificate 是相互独立的结构体，无法互转，故直接返回 smx509 类型
+func LoadTLCPCertFromFile(certPath, keyPath string) (*smx509.Certificate, crypto.PrivateKey, error) {
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("读取证书文件失败: %w", err)
@@ -664,11 +662,10 @@ func LoadTLCPCertFromFile(certPath, keyPath string) (*x509.Certificate, crypto.P
 		return nil, nil, fmt.Errorf("无法解析证书PEM")
 	}
 
-	smCert, err := smx509.ParseCertificate(certBlock.Bytes)
+	cert, err := smx509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("解析 TLCP 证书失败: %w", err)
 	}
-	cert := smCert.ToX509()
 
 	keyBlock, _ := pem.Decode(keyPEM)
 	if keyBlock == nil {

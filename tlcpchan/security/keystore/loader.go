@@ -119,11 +119,6 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 		return nil, fmt.Errorf("解析国密证书失败: %w", err)
 	}
 
-	certs := make([]*x509.Certificate, len(smCerts))
-	for i, smCert := range smCerts {
-		certs[i] = smCert.ToX509()
-	}
-
 	var privateKey crypto.PrivateKey
 
 	privateKey, err = smx509.ParsePKCS8PrivateKey(keyDER)
@@ -134,9 +129,11 @@ func (f *FileKeyStore) loadTLCPKeyPair(certPath, keyPath string) (*tlcp.Certific
 		}
 	}
 
-	raw := make([][]byte, len(certs))
-	for i, c := range certs {
-		raw[i] = c.Raw
+	// TLCP 握手只需要 DER 形式的证书链，直接提取 smx509 解析结果的 Raw 字段，
+	// 避免使用 gmsm v0.44.0 已移除的 smx509 -> x509 类型转换
+	raw := make([][]byte, len(smCerts))
+	for i, smCert := range smCerts {
+		raw[i] = smCert.Raw
 	}
 
 	tlcpCert := &tlcp.Certificate{

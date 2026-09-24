@@ -94,3 +94,5 @@ venv
 openspec
 
 test_certs
+
+.gocache

@@ -182,17 +182,29 @@ func (m *Manager) loadAllCerts() error {
 	return nil
 }
 
+// parseCert 解析证书数据并构造根证书信息
+//
+// 参数：
+//   - data: 证书数据，支持 PEM、DER、Base64、Hex 四种编码
+//   - filename: 证书文件名，用于填充 RootCert.Filename
+//
+// 返回：
+//   - *RootCert: 解析成功后的根证书信息
+//   - error: 所有编码尝试均失败时返回错误
+//
+// 注意事项：
+//   - 统一使用 smx509 解析：它是标准库 crypto/x509 的超集（额外支持 SM2/SM4/PQC），
+//     可同时解析国密证书与 RSA/ECDSA 等标准证书
+//   - gmsm v0.44.0 起 smx509.Certificate 与 x509.Certificate 是相互独立的结构体，
+//     不能再通过 ToX509 之类的类型转换互转
 func (m *Manager) parseCert(data []byte, filename string) (*RootCert, error) {
-	var cert *x509.Certificate
+	var cert *smx509.Certificate
 
-	tryParse := func(raw []byte) *x509.Certificate {
-		var c *x509.Certificate
+	tryParse := func(raw []byte) *smx509.Certificate {
 		if smCert, err := smx509.ParseCertificate(raw); err == nil {
-			c = smCert.ToX509()
-		} else if stdCert, err := x509.ParseCertificate(raw); err == nil {
-			c = stdCert
+			return smCert
 		}
-		return c
+		return nil
 	}
 
 	block, _ := pem.Decode(data)
@@ -235,8 +247,18 @@ func (m *Manager) parseCert(data []byte, filename string) (*RootCert, error) {
 	}, nil
 }
 
-// getKeyType 获取密钥类型
-func getKeyType(cert *x509.Certificate) string {
+// getKeyType 获取证书公钥的算法类型
+//
+// 参数：
+//   - cert: smx509 解析得到的证书对象
+//
+// 返回：
+//   - string: 密钥类型描述，取值 "SM2"、"RSA-<位长>"、"ECDSA-P<位长>" 或 "Unknown"
+//
+// 注意事项：
+//   - SM2 公钥在 smx509 中同样以 *ecdsa.PublicKey 表示（曲线为 SM2 P-256），
+//     因此需要优先用 sm2.IsSM2PublicKey 区分，避免被识别为普通 ECDSA
+func getKeyType(cert *smx509.Certificate) string {
 	pubKey := cert.PublicKey
 
 	if sm2.IsSM2PublicKey(pubKey) {
@@ -254,20 +276,26 @@ func getKeyType(cert *x509.Certificate) string {
 	}
 }
 
-// getKeyUsage 获取密钥用途
-func getKeyUsage(cert *x509.Certificate) []string {
+// getKeyUsage 获取证书的密钥用途列表
+//
+// 参数：
+//   - cert: smx509 解析得到的证书对象
+//
+// 返回：
+//   - []string: 密钥用途的可读名称列表，未设置任何用途时返回 nil
+func getKeyUsage(cert *smx509.Certificate) []string {
 	var usages []string
 
-	usageMap := map[x509.KeyUsage]string{
-		x509.KeyUsageDigitalSignature:  "Digital Signature",
-		x509.KeyUsageContentCommitment: "Content Commitment",
-		x509.KeyUsageKeyEncipherment:   "Key Encipherment",
-		x509.KeyUsageDataEncipherment:  "Data Encipherment",
-		x509.KeyUsageKeyAgreement:      "Key Agreement",
-		x509.KeyUsageCertSign:          "Cert Sign",
-		x509.KeyUsageCRLSign:           "CRL Sign",
-		x509.KeyUsageEncipherOnly:      "Encipher Only",
-		x509.KeyUsageDecipherOnly:      "Decipher Only",
+	usageMap := map[smx509.KeyUsage]string{
+		smx509.KeyUsageDigitalSignature:  "Digital Signature",
+		smx509.KeyUsageContentCommitment: "Content Commitment",
+		smx509.KeyUsageKeyEncipherment:   "Key Encipherment",
+		smx509.KeyUsageDataEncipherment:  "Data Encipherment",
+		smx509.KeyUsageKeyAgreement:      "Key Agreement",
+		smx509.KeyUsageCertSign:          "Cert Sign",
+		smx509.KeyUsageCRLSign:           "CRL Sign",
+		smx509.KeyUsageEncipherOnly:      "Encipher Only",
+		smx509.KeyUsageDecipherOnly:      "Decipher Only",
 	}
 
 	for k, v := range usageMap {

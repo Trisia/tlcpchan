@@ -255,9 +255,9 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 - 客户端代理：验证服务端证书
 
 **双证书池设计：**
-- `x509.CertPool`：用于标准 TLS 协议的证书验证
-- `smx509.CertPool`：用于国密 TLCP 协议的证书验证
-- 两个证书池保持同步，包含相同的根证书
+- `x509.CertPool`：用于标准 TLS 协议的证书验证，仅包含标准库 `crypto/x509` 能解析的证书（如 RSA/ECDSA）
+- `smx509.CertPool`：用于国密 TLCP 协议的证书验证，包含全部根证书（SM2 与 RSA/ECDSA）
+- 两个证书池由同一份根证书文件同步加载；由于标准库不支持 SM2 曲线，SM2 根证书只会进入 `smx509.CertPool`
 
 **存储位置：**
 - 证书文件：`rootcerts/` 目录
@@ -729,16 +729,39 @@ type Manager struct {
 }
 ```
 
+**RootCert 数据结构：**
+```go
+type RootCert struct {
+    Filename     string               // 证书文件名
+    Cert         *smx509.Certificate  // 解析后的证书对象（使用 smx509 统一解析）
+    NotBefore    time.Time            // 证书生效时间
+    NotAfter     time.Time            // 证书过期时间
+    Subject      string               // 证书主题
+    Issuer       string               // 证书颁发者
+    KeyType      string               // 密钥类型（"SM2"、"RSA-2048"、"ECDSA-P256" 等）
+    SerialNumber string               // 证书序列号（十六进制）
+    Version      int                  // 证书版本
+    IsCA         bool                 // 是否为 CA 证书
+    KeyUsage     []string             // 密钥用途
+}
+```
+
 **证书格式支持：**
 - PEM 格式（.pem, .cer, .crt）
 - DER 格式（.der）
 - Base64 编码
 - Hex 编码
 
+**证书解析：**
+- 统一使用 `smx509.ParseCertificate` 解析根证书；smx509 是标准库 `crypto/x509` 的超集，同时支持 SM2/PQC 与 RSA/ECDSA 等算法
+- 解析结果以 `*smx509.Certificate` 保存在 `RootCert.Cert` 中
+- 自 gmsm v0.44.0 起 `smx509.Certificate` 与 `x509.Certificate` 是相互独立的结构体（`ToX509` 已移除），两者不能互转，因此不再持有标准库证书类型
+- 证书元数据（主题、颁发者、密钥类型、密钥用途、序列号等）均由该对象提取
+
 **双证书池设计：**
-- `certPool`：标准 x509 证书池，用于 TLS 协议
-- `smCertPool`：国密 smx509 证书池，用于 TLCP 协议
-- 两个证书池保持同步，包含相同的根证书
+- `certPool`：标准 x509 证书池，用于 TLS 协议，仅包含标准库能解析的证书（如 RSA/ECDSA）
+- `smCertPool`：国密 smx509 证书池，用于 TLCP 协议，包含全部根证书（SM2 与 RSA/ECDSA）
+- 两个证书池由同一份根证书文件同步追加；由于标准库不支持 SM2 曲线，SM2 根证书只会进入 `smCertPool`
 
 **核心接口：**
 - `Initialize()` - 初始化并加载所有根证书

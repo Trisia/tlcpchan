@@ -44,7 +44,9 @@ func VerifyCertificateKeyPair(certData, keyData []byte, isTLCP bool) error {
 		if err != nil || len(smCerts) == 0 {
 			return fmt.Errorf("解析证书失败: %w", err)
 		}
-		certPub = smCerts[0].ToX509().PublicKey
+		// gmsm v0.44.0 起 smx509.Certificate 与 x509.Certificate 相互独立，
+		// 无法再通过 ToX509 转换，直接读取 smx509 解析出的公钥即可
+		certPub = smCerts[0].PublicKey
 
 		privKey, err = smx509.ParsePKCS8PrivateKey(keyDER)
 		if err != nil {

@@ -883,7 +883,7 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
 		privateKey = cert.PrivateKey
 	}
 
-	// 组装 CSR 模板
+	// 组装 CSR 模板公共字段
 	subject := pkix.Name{
 		CommonName:         req.CSRParams.CommonName,
 		Country:            []string{req.CSRParams.Country},
@@ -893,28 +893,37 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
 		OrganizationalUnit: []string{req.CSRParams.OrgUnit},
 	}
 
-	template := &x509.CertificateRequest{
-		Subject:            subject,
-		DNSNames:           req.CSRParams.DNSNames,
-		IPAddresses:        make([]net.IP, 0, len(req.CSRParams.IPAddresses)),
-		SignatureAlgorithm: x509.UnknownSignatureAlgorithm,
-	}
-
+	ipAddresses := make([]net.IP, 0, len(req.CSRParams.IPAddresses))
 	for _, ipStr := range req.CSRParams.IPAddresses {
 		if ip := net.ParseIP(ipStr); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
+			ipAddresses = append(ipAddresses, ip)
 		}
 	}
 
 	// 根据 keystore 类型选择使用 smx509 还是 x509 生成 CSR
+	//
+	// 注意：gmsm v0.44.0 起 smx509.CertificateRequest 与 x509.CertificateRequest
+	// 是相互独立的结构体，无法共用同一个模板对象，因此两条分支分别构造模板
 	var derBytes []byte
 	if keyStoreType == keystore.KeyStoreTypeTLCP {
+		template := &smx509.CertificateRequest{
+			Subject:            subject,
+			DNSNames:           req.CSRParams.DNSNames,
+			IPAddresses:        ipAddresses,
+			SignatureAlgorithm: smx509.UnknownSignatureAlgorithm,
+		}
 		derBytes, err = smx509.CreateCertificateRequest(rand.Reader, template, privateKey)
 		if err != nil {
 			InternalError(w, "生成SM2证书请求失败: "+err.Error())
 			return
 		}
 	} else {
+		template := &x509.CertificateRequest{
+			Subject:            subject,
+			DNSNames:           req.CSRParams.DNSNames,
+			IPAddresses:        ipAddresses,
+			SignatureAlgorithm: x509.UnknownSignatureAlgorithm,
+		}
 		derBytes, err = x509.CreateCertificateRequest(rand.Reader, template, privateKey)
 		if err != nil {
 			InternalError(w, "生成证书请求失败: "+err.Error())
