@@ -133,36 +133,9 @@ docker run -d \
 | http-server | HTTPS → HTTP | HTTP 服务国密化，将 Web 服务升级为 HTTPS（支持国密） |
 | http-client | HTTP → HTTPS | 客户端国密适配，让 HTTP 客户端访问国密 HTTPS 服务 |
 
-## MCP 快速开始
-
-启用 MCP 服务后，可以通过 Model Context Protocol 让 AI 助手管理 TLCP Channel：
-
-```yaml
-mcp:
-  enabled: true
-  api_key: "your-secret-key" # 空表示不需要认证
-```
 
 详细使用方法请参考 [MCP 使用指南](docs/mcp-usage-guide.md)。
 
-
-## 常见问题
-
-### Q: TLCP 和 TLS 有什么区别？
-
-TLCP（Transport Layer Cryptography Protocol）GBT 38636-2020 《信息安全技术 传输层密码协议（TLCP）》，基于国密算法（SM2/SM3/SM4）。TLS（Transport Layer Security）是国际标准协议，通常使用 ECC/RSA/AES 算法。TLCP Channel 同时支持两种协议，可以满足不同场景需求。
-
-### Q: 支持 Windows 吗？
-
-支持。TLCP Channel 使用 Go 开发，支持 Linux、Windows、macOS 等多平台。
-
-
-### Q: 如何部署到生产环境？
-
-建议：
-1. RPM/DEB/Docker/二进制安装，systemd 服务管理
-2. 配置日志轮转
-3. 定期更新密钥库
 
 ## 系统适配
 
@@ -178,20 +151,3 @@ TLCP（Transport Layer Cryptography Protocol）GBT 38636-2020 《信息安全技
 下载最新版本安装包和二进制程序：
 
 - [https://github.com/Trisia/tlcpchan/releases](https://github.com/Trisia/tlcpchan/releases)
-
-
-## 技术栈
-
-- **后端**: Go 1.26+, [gotlcp](https://github.com/Trisia/gotlcp)
-- **前端**: Vue 3, TypeScript, Element Plus, Vite
-- **协议**: TLCP 1.1, TLS 1.0-1.3
-- **算法**: SM2/SM3/SM4, RSA/ECDSA/AES
-- **配置**: YAML
-- **API**: RESTful
-
-## 致谢
-
-- [gotlcp](https://github.com/Trisia/gotlcp) - TLCP 协议 Go 实现
-- [gmsm](https://github.com/emmansun/gmsm) - 国密算法库
-- [Vue.js](https://vuejs.org/) - 渐进式 JavaScript 框架
-- [Element Plus](https://element-plus.org/) - Vue 3 UI 组件库
