@@ -7,7 +7,6 @@
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TLCP](https://img.shields.io/badge/TLCP-1.1-green.svg)](https://github.com/Trisia/gotlcp)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Trisia/tlcpchan)](https://goreportcard.com/report/github.com/Trisia/tlcpchan)
 [![Documentation](https://pkg.go.dev/badge/github.com/Trisia/tlcpchan.svg)](https://pkg.go.dev/github.com/Trisia/tlcpchan)
 [![Release](https://img.shields.io/github/release/Trisia/tlcpchan/all.svg)](https://github.com/Trisia/tlcpchan/releases)
 [![Linux](https://img.shields.io/badge/Linux-FCC634?style=flat&logo=linux&logoColor=black)]()
