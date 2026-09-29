@@ -1,5 +1,5 @@
-gitee.com/Trisia/gotlcp v1.5.0 h1:Q5ZCrSRqjVv+65/ekNDU0NVNPSWVSdNlko47U7Xbfl4=
-gitee.com/Trisia/gotlcp v1.5.0/go.mod h1:H536xhflfRmKXO4uU9TlvZ/gQl3q2ptQJVH7NhmoXQQ=
+gitee.com/Trisia/gotlcp v1.6.1 h1:ixp5vT+AetytJpgSp2PW0NmIPjMly2aq9APfCpWg/z8=
+gitee.com/Trisia/gotlcp v1.6.1/go.mod h1:n1DuxPxwFyE/y6uGw2s4CQ1e3uS0hjwBj39fM7RTF7A=
 github.com/emmansun/gmsm v0.44.1 h1:zDTkdtLWFG0vCbhPV+k9pte14tix/eK71At9Iai9fP4=
 github.com/emmansun/gmsm v0.44.1/go.mod h1:p6RIUta0/KboFHrOxr1x8q+pd8RZtdaTO7XNp0RmMQM=
 github.com/golang-jwt/jwt/v5 v5.3.0 h1:pv4AsKCKKZuqlgs5sUmn4x8UlGa0kEVt/puTpKx9vvo=

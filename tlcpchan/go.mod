@@ -3,7 +3,7 @@ module github.com/Trisia/tlcpchan
 go 1.26.0
 
 require (
-	gitee.com/Trisia/gotlcp v1.5.0
+	gitee.com/Trisia/gotlcp v1.6.1
 	github.com/emmansun/gmsm v0.44.1
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	gopkg.in/yaml.v3 v3.0.1
