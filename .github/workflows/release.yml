@@ -129,6 +129,9 @@ jobs:
   docker-build-multiarch:
     name: Docker 多架构构建和推送（amd64/arm64）
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # 需要写入 GHCR 的权限
     needs: build
     strategy:
       matrix:
