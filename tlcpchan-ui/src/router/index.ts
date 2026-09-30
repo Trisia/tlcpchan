@@ -15,6 +15,7 @@ const router = createRouter({
     { path: '/keystores/:name/update', name: 'keystores-update', component: () => import('@/views/UpdateCertificate.vue') },
     { path: '/keystores/:name/export-csr', name: 'keystores-export-csr', component: () => import('@/views/ExportCSR.vue') },
     { path: '/trusted', name: 'trusted', component: () => import('@/views/TrustedCertificates.vue') },
+    { path: '/ibcparams', name: 'ibcparams', component: () => import('@/views/IBCParams.vue') },
     { path: '/logs', name: 'logs', component: () => import('@/views/Logs.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/Settings.vue') },
   ],

@@ -86,11 +86,13 @@ bash release/scripts/macos/build.sh
 版本号定义在 `tlcpchan/main.go` 文件中，由构建脚本自动解析：
 
 ```bash
-# 查看当前版本（读取 tlcpchan/main.go）
-grep -E 'version\s*=' tlcpchan/main.go
+# 查看当前版本（读取 tlcpchan/version/version.go）
+grep -E 'Version\s*=' tlcpchan/version/version.go
 
-# 更新版本：编辑 tlcpchan/main.go 中的 version 变量
-# 例如：var version = "1.0.1"
+# 更新版本：编辑 tlcpchan/version/version.go 中的 Version 常量
+# 例如：const Version = "1.1.0"
+
+# tlcpchan-cli 的版本单独维护，位于 tlcpchan-cli/main.go 的 version 变量
 ```
 
 ## 清理构建产物

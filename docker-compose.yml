@@ -15,6 +15,8 @@ services:
     volumes:
       # 数据持久化（使用 /etc/tlcpchan）
       - tlcpchan-keystores:/etc/tlcpchan/keystores
+      - tlcpchan-ibcparams:/etc/tlcpchan/ibcparams
+      - tlcpchan-rootcerts:/etc/tlcpchan/rootcerts
       - tlcpchan-logs:/etc/tlcpchan/logs
     environment:
       - TZ=Asia/Shanghai
@@ -29,6 +31,10 @@ services:
 
 volumes:
   tlcpchan-keystores:
+    driver: local
+  tlcpchan-ibcparams:
+    driver: local
+  tlcpchan-rootcerts:
     driver: local
   tlcpchan-logs:
     driver: local

@@ -34,7 +34,7 @@ func NewLogsController(cfg *config.Config) *LogsController {
  * @api {get} /api/system/logs 获取日志文件列表
  * @apiName ListLogs
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取系统所有日志文件列表，包括当前日志和历史归档日志
  *
@@ -88,7 +88,7 @@ func (c *LogsController) List(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/system/logs/content 读取日志内容
  * @apiName ReadLogContent
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 读取指定日志文件的最后N行内容，支持按日志级别过滤
  *
@@ -169,7 +169,7 @@ func (c *LogsController) ReadContent(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/system/logs/download/:filename 下载单个日志文件
  * @apiName DownloadLogFile
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 下载指定的日志文件，原始文件流
  *
@@ -217,7 +217,7 @@ func (c *LogsController) Download(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/system/logs/download-all 打包下载所有日志文件
  * @apiName DownloadAllLogs
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 将所有日志文件打包成ZIP格式下载
  *

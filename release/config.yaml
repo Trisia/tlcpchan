@@ -40,6 +40,16 @@ keystores:
   #   type: "auto"
   #   params:
   #     workdir: "./keystores"
+  #
+  # 示例: IBC（SM9）身份，需先在 IBC 信任池（ibcparams/）中预置对应 KGC 公共参数
+  # - name: "my-ibc"
+  #   type: "ibc-file"
+  #   params:
+  #     identity: "./keystores/my-ibc-identity.txt"  # 本端标识（裸字节文本）
+  #     params: "./keystores/my-ibc-params.pem"      # KGC 公共参数
+  #     sign-key: "./keystores/my-ibc-sign.key"      # 签名私钥 hid=0x01
+  #     enc-key: "./keystores/my-ibc-enc.key"        # 加密私钥 hid=0x03
+  #     kex-key: "./keystores/my-ibc-kex.key"        # 密钥交换私钥 hid=0x02
 
 # 代理实例配置列表
 # 示例: 创建一个 TLCP 服务端代理实例
@@ -54,11 +64,21 @@ keystores:
 #       client-auth-type: "no-client-cert"
 #       min-version: "1.1"
 #       max-version: "1.1"
+#       # 可选密码套件列表，IBC/IBSDH 套件默认关闭、需显式列出且配合 ibc-keystore 使用:
+#       # IBC_SM4_GCM_SM3 / IBC_SM4_CBC_SM3 / IBSDH_SM4_GCM_SM3 / IBSDH_SM4_CBC_SM3
+#       cipher-suites:
+#         - "ECC_SM4_GCM_SM3"
+#         - "ECDHE_SM4_GCM_SM3"
 #       keystore:
 #         name: "default"
 #         type: "auto"
 #         params:
 #           workdir: "./keystores"
+#       # 可选: IBC（SM9）身份密钥存储，与证书身份可同时配置以实现混合协商
+#       # ibc-keystore:
+#       #   type: "named"
+#       #   params:
+#       #     name: "my-ibc"
 
 # MCP 服务配置（可选）
 # mcp:

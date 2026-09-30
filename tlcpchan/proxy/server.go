@@ -20,6 +20,7 @@ type ServerProxy struct {
 	listener        net.Listener
 	keyStoreManager *security.KeyStoreManager
 	rootCertManager *security.RootCertManager
+	ibcParamManager *security.IBCParamManager
 	stats           *stats.Collector
 	logger          *logger.Logger
 	shutdownChan    chan struct{}
@@ -27,10 +28,22 @@ type ServerProxy struct {
 	running         bool
 }
 
+// NewServerProxy 创建 TCP 服务端代理。
+//
+// 参数：
+//   - cfg: 实例配置
+//   - keyStoreMgr: keystore 管理器
+//   - rootCertMgr: 根证书管理器
+//   - ibcParamMgr: IBC 信任池管理器，可为 nil（按空信任池处理）
+//
+// 返回值：
+//   - *ServerProxy: 服务端代理实例
+//   - error: 适配器初始化或配置装载失败时返回错误
 func NewServerProxy(cfg *config.InstanceConfig,
 	keyStoreMgr *security.KeyStoreManager,
-	rootCertMgr *security.RootCertManager) (*ServerProxy, error) {
-	adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr)
+	rootCertMgr *security.RootCertManager,
+	ibcParamMgr *security.IBCParamManager) (*ServerProxy, error) {
+	adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr, ibcParamMgr)
 	if err != nil {
 		return nil, fmt.Errorf("创建协议适配器失败: %w", err)
 	}
@@ -46,6 +59,7 @@ func NewServerProxy(cfg *config.InstanceConfig,
 		handler:         NewConnHandler(stats.DefaultCollector(), bufferSize),
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
+		ibcParamManager: ibcParamMgr,
 		stats:           stats.DefaultCollector(),
 		logger:          logger.Default(),
 		shutdownChan:    make(chan struct{}),

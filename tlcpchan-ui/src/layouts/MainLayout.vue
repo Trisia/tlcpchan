@@ -32,6 +32,12 @@
             </el-icon>
             <span>信任证书</span>
           </el-menu-item>
+          <el-menu-item index="/ibcparams">
+            <el-icon>
+              <Key />
+            </el-icon>
+            <span>IBC 信任池</span>
+          </el-menu-item>
           <el-menu-item index="/logs">
             <el-icon>
               <Document />
@@ -79,6 +85,12 @@
           </el-icon>
           <span>信任证书</span>
         </el-menu-item>
+        <el-menu-item index="/ibcparams">
+          <el-icon>
+            <Key />
+          </el-icon>
+          <span>IBC 信任池</span>
+        </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon>
             <Document />
@@ -120,6 +132,7 @@ import {
   DataBoard,
   Connection,
   Lock,
+  Key,
   Document,
   Setting
 } from '@element-plus/icons-vue'

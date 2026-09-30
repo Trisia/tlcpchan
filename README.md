@@ -28,12 +28,16 @@ TLCP Channel 传输通道国密改造，无需修改现有应用。一款功能�
 ![demo](docs/img/demo.gif)
 
 
+您可以通过 [Web管理端用户手册](./tlcpchan-ui/README.md) 了解软件功能。
+
 ## 功能特性
 
 - **双协议支持** - 同时支持 TLCP 1.1 和 TLS 1.0-1.3 协议
 - **自动协议检测** - 同一端口自动识别 TLCP/TLS 客户端
 - **多种代理模式** - 服务端代理、客户端代理、HTTP 代理
 - **国密算法** - 支持 SM2/SM3/SM4 国密密钥库（包含 TLCP 1.1 的 ECC 证书）
+- **IBC（SM9）标识密码** - 支持 IBC/IBSDH 套件，标识即公钥，无需证书即可完成身份认证
+- **证书与 IBC 混合协商** - 同一实例可同时启用 ECC/ECDHE 与 IBC/IBSDH 套件，按对端能力自动协商
 - **传输通道身份认证** - 支持单向认证、双向认证
 - **Web 管理界面** - Vue3 + Element Plus 现代化管理界面
 - **RESTful API** - 完整的 API 接口支持
@@ -51,7 +55,6 @@ TLCP Channel 传输通道国密改造，无需修改现有应用。一款功能�
 让 AI Agent 自动完成安装配置，无需手动执行命令。
 
 
-
 将以下提示语复制并粘贴给您的 AI Agent（Claude Code、OpenCode、Cursor 等）：
 
 ```
@@ -62,9 +65,36 @@ https://raw.githubusercontent.com/Trisia/tlcpchan/main/docs/guide/installation.m
 或查看详细的 [Agent 安装指南](docs/guide/installation.md)。
 
 
-### 对于人类用户 一键安装（手动）
+### 安装
 
-#### Linux/macOS
+#### 二进制安装
+
+> 适合想要快速体验
+
+从 GitHub Releases 下载最新版本安装包和二进制程序：[https://github.com/Trisia/tlcpchan/releases](https://github.com/Trisia/tlcpchan/releases)
+
+直接解压后运行目录中的 `tlcpchan` 程序
+
+Linux/MacOS
+
+```bash
+./tlcpchan
+```
+
+Windows CMD/POWERSHELL
+
+```cmd
+.\tlcpchan.exe
+```
+
+软件启动后将会在工作目录中生成根证书和密钥，您可以通过浏览器访问管理界面进行配置，或使用 `tlcpchan-cli` 配置
+
+```
+http://127.0.0.1:20080
+```
+
+
+#### Linux/macOS 脚本安装
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Trisia/tlcpchan/main/install.sh | sudo bash
@@ -78,7 +108,7 @@ sudo systemctl start tlcpchan
 
 MACOS 用户请到工作目录中运行启动
 
-#### Windows
+#### Windows 脚本安装
 
 以管理员身份运行 PowerShell：
 
@@ -93,7 +123,7 @@ cd "C:\Program Files\TLCP Channel"
 .\tlcpchan.exe
 ```
 
-### 使用 Docker 快速启动
+### Docker 容器快速体验
 
 ```bash
 # 拉取镜像并启动服务
@@ -103,6 +133,8 @@ docker run -d \
   -p 20080:20080 \
   -p 20443:20443 \
   -v tlcpchan-keystores:/etc/tlcpchan/keystores \
+  -v tlcpchan-ibcparams:/etc/tlcpchan/ibcparams \
+  -v tlcpchan-rootcerts:/etc/tlcpchan/rootcerts \
   -v tlcpchan-logs:/etc/tlcpchan/logs \
   tlcpchan/tlcpchan:latest
 ```
@@ -112,7 +144,9 @@ docker run -d \
 - **Web 管理界面**: http://localhost:20080
 - **服务状态**: `docker logs -f tlcpchan`
 
-从 GitHub Releases 下载最新版本安装包和二进制程序：[https://github.com/Trisia/tlcpchan/releases](https://github.com/Trisia/tlcpchan/releases)
+> `keystores`、`ibcparams`、`rootcerts`、`logs` 四个命名卷用于持久化。
+> 其中 `rootcerts` 镜像内预置了 CA 证书，请始终使用命名卷挂载（新卷会由镜像内容初始化），
+> 不要用宿主机空目录 bind mount，否则会遮蔽预置的信任证书。
 
 
 ## 相关文档
@@ -133,7 +167,33 @@ docker run -d \
 | http-client | HTTP → HTTPS | 客户端国密适配，让 HTTP 客户端访问国密 HTTPS 服务 |
 
 
-详细使用方法请参考 [MCP 使用指南](docs/mcp-usage-guide.md)。
+## IBC（SM9）标识密码
+
+除证书身份外，本项目还支持 IBC（Identity-Based Cryptograph）与 IBSDH 套件：用户标识（如 `user@example.com`）即公钥，由 KGC（密钥生成中心）的公共参数派生出签名、加密与密钥交换私钥，无需证书即可完成身份认证。
+
+| 套件名 | 编号 | 密钥交换方式 |
+|---|---|---|
+| `IBC_SM4_GCM_SM3` | 0xE057 | IBC 加密传输预主密钥 |
+| `IBC_SM4_CBC_SM3` | 0xE017 | IBC 加密传输预主密钥 |
+| `IBSDH_SM4_GCM_SM3` | 0xE055 | SM9 密钥交换 |
+| `IBSDH_SM4_CBC_SM3` | 0xE015 | SM9 密钥交换 |
+
+4 个套件默认全部关闭，需要显式加入实例的 `tlcp.cipher-suites`，且该实例配置了 IBC 身份（`tlcp.ibc-keystore`）后才会参与协商。证书身份与 IBC 身份相互独立、可只配其一，也可同时配置以实现同一端口的混合协商。
+
+首次初始化会生成一套内置测试 KGC（`tlcpchan.local#1`），并预置 `default-ibc-server`、`default-ibc-client` 两个示例身份，可直接联调。KGC 公共参数统一放在工作目录的 `ibcparams/` 中作为全局信任池（Web 界面「IBC 信任池」页面管理），校验语义与"根证书"一致：**信任池中不存在对端 KGC 时 IBC 握手直接失败**。
+
+```bash
+# 查看 IBC 信任池
+tlcpchan-cli ibcparams list
+
+# 生成一套测试 KGC 并写入信任池（主密钥保存在 keystores/，权限 0600）
+tlcpchan-cli ibcparams generate --district-name example.local --district-serial 1 --years 10
+
+# 生成一个 IBC 身份（由信任池中的 KGC 派生三把用户私钥）
+tlcpchan-cli keystore generate --name my-ibc --type ibc --identity user@example.com
+```
+
+> ⚠️ 安全提示：生产环境请使用自建 KGC 的公共参数与用户私钥；客户端 `insecure-skip-verify: true` 会同时跳过证书校验与 IBC 公共参数校验，仅限测试使用。详细说明见[安装指南](docs/guide/installation.md)与[设计文档](docs/design.md)。
 
 
 ## 系统适配
@@ -146,7 +206,3 @@ docker run -d \
 | CentOS 7+ | x86_64 (Intel/AMD)、ARM64 (ARM) | ✓ |
 | Windows 10+ | x86_64 (Intel/AMD) | ✓ |
 | macOS 12 | x86_64 (Intel)、ARM64 (Apple Silicon) | ✓ |
-
-下载最新版本安装包和二进制程序：
-
-- [https://github.com/Trisia/tlcpchan/releases](https://github.com/Trisia/tlcpchan/releases)

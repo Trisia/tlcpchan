@@ -17,6 +17,7 @@ type Manager struct {
 	logger          *logger.Logger
 	keyStoreManager *security.KeyStoreManager
 	rootCertManager *security.RootCertManager
+	ibcParamManager *security.IBCParamManager
 }
 
 // NewManager 创建新的实例管理器
@@ -24,15 +25,18 @@ type Manager struct {
 //   - log: 日志记录器
 //   - keyStoreMgr: keystore 管理器
 //   - rootCertMgr: 根证书管理器
+//   - ibcParamMgr: IBC 信任池管理器，可为 nil（按空信任池处理）
 //
 // 返回:
 //   - *Manager: 实例管理器实例
-func NewManager(log *logger.Logger, keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager) *Manager {
+func NewManager(log *logger.Logger, keyStoreMgr *security.KeyStoreManager,
+	rootCertMgr *security.RootCertManager, ibcParamMgr *security.IBCParamManager) *Manager {
 	return &Manager{
 		instances:       make(map[string]Instance),
 		logger:          log,
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
+		ibcParamManager: ibcParamMgr,
 	}
 }
 
@@ -51,7 +55,7 @@ func (m *Manager) Create(cfg *config.InstanceConfig) (Instance, error) {
 		return nil, fmt.Errorf("实例 %s 已存在", cfg.Name)
 	}
 
-	inst, err := NewInstance(cfg, m.keyStoreManager, m.rootCertManager, m.logger)
+	inst, err := NewInstance(cfg, m.keyStoreManager, m.rootCertManager, m.ibcParamManager, m.logger)
 	if err != nil {
 		return nil, fmt.Errorf("创建实例失败: %w", err)
 	}

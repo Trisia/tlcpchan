@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
@@ -206,16 +205,7 @@ func NewFileLoader(baseDir string) *FileLoader {
 }
 
 func (fl *FileLoader) resolvePath(path string) string {
-	if path == "" {
-		return ""
-	}
-	if filepath.IsAbs(path) {
-		return path
-	}
-	if fl.baseDir != "" {
-		return filepath.Join(fl.baseDir, path)
-	}
-	return path
+	return resolveBasePath(fl.baseDir, path)
 }
 
 func (fl *FileLoader) Load(loaderType LoaderType, params map[string]string) (KeyStore, error) {
@@ -284,4 +274,30 @@ func (n *NamedKeyStore) TLCPCertificate() ([]*tlcp.Certificate, error) {
 
 func (n *NamedKeyStore) TLSCertificate() (*tls.Certificate, error) {
 	return n.delegate.TLSCertificate()
+}
+
+// IBCIdentity 返回被引用 keystore 的 IBC 身份。
+//
+// 返回值：
+//   - *tlcp.IBCIdentity：被引用 keystore 为 ibc 类型时返回其身份，否则返回 nil
+//   - error：被引用 keystore 装载失败时返回错误
+//
+// 注意事项：
+//   - 非 ibc 类型的被引用 keystore 返回 (nil, nil)，表示本端无 IBC 能力而非错误
+func (n *NamedKeyStore) IBCIdentity() (*tlcp.IBCIdentity, error) {
+	if ks, ok := n.delegate.(IBCKeyStore); ok {
+		return ks.IBCIdentity()
+	}
+	return nil, nil
+}
+
+// IBCInfo 返回被引用 keystore 的 IBC 元信息。
+//
+// 返回值：
+//   - *IBCInfo：被引用 keystore 为 ibc 类型时返回其元信息，否则返回 nil
+func (n *NamedKeyStore) IBCInfo() *IBCInfo {
+	if ks, ok := n.delegate.(IBCKeyStore); ok {
+		return ks.IBCInfo()
+	}
+	return nil
 }

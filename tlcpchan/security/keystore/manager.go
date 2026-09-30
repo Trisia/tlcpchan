@@ -28,8 +28,27 @@ func NewManager() *Manager {
 
 	m.loaders[LoaderTypeFile] = NewFileLoader("")
 	m.loaders[LoaderTypeNamed] = NewNamedLoader(m)
+	m.loaders[LoaderTypeIBCFile] = NewIBCFileLoader("")
 
 	return m
+}
+
+// fillIBCInfo 用 keystore 的 IBC 元信息填充 KeyStoreInfo。
+//
+// 参数：
+//   - info: 待填充的元信息
+//   - ks: keystore 实例
+//
+// 注意事项：
+//   - 仅实现了 IBCKeyStore 且为 ibc 类型的 keystore 会写入 IBC 字段；
+//     身份装载失败时 IBCInfo() 返回 nil，此时保持字段为空
+func fillIBCInfo(info *KeyStoreInfo, ks KeyStore) {
+	if info == nil || ks == nil || ks.Type() != KeyStoreTypeIBC {
+		return
+	}
+	if ibcKS, ok := ks.(IBCKeyStore); ok {
+		info.IBC = ibcKS.IBCInfo()
+	}
 }
 
 // ConfigEntry 用于 LoadFromConfigs 的配置条目
@@ -73,6 +92,7 @@ func (m *Manager) LoadFromConfigs(configs []ConfigEntry) error {
 			CreatedAt:  now,
 			UpdatedAt:  now,
 		}
+		fillIBCInfo(info, ks)
 
 		m.keyStoreInfo[cfg.Name] = info
 		m.keyStores[cfg.Name] = ks
@@ -131,6 +151,7 @@ func (m *Manager) Create(name string, loaderType LoaderType, params map[string]s
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
+	fillIBCInfo(info, ks)
 
 	m.keyStoreInfo[name] = info
 	m.keyStores[name] = ks
@@ -197,6 +218,8 @@ func (m *Manager) Set(name string, ks KeyStore, params map[string]string) error 
 	info.Params = params
 	info.UpdatedAt = time.Now()
 	info.Type = ks.Type()
+	info.IBC = nil
+	fillIBCInfo(info, ks)
 
 	return nil
 }

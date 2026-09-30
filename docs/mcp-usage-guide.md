@@ -18,7 +18,7 @@ TLCP Channel 实现了 MCP 服务器端，提供了完整的 TLCP/TLS 代理管�
 
 ### 1.3 支持的工具列表
 
-TLCP Channel MCP 提供了以下 5 类共 18 个工具：
+TLCP Channel MCP 提供了以下 6 类共 25 个工具：
 
 #### 配置管理工具 (3 个)
 - `get_config` - 获取当前系统配置
@@ -31,6 +31,14 @@ TLCP Channel MCP 提供了以下 5 类共 18 个工具：
 - `create_keystore` - 创建新的密钥存储
 - `update_keystore` - 更新指定密钥存储的参数
 - `delete_keystore` - 删除指定的密钥存储
+
+#### IBC 信任池工具 (4 个)
+- `list_ibc_params` - 获取 IBC 信任池中的 KGC 公共参数列表
+- `add_ibc_params` - 添加 KGC 公共参数（PEM/DER/HEX/Base64 文本）
+- `remove_ibc_params` - 删除指定文件名的 KGC 公共参数
+- `reload_ibc_params` - 重新扫描并加载 IBC 信任池
+
+> IBC（SM9）身份认证中，用户标识即公钥，其真实性由 KGC 公共参数决定。信任池默认拒绝：池中不存在对端 KGC 时 IBC/IBSDH 握手一定失败，请先通过可信渠道获取公共参数再添加。
 
 #### 日志管理工具 (1 个)
 - `get_system_logs` - 获取系统日志（历史日志文件）

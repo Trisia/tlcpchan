@@ -24,16 +24,6 @@
               <el-tag size="small" :type="row.config.protocol === 'tlcp' ? 'primary' : 'success'">{{ row.config.protocol }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="TLCP认证" width="150" class-name="hide-on-tablet">
-            <template #default="{ row }">
-              <el-tag size="small" type="info">{{ row.config.tlcp?.clientAuthType || 'no-client-cert' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="TLS认证" width="150" class-name="hide-on-tablet">
-            <template #default="{ row }">
-              <el-tag size="small" type="success">{{ row.config.tls?.clientAuthType || 'no-client-cert' }}</el-tag>
-            </template>
-          </el-table-column>
           <el-table-column prop="config.listen" label="监听地址" class-name="hide-on-mobile" />
           <el-table-column prop="config.target" label="目标地址" class-name="hide-on-mobile" />
           <el-table-column prop="status" label="状态" width="100">

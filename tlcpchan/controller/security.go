@@ -7,10 +7,11 @@ import (
 )
 
 // SecurityController 安全参数管理控制器
-// 负责管理 keystore 和根证书，同时负责更新配置文件
+// 负责管理 keystore、根证书与 IBC 信任池，同时负责更新配置文件
 type SecurityController struct {
 	keyStoreMgr *security.KeyStoreManager // keystore 管理器
 	rootCertMgr *security.RootCertManager // 根证书管理器
+	ibcParamMgr *security.IBCParamManager // IBC 信任池管理器
 	cfg         *config.Config            // 全局配置
 	configPath  string                    // 配置文件路径
 	log         *logger.Logger            // 日志记录器
@@ -20,15 +21,18 @@ type SecurityController struct {
 // 参数：
 //   - keyStoreMgr: keystore 管理器
 //   - rootCertMgr: 根证书管理器
+//   - ibcParamMgr: IBC 信任池管理器，可为 nil
 //   - cfg: 全局配置对象
 //   - configPath: 配置文件路径
 //
 // 返回：
 //   - *SecurityController: 新的控制器实例
-func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager, cfg *config.Config, configPath string) *SecurityController {
+func NewSecurityController(keyStoreMgr *security.KeyStoreManager, rootCertMgr *security.RootCertManager,
+	ibcParamMgr *security.IBCParamManager, cfg *config.Config, configPath string) *SecurityController {
 	return &SecurityController{
 		keyStoreMgr: keyStoreMgr,
 		rootCertMgr: rootCertMgr,
+		ibcParamMgr: ibcParamMgr,
 		cfg:         cfg,
 		configPath:  configPath,
 		log:         logger.Default(),
@@ -53,4 +57,11 @@ func (c *SecurityController) RegisterRoutes(r *Router) {
 	r.GET("/api/security/rootcerts/:filename", c.GetRootCert)
 	r.DELETE("/api/security/rootcerts/:filename", c.DeleteRootCert)
 	r.POST("/api/security/rootcerts/reload", c.ReloadRootCerts)
+
+	r.GET("/api/security/ibcparams", c.ListIBCParams)
+	r.POST("/api/security/ibcparams", c.AddIBCParams)
+	r.POST("/api/security/ibcparams/generate", c.GenerateIBCParams)
+	r.GET("/api/security/ibcparams/:filename", c.GetIBCParams)
+	r.DELETE("/api/security/ibcparams/:filename", c.DeleteIBCParams)
+	r.POST("/api/security/ibcparams/reload", c.ReloadIBCParams)
 }

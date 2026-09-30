@@ -184,7 +184,7 @@ func TestProxyConnection(t *testing.T) {
 
 1. 不提交敏感信息（密钥、证书、密码等）
 2. 使用 context.Context 进行超时和取消控制
-3. 工作目录结构：certs/（证书）、trusted/（信任证书）、logs/（日志）、config/（配置）
+3. 工作目录结构：keystores/（证书与 IBC 身份密钥库）、rootcerts/（信任根证书）、ibcparams/（IBC 信任池，只存放信任的 KGC 公共参数）、logs/（日志）、config.yaml（配置）
 
 ## 注释规范
 

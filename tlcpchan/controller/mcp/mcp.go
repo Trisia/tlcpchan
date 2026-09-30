@@ -25,6 +25,8 @@ type ServerOptions struct {
 	KeyStoreManager *security.KeyStoreManager
 	// RootCertManager 根证书管理器
 	RootCertManager *security.RootCertManager
+	// IBCParamManager IBC 信任池管理器
+	IBCParamManager *security.IBCParamManager
 	// InstanceManager 实例管理器
 	InstanceManager *instance.Manager
 	// StaticDir 静态文件目录
@@ -37,6 +39,7 @@ type MCPController struct {
 	instanceMgr *instance.Manager
 	keyStoreMgr *security.KeyStoreManager
 	rootCertMgr *security.RootCertManager
+	ibcParamMgr *security.IBCParamManager
 	configPath  string
 	server      *mcpsdk.Server
 	sseHandler  *mcpsdk.SSEHandler
@@ -63,6 +66,7 @@ func NewMCPController(opts *ServerOptions) (*MCPController, error) {
 		instanceMgr: opts.InstanceManager,
 		keyStoreMgr: opts.KeyStoreManager,
 		rootCertMgr: opts.RootCertManager,
+		ibcParamMgr: opts.IBCParamManager,
 		configPath:  opts.ConfigPath,
 		log:         logger.Default(),
 		started:     false,
@@ -99,6 +103,9 @@ func NewMCPController(opts *ServerOptions) (*MCPController, error) {
 
 	// 注册密钥存储管理工具
 	c.registerKeystoreTools()
+
+	// 注册 IBC 信任池管理工具
+	c.registerIBCParamTools()
 
 	// 注册日志管理工具
 	c.registerLogTools()

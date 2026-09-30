@@ -12,6 +12,15 @@ TLCP Channel 是一款功能强大的 TLCP/TLS 协议代理工具，支持双协
 3. **Docker 安装**（跨平台）：Docker 容器
 4. **源码编译**（开发者）：从源码构建
 
+## 工作目录约定
+
+工作目录默认为**可执行文件所在目录**，也可通过 `-w`（等价于 `-workdir`）显式指定：
+
+```bash
+# 将工作目录指定为 /etc/tlcpchan
+/etc/tlcpchan/tlcpchan -w /etc/tlcpchan
+```
+
 ## 安装前检查
 
 在开始安装前，必须检查以下环境：
@@ -242,11 +251,9 @@ curl -# -L -o "/tmp/${filename}" "$download_url"
 #### 3. 解压并安装
 
 ```bash
-# 创建安装目录
+# 创建安装目录（logs/、keystores/、rootcerts/、ibcparams/ 由程序首次启动时自动创建）
 INSTALL_DIR="/etc/tlcpchan"
 mkdir -p "$INSTALL_DIR"
-mkdir -p "${INSTALL_DIR}/keystores"
-mkdir -p "${INSTALL_DIR}/logs"
 
 # 解压到临时目录
 tmp_extract_dir="${INSTALL_DIR}_extract"
@@ -319,12 +326,18 @@ if docker ps -a | grep -q tlcpchan; then
 fi
 
 # 启动容器
+# 数据卷挂载点若不存在会由 Docker 自动创建，
+# 容器内 logs/、keystores/、rootcerts/、ibcparams/ 由程序首次启动时自动创建
+# rootcerts 必须使用命名卷：新卷会由镜像内容初始化（保留预置 CA），
+# 若改用宿主机空目录 bind mount 会遮蔽镜像预置的信任证书
 docker run -d \
   --name tlcpchan \
   --restart unless-stopped \
   -p 20080:20080 \
   -p 20443:20443 \
   -v tlcpchan-keystores:/etc/tlcpchan/keystores \
+  -v tlcpchan-ibcparams:/etc/tlcpchan/ibcparams \
+  -v tlcpchan-rootcerts:/etc/tlcpchan/rootcerts \
   -v tlcpchan-logs:/etc/tlcpchan/logs \
   tlcpchan/tlcpchan:latest
 ```
@@ -346,6 +359,21 @@ else
     exit 1
 fi
 ```
+
+#### 5. 数据卷说明
+
+| 卷名 | 容器内路径 | 用途 |
+|---|---|---|
+| `tlcpchan-keystores` | `/etc/tlcpchan/keystores` | 密钥与证书、IBC 身份材料、KGC 主密钥 |
+| `tlcpchan-ibcparams` | `/etc/tlcpchan/ibcparams` | 信任的 KGC 公共参数 |
+| `tlcpchan-rootcerts` | `/etc/tlcpchan/rootcerts` | 信任根证书（含通过 Web/API 上传的自定义根证书） |
+| `tlcpchan-logs` | `/etc/tlcpchan/logs` | 日志文件 |
+
+> **注意**：`rootcerts` 在镜像中预置了 CA 证书，必须使用命名卷挂载。
+> 命名卷首次创建时，Docker 会把镜像中该目录的内容复制进卷，因此预置证书不会丢失；
+> 若改用宿主机空目录 bind mount（`-v /host/dir:/etc/tlcpchan/rootcerts`）会遮蔽镜像预置的信任证书。
+> 另外，命名卷只在首次创建时从镜像复制内容，升级镜像后卷内不会自动同步新增的预置 CA，
+> 如需更新可手动上传新证书或删除该卷后重新创建。
 
 ## 方式四：源码编译（开发者）
 
@@ -413,11 +441,9 @@ echo "正在构建项目..."
 #### 3. 安装二进制文件
 
 ```bash
-# 创建安装目录
+# 创建安装目录（logs/、keystores/、rootcerts/、ibcparams/ 由程序首次启动时自动创建）
 INSTALL_DIR="/etc/tlcpchan"
 mkdir -p "$INSTALL_DIR"
-mkdir -p "${INSTALL_DIR}/keystores"
-mkdir -p "${INSTALL_DIR}/logs
 
 # 复制二进制文件
 cp target/tlcpchan "$INSTALL_DIR/"
@@ -447,6 +473,8 @@ fi
 配置文件位于：
 - Linux/macOS: `/etc/tlcpchan/config.yaml`
 - Docker: 挂载到 `/etc/tlcpchan/config.yaml`
+
+配置文件**无需手工创建**：首次启动的初始化流程会写入一份默认配置并打印日志，随后按需修改即可。同理，`logs/`、`keystores/`、`rootcerts/`、`ibcparams/` 也会在首次启动时自动创建。
 
 ### 2. 启动服务
 
@@ -531,7 +559,7 @@ docker rm tlcpchan
 docker rmi tlcpchan/tlcpchan:latest
 
 # 删除数据卷
-docker volume rm tlcpchan-keystores tlcpchan-logs
+docker volume rm tlcpchan-keystores tlcpchan-ibcparams tlcpchan-rootcerts tlcpchan-logs
 ```
 
 ## 常见问题

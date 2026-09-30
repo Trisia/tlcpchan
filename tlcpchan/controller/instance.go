@@ -14,6 +14,7 @@ import (
 	"github.com/Trisia/tlcpchan/instance"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/proxy"
+	"github.com/Trisia/tlcpchan/security/keystore"
 )
 
 type InstanceController struct {
@@ -113,7 +114,7 @@ func parseListenPort(listen string) (int, error) {
  * @api {get} /api/instances 获取实例列表
  * @apiName ListInstances
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取所有代理实例的列表信息
  *
@@ -172,7 +173,7 @@ func (c *InstanceController) List(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/instances/:name 获取实例详情
  * @apiName GetInstance
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取指定实例的详细信息，包括配置和状态
  *
@@ -242,46 +243,50 @@ func (c *InstanceController) Get(w http.ResponseWriter, r *http.Request) {
  *   - error: 如果文件不存在则返回错误信息，否则返回 nil
  */
 func validateInstanceFileKeystores(workDir string, cfg *config.InstanceConfig) error {
-	// 验证 TLCP keystore
-	if cfg.TLCP.Keystore != nil && cfg.TLCP.Keystore.Type == "file" {
-		for _, filePath := range cfg.TLCP.Keystore.Params {
-			if filePath == "" {
-				continue
-			}
-
-			var fullPath string
-			if !filepath.IsAbs(filePath) {
-				fullPath = filepath.Join(workDir, filePath)
-			} else {
-				fullPath = filePath
-			}
-
-			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-				return fmt.Errorf("TLCP keystore 文件 %s 不存在", filePath)
-			}
+	// 证书身份（file）与 IBC 身份（ibc-file）均按参数中的文件路径做存在性校验
+	if cfg.TLCP.Keystore != nil && cfg.TLCP.Keystore.Type == keystore.LoaderTypeFile {
+		if err := checkKeystoreParamFiles(workDir, cfg.TLCP.Keystore, "TLCP"); err != nil {
+			return err
+		}
+	}
+	if cfg.TLCP.IBCKeystore != nil && cfg.TLCP.IBCKeystore.Type == keystore.LoaderTypeIBCFile {
+		if err := checkKeystoreParamFiles(workDir, cfg.TLCP.IBCKeystore, "IBC"); err != nil {
+			return err
+		}
+	}
+	if cfg.TLS.Keystore != nil && cfg.TLS.Keystore.Type == keystore.LoaderTypeFile {
+		if err := checkKeystoreParamFiles(workDir, cfg.TLS.Keystore, "TLS"); err != nil {
+			return err
 		}
 	}
 
-	// 验证 TLS keystore
-	if cfg.TLS.Keystore != nil && cfg.TLS.Keystore.Type == "file" {
-		for _, filePath := range cfg.TLS.Keystore.Params {
-			if filePath == "" {
-				continue
-			}
+	return nil
+}
 
-			var fullPath string
-			if !filepath.IsAbs(filePath) {
-				fullPath = filepath.Join(workDir, filePath)
-			} else {
-				fullPath = filePath
-			}
+// checkKeystoreParamFiles 校验 keystore 参数中的文件路径在工作目录下存在。
+//
+// 参数：
+//   - workDir: 工作目录，用于解析相对路径
+//   - ks: keystore 配置，参数中的空值会被跳过
+//   - label: 错误信息中的标识，如 "TLCP"、"IBC"、"TLS"
+//
+// 返回值：
+//   - error: 存在缺失文件时返回错误，错误信息包含原始路径
+func checkKeystoreParamFiles(workDir string, ks *config.KeyStoreConfig, label string) error {
+	for _, filePath := range ks.Params {
+		if filePath == "" {
+			continue
+		}
 
-			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-				return fmt.Errorf("TLS keystore 文件 %s 不存在", filePath)
-			}
+		fullPath := filePath
+		if !filepath.IsAbs(fullPath) {
+			fullPath = filepath.Join(workDir, fullPath)
+		}
+
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return fmt.Errorf("%s keystore 文件 %s 不存在", label, filePath)
 		}
 	}
-
 	return nil
 }
 
@@ -289,7 +294,7 @@ func validateInstanceFileKeystores(workDir string, cfg *config.InstanceConfig) e
 * @api {post} /api/instances 创建实例
 * @apiName CreateInstance
 * @apiGroup Instance
-* @apiVersion 1.0.0
+* @apiVersion 1.1.0
 *
 * @apiDescription 创建一个新的代理实例，并将配置保存到配置文件
 *
@@ -468,7 +473,7 @@ func (c *InstanceController) Create(w http.ResponseWriter, r *http.Request) {
 * @api {put} /api/instances/:name 更新实例配置
 * @apiName UpdateInstance
 * @apiGroup Instance
-* @apiVersion 1.0.0
+* @apiVersion 1.1.0
 *
 * @apiDescription 更新实例配置，保存到配置文件并在实例运行时热重载
 *
@@ -677,7 +682,7 @@ func (c *InstanceController) Update(w http.ResponseWriter, r *http.Request) {
  * @api {delete} /api/instances/:name 删除实例
  * @apiName DeleteInstance
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 删除指定的代理实例，删除前会自动停止实例
  *
@@ -728,7 +733,7 @@ func (c *InstanceController) Delete(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/instances/:name/start 启动实例
  * @apiName StartInstance
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 启动指定的代理实例，实例将开始监听端口并转发流量
  *
@@ -774,7 +779,7 @@ func (c *InstanceController) Start(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/instances/:name/stop 停止实例
  * @apiName StopInstance
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 停止指定的代理实例，实例将停止监听端口，现有连接会被优雅关闭
  *
@@ -820,7 +825,7 @@ func (c *InstanceController) Stop(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/instances/:name/reload 热重载实例
  * @apiName ReloadInstance
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 热重载指定实例的配置，不中断服务
  *
@@ -867,7 +872,7 @@ func (c *InstanceController) Reload(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/instances/:name/restart 重启实例
  * @apiName RestartInstance
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 重启指定实例，停止后使用当前配置重新启动
  *
@@ -914,7 +919,7 @@ func (c *InstanceController) Restart(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/instances/:name/stats 获取实例统计
  * @apiName GetInstanceStats
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取指定实例的运行统计信息，包括连接数、流量等
  *
@@ -962,7 +967,7 @@ func (c *InstanceController) Stats(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/instances/:name/logs 获取实例日志
  * @apiName GetInstanceLogs
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取指定实例的日志信息
  *
@@ -1015,7 +1020,7 @@ func (c *InstanceController) Logs(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/instances/:name/health 实例健康检查
  * @apiName InstanceHealthCheck
  * @apiGroup Instance
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 检查代理实例的健康状态，通过建立连接测试配置的目标地址
  *

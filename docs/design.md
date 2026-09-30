@@ -93,16 +93,30 @@ TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录�
 │   ├── tlcpchan-tlcp-root-ca.key   # TLCP 根 CA 私钥（SM2）
 │   ├── tlcpchan-tls-root-ca.crt    # TLS 根 CA 证书（RSA 2048）
 │   ├── tlcpchan-tls-root-ca.key    # TLS 根 CA 私钥（RSA 2048）
+│   ├── tlcpchan-ibc-kgc-master.key # 内置测试 KGC 主密钥（SM9 主密钥对，0600）
 │   ├── default-tlcp-sign.crt
 │   ├── default-tlcp-sign.key
 │   ├── default-tlcp-enc.crt
 │   ├── default-tlcp-enc.key
 │   ├── default-tls.crt
-│   └── default-tls.key
+│   ├── default-tls.key
+│   ├── default-ibc-server-identity.txt  # IBC 服务端标识（裸字节文本，0644）
+│   ├── default-ibc-server-params.pem    # IBC 服务端本端 KGC 公共参数（0644）
+│   ├── default-ibc-server-sign.key      # IBC 签名私钥 hid=0x01（0600）
+│   ├── default-ibc-server-enc.key       # IBC 加密私钥 hid=0x03（0600）
+│   ├── default-ibc-server-kex.key       # IBC 密钥交换私钥 hid=0x02（0600）
+│   ├── default-ibc-client-identity.txt  # IBC 客户端标识（0644）
+│   ├── default-ibc-client-params.pem
+│   ├── default-ibc-client-sign.key
+│   ├── default-ibc-client-enc.key
+│   └── default-ibc-client-kex.key
 │
 ├── rootcerts/                    # 根证书目录
 │   ├── tlcpchan-tlcp-root-ca.crt   # TLCP 根 CA 证书
 │   └── tlcpchan-tls-root-ca.crt    # TLS 根 CA 证书
+│
+├── ibcparams/                    # IBC 信任池目录（只存放信任的 KGC 公共参数）
+│   └── tlcpchan-ibc-kgc.pem          # 内置测试 KGC 公共参数（0644，入信任池）
 │
 ├── logs/                         # 日志目录
 │   └── tlcpchan.log
@@ -145,6 +159,18 @@ TLCP Channel 包含两个独立的可执行文件，推荐部署在同一目录�
 | default-tlcp-enc.key | keystores/ | TLCP 加密私钥 | 5 年 | 加密证书对应的私钥 |
 | default-tls.crt | keystores/ | TLS 证书 | 5 年 | 由 TLS 根 CA 签发（RSA 2048），用于 TLS 协议 |
 | default-tls.key | keystores/ | TLS 私钥 | 5 年 | TLS 证书对应的私钥 |
+| default-ibc-server-identity.txt | keystores/ | IBC 标识 | - | 服务端标识裸字节文本 `server@tlcpchan.local`（0644） |
+| default-ibc-server-params.pem | keystores/ | IBC KGC 公共参数 | 10 年 | 本端公共参数，源自内置测试 KGC（0644） |
+| default-ibc-server-sign.key | keystores/ | IBC 签名私钥 | 10 年 | 签名用户私钥，hid=0x01（0600） |
+| default-ibc-server-enc.key | keystores/ | IBC 加密私钥 | 10 年 | 加密用户私钥，hid=0x03（0600） |
+| default-ibc-server-kex.key | keystores/ | IBC 密钥交换私钥 | 10 年 | 密钥交换用户私钥，hid=0x02（0600） |
+| default-ibc-client-identity.txt | keystores/ | IBC 标识 | - | 客户端标识裸字节文本 `client@tlcpchan.local`（0644） |
+| default-ibc-client-params.pem | keystores/ | IBC KGC 公共参数 | 10 年 | 本端公共参数（0644） |
+| default-ibc-client-sign.key | keystores/ | IBC 签名私钥 | 10 年 | 签名用户私钥，hid=0x01（0600） |
+| default-ibc-client-enc.key | keystores/ | IBC 加密私钥 | 10 年 | 加密用户私钥，hid=0x03（0600） |
+| default-ibc-client-kex.key | keystores/ | IBC 密钥交换私钥 | 10 年 | 密钥交换用户私钥，hid=0x02（0600） |
+| tlcpchan-ibc-kgc.pem | ibcparams/ | KGC 公共参数 | 10 年 | 内置测试 KGC（`tlcpchan.local#1`）公共参数，写入全局信任池（0644） |
+| tlcpchan-ibc-kgc-master.key | keystores/ | KGC 主密钥 | 10 年 | 测试 KGC 主密钥，与其它密钥材料同目录、不通过任何 API 下发（0600） |
 | config.yaml | ./ | 配置文件 | - | 主配置文件，包含 keystores 和 auto-proxy 实例 |
 | .tlcpchan-initialized | ./ | 标志文件 | - | 初始化完成标志 |
 
@@ -205,10 +231,10 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │                   KeyStore Manager                     │  │
 │  │  ┌─────────────────────────────────────────────────┐  │  │
-│  │  │  Loaders: file | named | skf | sdf             │  │  │
+│  │  │  Loaders: file | named | skf | sdf | ibc-file  │  │  │
 │  │  └─────────────────────────────────────────────────┘  │  │
 │  │  ┌─────────────────────────────────────────────────┐  │  │
-│  │  │  KeyStores: tlcp | tls                         │  │  │
+│  │  │  KeyStores: tlcp | tls | ibc                   │  │  │
 │  │  └─────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────┘  │
 │                           │                                   │
@@ -220,6 +246,17 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 │  │  └─────────────────────────────────────────────────┘  │  │
 │  │  ┌─────────────────────────────────────────────────┐  │  │
 │  │  │  Formats: PEM | DER | Base64 | Hex             │  │  │
+│  │  └─────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                           │                                   │
+│                           ▼                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                 IBCParams Manager                      │  │
+│  │  ┌─────────────────────────────────────────────────┐  │  │
+│  │  │  Directory: ibcparams/ (子目录不扫描)           │  │  │
+│  │  └─────────────────────────────────────────────────┘  │  │
+│  │  ┌─────────────────────────────────────────────────┐  │  │
+│  │  │  Ext: .pem | .der | .ibcparams → tlcp.IBCPool  │  │  │
 │  │  └─────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────┘  │
 │                                                               │
@@ -262,6 +299,36 @@ TLCP Channel 采用清晰的分层架构，各层职责明确：
 **存储位置：**
 - 证书文件：`rootcerts/` 目录
 - 支持格式：`.pem`, `.cer`, `.crt`, `.der`
+
+#### IBC（SM9）扩展
+
+除 X.509 证书身份外，系统还支持 **IBC（SM9 标识密码）身份**，用于 TLCP 的 IBC/IBSDH 密码套件。两者相互独立，可只配置其一，也可同时配置以实现同端口混合协商。
+
+**IBC 身份（IBC Keystore）：**
+- `type: ibc`，`loaderType: ibc-file`，与证书 Keystore 并列存放于 `config.yaml` 的 `keystores` 字段
+- 不使用 X.509 证书，材料由 5 项组成：本端标识、本端 KGC 公共参数、三把 SM9 用户私钥
+- 私钥按派生用途（hid）区分：签名私钥 `hid=0x01`、密钥交换私钥 `hid=0x02`、加密私钥 `hid=0x03`；误装其他用途的私钥不会在装载期报错，须由导入来源保证
+- 装载时仅对签名私钥做一次 SM3 摘要自签自验（`sm9.SignASN1` + `sm9.VerifyASN1`），`kex-key` 无法在装载期反推校验
+
+**IBC 信任池（IBCParams）：**
+- KGC 公共参数（`IBCSysParams`）的全局信任锚，等价于证书体系中的根证书库
+- 独立目录 `ibcparams/`，只存放信任的 KGC 公共参数；KGC 主密钥存放在 `keystores/`（0600，不通过任何 API 下发）
+- 客户端与服务端共用同一份信任列表，不进入实例配置；**默认拒绝**：信任池中不存在对端 KGC 时 IBC 握手一定失败
+- 详细设计见 [3.2.5 IBC 信任池管理](#325-ibc-信任池管理) 与 [3.6 IBC（SM9）支持设计](#36-ibcsm9支持设计)
+
+**与证书身份的对照：**
+
+| 特性 | 证书身份（Keystore） | IBC 身份（IBC Keystore） |
+|------|----------------------|--------------------------|
+| **类型** | `tlcp` / `tls` | `ibc` |
+| **加载器** | `file` / `named` / `skf` / `sdf` | `ibc-file` |
+| **身份凭据** | X.509 证书（SM2/RSA/ECDSA） | 标识字节串 + KGC 公共参数 |
+| **私钥** | 签名私钥 + 加密私钥 | 签名私钥（0x01）+ 加密私钥（0x03）+ 密钥交换私钥（0x02） |
+| **信任锚** | `rootcerts/`（根证书） | `ibcparams/`（KGC 公共参数） |
+| **可用套件** | ECC_SM4_* / ECDHE_SM4_* | IBC_SM4_* / IBSDH_SM4_* |
+| **存储位置** | `keystores/` | `keystores/` |
+
+> **安全提示**：`InsecureSkipVerify=true` 会同时跳过 X.509 证书验证与 IBC 公共参数校验，仅供测试使用，UI 中有明确警示文案。
 
 #### Keystore 与 RootCert 的关系
 
@@ -320,9 +387,10 @@ tlcpchan/                      # 项目根目录
 │   ├── config/                # 配置管理模块
 │   ├── initialization/        # 初始化模块
 │   ├── security/              # 安全模块
-│   │   ├── keystore/         # Keystore 管理
+│   │   ├── keystore/         # Keystore 管理（含 ibc-file 加载器）
 │   │   ├── rootcert/         # 根证书管理
-│   │   └── certgen/          # 证书生成
+│   │   ├── ibcparams/        # IBC 信任池（KGC 公共参数）管理
+│   │   └── certgen/          # 证书与 IBC 身份生成
 │   ├── instance/             # 实例管理模块
 │   ├── proxy/                # 代理引擎
 │   ├── controller/           # API 控制器
@@ -610,9 +678,11 @@ ReloadConfig() 调用              │
 
 | 概念 | 说明 |
 |------|------|
-| **Keystore** | 密钥存储，包含签名/加密证书和密钥 |
+| **Keystore** | 密钥存储，包含签名/加密证书和密钥（X.509/SM2 证书身份） |
 | **RootCert** | 根证书，用于验证对端证书 |
 | **Loader** | Keystore 加载器，支持多种加载方式 |
+| **IBCKeystore** | IBC（SM9）身份密钥存储，包含本端标识、本端 KGC 公共参数与三把 SM9 用户私钥，不使用 X.509 证书 |
+| **IBCParams** | IBC 信任池条目（KGC 公共参数），用于校验对端 IBC 身份，等价于证书体系的根证书 |
 
 > **详细文档**：安全参数的完整配置和管理方法请参考 [security.md](./security.md)。
 
@@ -625,6 +695,8 @@ ReloadConfig() 调用              │
 2. 检查必要的 keystores 是否存在（tlcpchan-tlcp-root-ca、tlcpchan-tls-root-ca、default-tlcp、default-tls）
 3. 检查 auto-proxy 实例是否存在
 4. 检查关键证书文件是否存在
+
+> **向后兼容约束**：`CheckInitialized` **不检查任何 IBC 产物**（既不看 `default-ibc-server` / `default-ibc-client` keystore，也不看 `ibcparams/` 目录与文件）。否则已运行的老安装会被判定为"未初始化"并重新初始化、覆盖 `config.yaml`；老安装应通过「生成」或「导入」接口补齐 IBC 材料。
 
 **初始化流程图：**
 ```
@@ -653,6 +725,16 @@ ReloadConfig() 调用              │
 用 TLS 根 CA 签发 TLS 单证书 (RSA 2048，5年有效期)
   │
   ▼
+生成内置测试 KGC 公共参数 (SM9，tlcpchan.local#1，10年有效期)
+  │
+  ▼
+公共参数写入 ibcparams/ (入信任池，0644)
+主密钥写入 keystores/ (0600)
+  │
+  ▼
+派生 default-ibc-server / default-ibc-client 两组身份 (各含标识+公共参数+三把私钥)
+  │
+  ▼
 配置 keystores 到 config.yaml
   │
   ▼
@@ -673,6 +755,9 @@ ReloadConfig() 调用              │
 - `tlcpchan-tls-root-ca`：TLS 根 CA 证书（RSA 2048，用于签发 TLS 证书）
 - `default-tlcp`：TLCP 双证书（签名证书 + 加密证书，由 TLCP 根 CA 签发）
 - `default-tls`：TLS 单证书（RSA 2048，由 TLS 根 CA 签发）
+- `tlcpchan-ibc-kgc`：内置测试 KGC 公共参数（`tlcpchan.local#1`，10 年有效期），写入 `ibcparams/` 信任池；主密钥写入 `keystores/tlcpchan-ibc-kgc-master.key`（0600）
+- `default-ibc-server`：IBC 服务端身份（`server@tlcpchan.local`，`ibc-file` 类型）
+- `default-ibc-client`：IBC 客户端身份（`client@tlcpchan.local`，`ibc-file` 类型）
 - `auto-proxy`：默认代理实例（监听 :20443，转发到 API 服务 :20080）
 
 #### 3.2.3 Keystore 管理
@@ -696,6 +781,7 @@ type Manager struct {
 | `named` | 通过名称引用已存在的 keystore |
 | `skf` | SKF 硬件接口（预留） |
 | `sdf` | SDF 硬件接口（预留） |
+| `ibc-file` | 从文件系统加载 IBC（SM9）身份材料（`type=ibc`），参数键为 `identity` / `params` / `sign-key` / `enc-key` / `kex-key` |
 
 **核心接口：**
 - `LoadFromConfigs(configs []ConfigEntry)` - 从配置批量加载
@@ -778,16 +864,89 @@ type RootCert struct {
 - 解析并加载所有有效证书
 - 忽略无效证书文件并记录日志
 
-#### 3.2.5 热更新机制
+#### 3.2.5 IBC 信任池管理
+
+IBC 信任池管理器（`security/ibcparams`）负责管理受信任的 KGC 公共参数（`IBCSysParams`），其定位与根证书管理器对等：**是 IBC/IBSDH 套件的全局信任锚**。
+
+**Manager 数据结构：**
+```go
+// Manager IBC 信任池管理器
+type Manager struct {
+    baseDir string               // 信任池目录，默认 <workDir>/ibcparams
+    params  map[string]*IBCParam // 文件名 -> 参数元信息
+    pool    *tlcp.IBCPool        // 全量信任池，Reload 时重建
+    mu      sync.RWMutex         // 读写锁
+}
+```
+
+**IBCParam 数据结构：**
+```go
+// IBCParam KGC 公共参数条目
+type IBCParam struct {
+    Filename           string    // 文件名，条目在信任池中的唯一标识
+    DistrictName       string    // KGC 属地区域名，与 DistrictSerial 共同唯一标识 KGC
+    DistrictSerial     int       // 同一区域下的 KGC 序号
+    NotBefore          time.Time // 公共参数生效时间（零值表示不限）
+    NotAfter           time.Time // 公共参数失效时间（零值表示不限）
+    IssuerIdentity     string    // 公共参数颁发者标识（KGC 标识）可读形式
+    SignKeyFingerprint string    // 签名主公钥 SM3 指纹（HEX 小写）
+    EncKeyFingerprint  string    // 加密主公钥 SM3 指纹（HEX 小写）
+}
+```
+
+> `IBCParam` 仅包含只读元信息，解析后的 `*tlcp.IBCSysParams` 仅供内部装载与比对使用，不对外序列化。
+
+**存储位置与目录约定：**
+- 信任池目录：`<workDir>/ibcparams/`（默认 `/etc/tlcpchan/ibcparams`，与 `rootcerts/` 同级）
+- KGC 主密钥**不在**本目录：内置测试 KGC 主密钥与生成接口产出的主密钥统一存放在 `<workDir>/keystores/`（0600）
+- 通过管理接口（`Add`）写入信任池的文件权限统一为 `0600`；初始化预置的测试 KGC 公共参数为 `0644`（公共参数不含私钥，便于分发给对端）
+- 子目录（如 `master/`）**不参与扫描**，主密钥绝不通过任何 API 下发
+
+**支持格式：**
+- 扩展名白名单：`.pem`, `.der`, `.ibcparams`（大写扩展名按小写匹配）
+- 内容编码：PEM / DER / HEX / Base64，解析时统一归一化为 DER 后交给 `tlcp.ParseIBCSysParams`
+
+**核心接口：**
+- `Initialize()` - 初始化并扫描加载全部 KGC 公共参数（目录不存在视为空池）
+- `Add(filename, data)` - 添加 KGC 公共参数（写入目录后重新加载）
+- `Delete(filename)` - 删除 KGC 公共参数
+- `Get(filename)` - 获取条目元信息
+- `List()` - 列出所有条目元信息
+- `GetPool()` - 获取全量 `*tlcp.IBCPool`
+- `Reload()` - 重新扫描目录并重建信任池
+- `ReadFile(filename)` - 读取信任池中文件的原始内容（供下载接口使用）
+
+**目录扫描与自动加载：**
+- 扫描 `ibcparams/` 目录，跳过所有子目录
+- 仅处理扩展名白名单内的文件
+- 无效文件、解析失败的文件与重复 KGC 会被跳过并记录日志，不影响其余条目
+- 同一 KGC 由 `(DistrictName, DistrictSerial)` 唯一标识：**同一 KGC 使用不同文件名重复添加会被拒绝**（加载期同样跳过重复项并告警）
+
+**信任语义（默认拒绝）：**
+- 客户端与服务端**共用同一份信任列表**，不做实例级子集选择
+- 适配器在装配 `tlcp.Config` 时**总是显式注入非 nil 的信任池（即使为空）**：
+  - 服务端 → `ClientIBCSysParams`
+  - 客户端 → `RootIBCSysParams`
+- 显式注入空池用于压掉 gotlcp"本端公共参数退化为默认信任池"的行为，因此**信任池中不存在对端 KGC 时 IBC 握手一定失败**，与"没有根证书就验不过证书"对等
+- 修改信任池后需重载相关实例才会生效，详见 [3.2.6 热更新机制](#326-热更新机制)
+
+**安全模型：**
+- GM/T 0024-2023 的 Certificate 消息只传**裸** `IBCSysParams`，不带签名保护，中间人可替换加密主公钥以解密预主密钥
+- 唯一缓解手段是带外预置信任锚：**必须通过可信渠道获取 KGC 公共参数后再入库**，绝不直接信任对端下发的参数
+- 信任池等价于根证书库；SM9 的"无证书"不等于"无信任问题"，只是把 CA 的信任问题平移到 KGC 公共参数的带外分发
+- `InsecureSkipVerify=true` 会同时跳过 X.509 与 IBC 公共参数校验，仅供测试使用
+
+#### 3.2.6 热更新机制
 
 **Keystore 热更新：**
-```bash
-# 重载单个 keystore
-POST /api/security/keystores/:name/reload
-```
-- 清空内存中的 keystore 缓存
-- 下次访问时自动重新加载
-- 更新 `UpdatedAt` 时间戳
+
+keystore **没有独立的"重载"接口**。材料变更通过以下接口完成后立即生效（写入内存）：
+
+- 证书/密钥材料：`POST /api/security/keystores/:name/upload`
+- 参数变更：`PUT /api/security/keystores/:name`
+- IBC 材料：同样走 `upload`（identity / params / signKey / encKey / kexKey 字段）
+
+服务端处理时重新装载 `KeyStore` 并通过 `Manager.Set` 替换内存实例、刷新 `UpdatedAt`，无需额外重载动作；但**已启动的实例仍持有旧的 TLS/TLCP 配置**，必须 `POST /api/instances/:name/reload` 才会用新材料重建配置（Web UI 在密钥库详情页提供"重载关联实例"）。
 
 **根证书热更新：**
 ```bash
@@ -797,6 +956,20 @@ POST /api/security/rootcerts/reload
 - 重新扫描 `rootcerts/` 目录
 - 重建两个证书池
 - 新连接使用更新后的证书池
+
+**IBC 信任池热更新：**
+```bash
+# 重载 IBC 信任池
+POST /api/security/ibcparams/reload
+```
+- 重新扫描 `ibcparams/` 目录并重建 `tlcp.IBCPool`
+- 与根证书一致：适配器在实例 `ReloadConfig` 时重新调用 `GetPool()`，因此**修改信任池后必须重载相关实例才会生效**（CLI 与 Web UI 均会给出该提示）：
+  ```bash
+  tlcpchan-cli instance reload <实例名>
+  ```
+- IBC keystore 的材料更新同样通过 `upload` / `PUT` 接口完成，无独立重载接口；更新后同样需要重载引用它的实例
+
+> **实例重载提醒**：信任池对象在每次 `Reload()` 时被替换为新对象，已启动实例仍持有旧池引用；仅调用信任池重载接口不会让运行中的实例感知变化。
 
 ### 3.3 实例管理模块
 
@@ -932,6 +1105,294 @@ CheckInitialized()?
 启动 API 服务
 ```
 
+### 3.6 IBC（SM9）支持设计
+
+IBC（Identity-Based Cryptography，标识密码）以 SM9 算法为基础，用"标识 + KGC 公共参数"取代 X.509 证书体系。本节说明 TLCP Channel 对 IBC 的完整设计：keystore 层、信任池、实例配置与混合协商、密码套件与配置校验、能力诊断、生成与导入。信任池的详细管理接口见 [3.2.5 IBC 信任池管理](#325-ibc-信任池管理)，热更新见 [3.2.6 热更新机制](#326-热更新机制)。
+
+> 依据：GM/T 0024-2023；依赖 `gitee.com/Trisia/gotlcp`（IBC 能力）与 `github.com/emmansun/gmsm`（SM9 实现）。
+
+#### 3.6.1 支持范围与密码套件
+
+**支持的套件：**
+
+| 套件名 | 密钥交换 | 加密 | 校验 | 值 |
+|--------|---------|------|------|-----|
+| `IBC_SM4_GCM_SM3` | IBC | SM4-GCM | SM3 | 0xE057 |
+| `IBC_SM4_CBC_SM3` | IBC | SM4-CBC | SM3 | 0xE017 |
+| `IBSDH_SM4_GCM_SM3` | IBSDH | SM4-GCM | SM3 | 0xE055 |
+| `IBSDH_SM4_CBC_SM3` | IBSDH | SM4-CBC | SM3 | 0xE015 |
+
+- 4 个套件**默认全部关闭**：必须显式列入 `tlcp.cipher-suites`，**且本端配置了 IBC 身份（`tlcp.ibc-keystore`）才会参与协商**
+- **IBC 与 IBSDH 的差别**：IBC 由客户端用服务端标识 + 加密主公钥单向加密预主密钥（无前向安全）；IBSDH 执行 SM9 密钥交换（有前向安全，且**自动强制客户端认证**）
+- IBC/IBSDH 套件与证书套件（ECC/ECDHE）可在同一 `tlcp.Config` 中共存，实现**同端口混合协商**
+- 会话重用沿用现有 `SessionCache`，IBC 套件同样支持
+
+**非目标（本期不做）：**
+
+- DTLCP（UDP）的 IBC 支持
+- IRL 标识吊销
+- 生产 KGC 主密钥托管（仅提供"内置测试 KGC"用于本地联调）
+- 兼容 GB/T 38636-2020 的 IBC 报文（本实现以 GM/T 0024-2023 为唯一依据）
+
+#### 3.6.2 IBC 身份 keystore
+
+**类型与接口：**
+
+| 项 | 值 |
+|---|---|
+| `KeyStoreType` | `KeyStoreTypeIBC = "ibc"` |
+| `LoaderType` | `LoaderTypeIBCFile = "ibc-file"` |
+| 可选接口 | `IBCKeyStore`（在 `KeyStore` 之上提供 `IBCIdentity()` 与 `IBCInfo()`） |
+
+```go
+// IBCKeyStore IBC（SM9）身份密钥存储的可选能力接口
+// 仅 ibc 类型的 keystore 实现；调用方通过类型断言判断本端是否具备 IBC 能力
+type IBCKeyStore interface {
+    KeyStore
+    // IBCIdentity 返回装载完成的 IBC 身份（标识 + KGC 公共参数 + 用户私钥）
+    IBCIdentity() (*tlcp.IBCIdentity, error)
+    // IBCInfo 返回 IBC 身份的只读元信息，供 API 与 UI 展示
+    IBCInfo() *IBCInfo
+}
+```
+
+普通 `file` / `named` keystore 无需实现该接口；适配器通过类型断言取用，断言失败即视为无 IBC 能力。
+
+**元信息：**
+
+`KeyStoreInfo` 增加只读字段（不含任何私钥内容）：
+
+```go
+// IBCInfo IBC（SM9）keystore 的只读元信息，用于 API 与 UI 展示
+type IBCInfo struct {
+    Identity          string    // 本端标识可读形式，如 server@tlcpchan.local
+    HasParams         bool      // 是否提供本端 KGC 公共参数
+    DistrictName      string    // KGC 属地区域名
+    DistrictSerial    int       // 同区域下的 KGC 序号
+    NotBefore         time.Time // 公共参数生效时间（零值表示未提供/不限）
+    NotAfter          time.Time // 公共参数失效时间（零值表示未提供/不限）
+    HasSignKey        bool      // 是否提供签名私钥（hid=0x01）
+    HasEncryptKey     bool      // 是否提供加密私钥（hid=0x03）
+    HasKeyExchangeKey bool      // 是否提供密钥交换私钥（hid=0x02）
+}
+
+type KeyStoreInfo struct {
+    // ... 既有字段 ...
+    IBC *IBCInfo `json:"ibc,omitempty" yaml:"ibc,omitempty"` // 仅 type=ibc 时非空
+}
+```
+
+**材料参数与文件命名（对齐初始化 TLCP）：**
+
+| params key | 含义 | 磁盘文件名 | 权限 | 格式 | 必需性 |
+|---|---|---|---|---|---|
+| `identity` | 本端标识，如 `server@tlcpchan.local` | `<name>-identity.txt` | 0644 | 裸字节串文本（亦兼容 PEM / `Identifier` DER） | 必需（IBSDH 强制要求非空） |
+| `params` | 本端 KGC 公共参数 `IBCSysParams` | `<name>-params.pem` | 0644 | PEM（`IBC PARAMETERS`）/ DER / HEX / Base64 | 服务端必需；仅服务端认证的客户端可省 |
+| `sign-key` | 签名用户私钥 PKCS#8（hid=0x01） | `<name>-sign.key` | 0600 | PEM（`PRIVATE KEY`）/ DER / HEX / Base64 | 服务端必需；双向认证客户端必需 |
+| `enc-key` | 加密用户私钥 PKCS#8（hid=0x03） | `<name>-enc.key` | 0600 | 同上 | 使用 IBC 套件的服务端必需 |
+| `kex-key` | 密钥交换用户私钥 PKCS#8（hid=0x02） | `<name>-kex.key` | 0600 | 同上 | 使用 IBSDH 套件必需 |
+
+**命名对齐说明：**
+
+| 项 | TLCP 初始化（证书身份） | IBC |
+|---|---|---|
+| keystore 名 | `default-tlcp` | `default-ibc-server` / `default-ibc-client` |
+| 签名私钥 | `default-tlcp-sign.key` | `default-ibc-server-sign.key` |
+| 加密私钥 | `default-tlcp-enc.key` | `default-ibc-server-enc.key` |
+| 密钥交换私钥 | — | `default-ibc-server-kex.key` |
+| 信任锚 | `tlcpchan-tlcp-root-ca.crt`（rootcerts/） | `tlcpchan-ibc-kgc.pem`（ibcparams/） |
+| 测试主密钥 | — | `tlcpchan-ibc-kgc-master.key`（keystores/，0600） |
+
+- KGC 公共参数与 TLCP 根 CA 一样"两份"：一份入信任池（`ibcparams/`），一份作为各 IBC keystore 的本端 `-params.pem`
+- 日志与 API 响应不得输出任何私钥内容
+
+**装载流程**（实现位置：`tlcpchan/security/keystore/ibc_loader.go`）：
+
+1. `der.Any2DER` 宽松解码公共参数与三把私钥（PEM / DER / HEX / Base64）
+2. 标识按"优先解 PEM / `Identifier` DER，否则按裸字节串"处理
+3. 三把私钥由 `smx509.ParsePKCS8PrivateKey` 解析，支持 `*sm9.SignPrivateKey` / `*sm9.EncryptPrivateKey`
+4. `tlcp.LoadIBCIdentity(identity, paramsDER, signKeyDER, encKeyDER, kexKeyDER)` 装载身份
+5. 对上一步得到的**签名私钥**执行 SM3 摘要自签自验（`sm9.SignASN1` + `sm9.VerifyASN1`）
+6. 生成 `IBCInfo` 元信息（标识、`districtName#serial`、有效期、三把私钥齐备性）
+7. 惰性装载 + 缓存（与现有 `FileKeyStore` 一致，`sync.RWMutex` 保护）；加载器在创建时立即装载一次，使导入阶段即可发现材料错误
+
+**校验边界（重要）：**
+
+- gotlcp 的 `LoadIBCIdentity` **不校验** `kex-key` 的派生用途（应为 hid=0x02）。误装其他 hid 的私钥不会在装载期报错，而是在握手的 `Finished` 阶段以 `bad record MAC` 失败且难以定位
+- 对策：装载时对**签名私钥**执行自检（用本端标识与公共参数中的签名主公钥）；`kex-key` 无法反推校验，只能由导入来源保证，UI 与文档明确提示用途
+- 只做结构解析与自检，不阻止"服务端认证场景下客户端不携带私钥"等合法配置
+
+#### 3.6.3 IBC 信任池与默认拒绝
+
+IBC 信任池是 IBC/IBSDH 套件的全局信任锚，管理方式与根证书一致（独立目录 + 目录扫描 + 列表管理 + 重载），**不进入实例配置**，客户端与服务端共用同一列表。数据结构、格式、接口与安全模型见 [3.2.5 IBC 信任池管理](#325-ibc-信任池管理)。
+
+**默认拒绝语义（关键）：** 适配器在服务端设置 `ClientIBCSysParams`、客户端设置 `RootIBCSysParams` 时**总是注入非 nil 的信任池（即使为空池）**，从而压掉 gotlcp"本端公共参数退化为默认信任池"的行为。池中不存在对端 KGC 时 IBC 握手直接失败（`handshake_failure(40)`），与"没有根证书就验不过证书"对等。
+
+- 两套信任锚互不替代：`RootCAs` / `ClientCAs` 只作用于证书套件；IBC 全局信任池只作用于 IBC 套件
+- `InsecureSkipVerify=true` 会同时跳过 X.509 验证与 IBC 公共参数校验（仅测试用，UI 有警示文案）
+
+#### 3.6.4 实例配置与混合协商
+
+`TLCPConfig` **只新增一个字段**（信任池不进入实例配置）：
+
+```go
+type TLCPConfig struct {
+    // ... 既有字段不变 ...
+    // Keystore 证书身份密钥存储（X.509/SM2 证书），供 ECC/ECDHE 套件使用
+    Keystore *KeyStoreConfig `yaml:"keystore,omitempty" json:"keystore,omitempty"`
+    // IBCKeystore IBC(SM9) 身份密钥存储（标识 + KGC 公共参数 + 三把用户私钥），供 IBC/IBSDH 套件使用
+    // 与 Keystore 相互独立、可只配其一，也可同时配置以实现同端口混合协商
+    IBCKeystore *KeyStoreConfig `yaml:"ibc-keystore,omitempty" json:"ibcKeystore,omitempty"`
+}
+```
+
+**配置示例：**
+
+```yaml
+instances:
+  - name: tlcp-hybrid
+    type: server
+    protocol: tlcp
+    tlcp:
+      cipher-suites: [ECDHE_SM4_GCM_SM3, IBC_SM4_GCM_SM3, IBSDH_SM4_GCM_SM3]
+      keystore:     { type: named, params: { name: default-tlcp } }        # 证书身份（ECC/ECDHE）
+      ibc-keystore: { type: named, params: { name: default-ibc-server } }  # IBC 身份（IBC/IBSDH）
+```
+
+**装配矩阵（proxy adapter）：**
+
+| 配置组合 | 写入 `tlcp.Config` | 可用套件 |
+|---|---|---|
+| 仅 `keystore` | `Certificates` / `GetClientCertificate` / `GetClientKECertificate` / `ClientCAs` / `RootCAs` | ECC、ECDHE |
+| 仅 `ibc-keystore` | `IBCIdentity` + `ClientIBCSysParams` / `RootIBCSysParams` | IBC、IBSDH（服务端无证书亦可启动） |
+| 两者同时 | 上述两组字段同时写入同一个 `tlcp.Config` | 四类套件同端口混合协商 |
+
+- 实例有效性判定由「TLCP 证书不能为空」改为 `Keystore != nil || IBCKeystore != nil`
+- `ibc-keystore` 为 `nil` 时，IBC/IBSDH 套件在库的套件选择阶段被跳过（本端无 IBC 能力）
+- 客户端认证策略（`client-auth-type`）对证书身份与 IBC 身份同样生效；IBSDH 套件下库会强制要求客户端提供 IBC 身份
+
+#### 3.6.5 密码套件与配置校验
+
+- `config.TLCPCipherSuiteNames` 新增 4 个 IBC 套件名；新增判定函数 `IsTLCPIBCSuite`（IBC + IBSDH）与 `IsTLCPIBSDHSuite`（仅 IBSDH）
+- `config.Validate` **只校验套件名是否合法**（TLCP 用 `TLCPCipherSuiteNames`、TLS 用 `TLSCipherSuiteNames`），**故意不校验"勾选了 IBC 套件但本端无 IBC 能力"**，该情况由 [3.6.6 能力诊断](#366-能力诊断与日志告警)记录日志
+- 适配器中 `ParseCipherSuites` 的错误不再静默忽略，改为返回错误并记录日志
+- UI：未配置 IBC 身份时，IBC/IBSDH 勾选框 `disabled`，提示"需先配置 IBC 身份 keystore"，并在 IBC 身份被清空时自动取消已勾选项
+- UI：ECDHE 套件要求服务端认证客户端身份，服务端角色下客户端认证类型不是 `require-any-client-cert` / `require-and-verify-client-cert` 时 ECDHE 勾选框 `disabled` 并提示，认证类型改变后自动恢复可选或清理已勾选项，详见 [5.2 页面设计](#52-页面设计)
+
+#### 3.6.6 能力诊断与日志告警
+
+手工编辑 `config.yaml` 可能配置出"有 IBC 套件、无 IBC 身份"或"IBC 材料不满足套件需要"的组合。为避免静默失败，实例启动/重载时执行能力诊断并输出日志，**不阻断实例启动**（库会自动跳过不可用套件）。实现位置：`tlcpchan/proxy/ibc_diagnose.go`。
+
+诊断共 8 类场景，同一场景按本端角色可能产生不同级别（共 11 条提示文案）：
+
+| 场景 | 级别 | 日志要点 |
+|---|---|---|
+| 配了 IBC/IBSDH 套件但未配可用的 `ibc-keystore` | Error | 列出套件名，说明这些套件不会参与协商（诊断到此终止） |
+| IBC 身份装载失败 | Error | 说明该身份不生效、IBC/IBSDH 套件不会参与协商（诊断到此终止） |
+| 标识为空且勾选 IBSDH 套件 | Warn | 提示 IBSDH 握手时对端将报 `identity_need(205)` |
+| 标识为空但未勾选 IBSDH 套件 | Warn | 提示对端可能无法确定本端标识 |
+| 缺本端 KGC 公共参数（服务端，或已有签名私钥的客户端） | Error | 提示将报 `bad_ibcparam(203)`，需导入本端公共参数 |
+| 缺本端 KGC 公共参数（无签名私钥的客户端） | Warn | 提示仅服务端单向认证场景可省略 |
+| 缺签名私钥（服务端） | Error | 提示无法对 signed_params 签名，握手将失败 |
+| 缺签名私钥（客户端） | Warn | 提示若服务端要求客户端认证将失败 |
+| 服务端使用 `IBC_SM4_*` 但缺加密私钥（hid=0x03） | Error | 提示无法解密预主密钥，握手将失败 |
+| 使用 `IBSDH_SM4_*` 但缺密钥交换私钥（hid=0x02） | Error | 提示这些套件不会参与协商 |
+| 全局 IBC 信任池为空 | Error | 引导"请先在「IBC 信任池」中添加 KGC 公共参数" |
+
+> 未勾选任何 IBC/IBSDH 套件时**不产生任何诊断**：按设计决策 D5，"配了 IBC 身份但未勾选 IBC 套件"是正常配置，无告警。
+
+**套件 ↔ 材料能力矩阵：**
+
+| 本端角色 | `IBC_SM4_*` | `IBSDH_SM4_*` |
+|---|---|---|
+| 服务端 | `params`、`sign-key`(0x01)、`enc-key`(0x03) | `params`、`sign-key`、`kex-key`(0x02) |
+| 客户端 | `params`（双向认证另需 `sign-key`） | `params`、`sign-key`、`kex-key`（IBSDH 强制双向认证） |
+| 共通 | 全局信任池中存在对端 KGC 参数；IBSDH 还要求 `identity` 非空 | 同左 |
+
+**诊断函数签名（纯函数、仅产出诊断结论，由调用方输出日志）：**
+
+```go
+// diagnoseIBCSuites 诊断实例的 IBC 套件配置与本端 IBC 能力是否匹配，仅输出日志不阻断启动
+// 参数：
+//   - instanceName: 实例名称，用于日志定位
+//   - isServer: 本端是否为服务端，决定必需材料集合
+//   - suites: 已解析的 TLCP 密码套件数值列表
+//   - ibcKS: 已加载的 IBC keystore，nil 表示未配置 ibc-keystore
+//   - ident: 已装载的 IBC 身份，nil 表示身份不可用
+//   - poolSize: 全局 IBC 信任池条目数，0 表示无可信 KGC
+// 返回：[]ibcDiagnosis（Level 取 error / warn），由 logIBCDiagnoses 输出
+func diagnoseIBCSuites(instanceName string, isServer bool, suites []uint16,
+    ibcKS security.KeyStore, ident *tlcp.IBCIdentity, poolSize int) []ibcDiagnosis
+```
+
+**为什么 `Validate` 不硬失败**：`config.Validate` 在 `config.Load` 与 API 保存时都会执行，硬失败会导致手工编辑过的配置文件让整个服务无法启动（连 UI 管理入口都不可用），也会卡死"先配套件、后补材料"的正常流程。因此能力匹配全部交给上述日志诊断，UI 侧做前置预防。
+
+#### 3.6.7 生成、导入与初始化预置
+
+三条落地路径：
+
+1. **初始化预置**：首次初始化生成一套内置测试 KGC（`districtName=tlcpchan.local`、`districtSerial=1`、有效期 10 年）
+   - 公共参数写入 `ibcparams/tlcpchan-ibc-kgc.pem`（0644，入信任池）
+   - 主密钥写入 `keystores/tlcpchan-ibc-kgc-master.key`（0600，不提供下载）
+   - 由该 KGC 派生两份身份并登记为 `ibc-file` keystore：`default-ibc-server`（`server@tlcpchan.local`）与 `default-ibc-client`（`client@tlcpchan.local`）
+   - `CheckInitialized` **明确不检查任何 IBC 产物**，防止老安装被重新初始化（见 [3.2.2 初始化流程](#322-初始化流程)）
+2. **生成**（仅使用初始化内置的测试 KGC）
+   - `POST /api/security/keystores/generate`，body `{name, type:"ibc", protected, identity, districtName, districtSerial}`
+   - 入参 `identity` 为本端标识，本端公共参数取自 IBC 信任池中的目标 KGC
+   - 一次性派生 `sign-key`(0x01)、`enc-key`(0x03)、`kex-key`(0x02)，落盘命名与导入路径完全一致
+   - `POST /api/security/ibcparams/generate`，body `{districtName, districtSerial, years}`（默认 `tlcpchan.local` / 1 / 10），返回 `{filename, masterFile, param}`
+   - 主密钥来源固定为 `keystores/tlcpchan-ibc-kgc-master.key`；生产环境应由外部 KGC 派生后导入
+3. **导入**
+   - `POST /api/security/keystores`（multipart，`loaderType=ibc-file`，字段 `identity` / `params` / `signKey` / `encKey` / `kexKey`）
+   - `POST /api/security/keystores/:name/upload`（替换材料，同时放开类型门槛以支持 `ibc-file`）
+
+> `POST /api/security/keystores/:name/export-csr` 对 `ibc` 类型返回 400（SM9 无 CSR 概念）。
+
+#### 3.6.8 管理入口
+
+**HTTP API：** IBC 信任池新增 6 个接口，keystore 接口扩展 IBC 分支，详见 [4.2 完整 API 路由表](#42-完整api路由表)。
+
+**MCP 工具（4 个）：**
+
+| 工具名 | 说明 |
+|--------|------|
+| `list_ibc_params` | 列出信任池中的 KGC 公共参数 |
+| `add_ibc_params` | 添加 KGC 公共参数 |
+| `remove_ibc_params` | 删除 KGC 公共参数 |
+| `reload_ibc_params` | 重载 IBC 信任池 |
+
+**CLI：** 新增 `tlcpchan-cli ibcparams` 命令组，与 `rootcert` 命令逐项对应：
+
+```bash
+tlcpchan-cli ibcparams list                    # 列出所有 KGC 公共参数
+tlcpchan-cli ibcparams add [选项]              # 添加 KGC 公共参数
+tlcpchan-cli ibcparams generate [选项]         # 生成测试 KGC 公共参数
+tlcpchan-cli ibcparams download <filename>     # 下载 KGC 公共参数文件
+tlcpchan-cli ibcparams delete <filename>       # 删除 KGC 公共参数
+tlcpchan-cli ibcparams reload                  # 重载 IBC 信任池
+```
+
+`keystore` 命令组的列表与详情会展示 `type=ibc` 及 IBC 标识、KGC 区域/序号等元信息。
+
+**Web UI：**
+- 新增独立页面「IBC 信任池」（路由 `/ibcparams`，页面 `src/views/IBCParams.vue`），与「信任证书」并列
+- keystore 创建 / 生成 / 更新支持 IBC 类型（含三把私钥的用途标注）
+- 密钥管理页面（`src/views/KeyStores.vue`）按分类 Tab 展示：PKI（`tlcp`、`tls`）与 IBC（`ibc`），IBC Tab 展示标识、KGC 区域/序号、公共参数有效期与三把用户私钥状态，详见 [5.2 页面设计](#52-页面设计)
+- 实例详情页的 TLCP 配置区在引用密钥库时补齐 IBC 标识、KGC 区域/序号、公共参数有效期与三把用户私钥状态
+- 实例创建 / 编辑表单在 TLCP 配置卡片内按「PKI 配置 / IBC 配置 / TLCP 协议配置」三块排列（详见 [5.2 页面设计](#52-页面设计)）；未配置 IBC 身份时置灰 IBC/IBSDH 套件复选框并提示"需先配置 IBC 身份 keystore"
+
+#### 3.6.9 兼容性与安全提示
+
+| 风险 / 约束 | 说明 | 对策 |
+|---|---|---|
+| `ibc_parameter` 无签名保护 | 中间人可替换加密主公钥以解密预主密钥 | 信任池默认拒绝 + 带外预置 + UI 明确提示 |
+| `kex-key` 的 hid 无法校验 | 装载期无法反推，误装要到 `Finished` 才以 `bad record MAC` 失败 | 签名私钥自检 + UI/文档明确用途 |
+| `InsecureSkipVerify` | 客户端开启后同时跳过 X.509 验证与 IBC 公共参数校验 | UI 文案警示，默认关闭 |
+| 会话重用 | 复用会话不重新校验公共参数有效期 | 文档说明 |
+| 公共参数有效期 | 完整握手强制校验 `IBCSysParams.validity`，失败报 `unsupported_ibcparam(204)` | 文档与日志提示 |
+| 老安装重初始化 | 若把 IBC 材料纳入 `CheckInitialized` 会重刷配置 | 明确不纳入（D10） |
+| 信任池改动不生效 | 信任池对象在 `Reload()` 时被替换，运行中实例仍持有旧池 | 修改后重载相关实例（CLI/UI 提示） |
+
 ## 4. API设计
 
 ### 4.1 API服务器
@@ -940,9 +1401,9 @@ CheckInitialized()?
 
 ### 4.2 完整API路由表
 
-系统共提供 36 个 RESTful API 接口，分为 5 个主要类别：
+系统共提供 44 个 RESTful API 接口（不含 `/api/version` 别名路由），分为 5 个主要类别：
 
-#### 4.2.1 Instance API (13个)
+#### 4.2.1 Instance API (12个)
 
 | 方法 | 路径 | 描述 | 请求体 | 响应体 |
 |------|------|------|--------|--------|
@@ -959,20 +1420,21 @@ CheckInitialized()?
 | GET | /api/instances/:name/logs | 获取日志 | - | 日志列表 |
 | GET | /api/instances/:name/health | 实例健康检查 | - | 健康检查结果 |
 
-#### 4.2.2 Security API (13个)
+#### 4.2.2 Security API (21个)
 
-**Keystore API (7个):**
+**Keystore API (9个):**
 
 | 方法 | 路径 | 描述 | 请求体 | 响应体 |
 |------|------|------|--------|--------|
-| GET | /api/security/keystores | 获取 keystore 列表 | - | keystore 数组 |
-| POST | /api/security/keystores | 创建 keystore | keystore 配置（支持 multipart/form-data） | 创建的 keystore 信息 |
-| GET | /api/security/keystores/:name | 获取 keystore 详情 | - | keystore 详细信息 |
+| GET | /api/security/keystores | 获取 keystore 列表 | - | keystore 数组（`type=ibc` 时含 `ibc` 元信息） |
+| POST | /api/security/keystores | 创建 keystore | keystore 配置（支持 multipart/form-data；`ibc-file` 用 identity/params/signKey/encKey/kexKey 字段） | 创建的 keystore 信息 |
+| GET | /api/security/keystores/:name | 获取 keystore 详情 | - | keystore 详细信息（含 `ibc` 元信息） |
 | PUT | /api/security/keystores/:name | 更新 keystore 参数 | params 对象 | 更新后的 keystore 信息 |
-| POST | /api/security/keystores/:name/upload | 上传更新 keystore 证书和密钥 | multipart/form-data（signCert/signKey/encCert/encKey） | 更新后的 keystore 信息 |
+| POST | /api/security/keystores/:name/upload | 上传更新 keystore 证书和密钥 | multipart/form-data（证书：signCert/signKey/encCert/encKey；IBC：identity/params/signKey/encKey/kexKey） | 更新后的 keystore 信息 |
+| GET | /api/security/keystores/:name/instances | 查询引用该 keystore 的实例 | - | 实例列表 |
 | DELETE | /api/security/keystores/:name | 删除 keystore | - | 确认删除成功 |
-| POST | /api/security/keystores/generate | 生成新 keystore | keystore 生成参数 | 生成的 keystore 信息 |
-| POST | /api/security/keystores/:name/export-csr | 导出 CSR | CSR 文件（二进制流） | - 文件流下载 |
+| POST | /api/security/keystores/generate | 生成新 keystore | keystore 生成参数（`type=ibc` 时为 `{name, type, protected, identity, districtName, districtSerial}`） | 生成的 keystore 信息 |
+| POST | /api/security/keystores/:name/export-csr | 导出 CSR | CSR 请求参数（`ibc` 类型返回 400） | CSR 文件（二进制流） |
 
 **RootCert API (6个):**
 
@@ -985,6 +1447,17 @@ CheckInitialized()?
 | POST | /api/security/rootcerts/generate | 生成根 CA 证书 | 根 CA 生成参数 | 生成的根 CA 信息 |
 | POST | /api/security/rootcerts/reload | 重载所有根证书 | - | 确认重载成功 |
 
+**IBCParams API (6个):**
+
+| 方法 | 路径 | 描述 | 请求体 | 响应体 |
+|------|------|------|--------|--------|
+| GET | /api/security/ibcparams | 获取 IBC 信任池列表 | - | KGC 公共参数元信息数组 |
+| POST | /api/security/ibcparams | 添加 KGC 公共参数 | multipart/form-data（filename + params，扩展名不在白名单时规范化为 `.pem`） | 添加的条目元信息 |
+| POST | /api/security/ibcparams/generate | 生成测试 KGC 公共参数 | `{districtName, districtSerial, years}`（默认 `tlcpchan.local` / 1 / 10） | `{filename, masterFile, param}` |
+| GET | /api/security/ibcparams/:filename | 下载 KGC 公共参数（PEM） | - | 文件流下载 |
+| DELETE | /api/security/ibcparams/:filename | 删除 KGC 公共参数 | - | 确认删除成功 |
+| POST | /api/security/ibcparams/reload | 重载 IBC 信任池 | - | 确认重载成功 |
+
 #### 4.2.3 System API (3个)
 
 | 方法 | 路径 | 描述 | 响应体 |
@@ -992,7 +1465,8 @@ CheckInitialized()?
 | GET | /api/system/info | 获取系统信息 | 系统信息对象（操作系统、架构、内存、CPU、Goroutine 等）|
 | GET | /api/system/health | 系统健康检查 | 状态和版本信息 |
 | GET | /api/system/version | 版本信息 | 版本号 |
-| GET | /api/version | 版本信息（别名） | 版本号（同上） |
+
+> 另有 `GET /api/version`（与 `/api/system/version` 等价）与 `GET /version` 两个别名路由，不计入接口总数。
 
 #### 4.2.4 Config API (4个)
 
@@ -1012,7 +1486,18 @@ CheckInitialized()?
 | GET | /api/system/logs/download/:filename | 下载单个日志文件 | - | 文件流下载 |
 | GET | /api/system/logs/download-all | 打包下载所有日志 | - | ZIP 文件流下载 |
 
-**总计：37 个 API 接口**
+**总计：44 个 API 接口**
+
+| 分类 | 数量 |
+|------|------|
+| Instance API | 12 |
+| Security API - Keystore | 9 |
+| Security API - RootCert | 6 |
+| Security API - IBCParams | 6 |
+| System API | 3 |
+| Config API | 4 |
+| Logs API | 4 |
+| **合计** | **44** |
 
 ### 4.3 配置管理设计理念
 
@@ -1192,11 +1677,108 @@ TLCP Channel 提供配置热重载功能，无需重启服务即可使配置变�
 | 仪表盘 | / | 系统概览、流量统计图表 |
 | 实例管理 | /instances | 实例列表、创建、编辑 |
 | 实例详情 | /instances/:name | 单个实例详情和监控 |
-| 安全参数 | /security | Keystore 和根证书管理 |
+| 密钥管理 | /keystores | 证书类密钥（PKI）与 IBC(SM9) 身份密钥管理，按分类 Tab 展示 |
+| 信任根证书 | /trusted | 信任根证书列表与管理 |
+| IBC 信任池 | /ibcparams | KGC 公共参数列表、上传、下载、删除、重载、生成测试 KGC |
 | 日志查看 | /logs | 日志实时查看 |
 | 系统设置 | /settings | 系统配置 |
 
-### 5.3 UI服务架构
+**密钥管理页面（`src/views/KeyStores.vue`）的分类 Tab：**
+
+页面通过两个分类 Tab 展示 keystore，避免证书类密钥与 IBC(SM9) 标识身份密钥混在同一张表中：
+
+| Tab（query 取值） | 标签 | 包含的 keystore 类型 | 顶部操作 |
+|-------------------|------|----------------------|----------|
+| pki | PKI | `tlcp`（SM2 双证书）、`tls`（RSA/ECC 证书） | 生成密钥、导入密钥 |
+| ibc | IBC | `ibc`（SM9 标识身份，不使用 X.509 证书） | 生成 IBC 身份、导入 IBC 身份 |
+
+- Tab 状态与 URL query 同步（`/keystores?tab=pki`、`/keystores?tab=ibc`）；缺省或非法取值回退到 `pki`，刷新、分享链接与浏览器前进/后退均保持当前分类。
+- PKI Tab 列：名称、类型、签名证书/密钥、加密证书/密钥（列表中存在 TLCP 密钥时才展示）、创建时间；操作：详情、导出 CSR、更新证书、删除。
+- IBC Tab 列：名称、标识、KGC 区域、KGC 序号、公共参数状态、公共参数有效期、三把用户私钥状态（hid=0x01 签名 / hid=0x03 加密 / hid=0x02 密钥交换）、创建时间；操作：详情、替换材料、删除。IBC 不涉及 X.509，因此不提供导出 CSR 与更新证书。
+- 顶部按钮通过 `?type=tlcp|tls|ibc` 预设目标页面的密钥类型；生成、导入、替换材料完成后返回列表页时携带对应分类（`keystoreListLocation`）。
+- 分类判定与过滤集中在 `tlcpchan-ui/src/constants/keystoreTab.ts`；后端列表接口 `GET /api/security/keystores` 已返回 IBC 只读元信息（`ibc` 字段），页面无需额外请求。
+- 时间展示统一走 `tlcpchan-ui/src/constants/datetime.ts`：IBC 未提供 KGC 公共参数时后端返回 Go 零值时间 `0001-01-01T00:00:00Z`，页面按“不限”展示。
+
+**实例管理页面（`src/views/Instances.vue`）与实例详情页的 IBC 展示：**
+
+- 实例列表只展示名称、类型、协议、监听地址、目标地址、状态与操作（进入管理），不展示认证类型、IBC 身份与 IBC 套件；相关细节统一在实例详情页查看。
+- 实例详情页的 TLCP 配置区（`src/components/ProtocolConfigDetail.vue`）在配置层信息之外补齐 IBC 身份元信息：
+  - `ibcKeystore.type = named` 时按密钥库名称额外请求 `GET /api/security/keystores/{name}`，展示标识、KGC 区域/序号、公共参数状态与有效期、三把用户私钥状态（hid=0x01 签名 / hid=0x03 加密 / hid=0x02 密钥交换）；密钥库已被删除或无 IBC 元信息时给出明确提示。
+  - `ibcKeystore.type = ibc-file` 时配置中只有文件路径，展示各材料文件路径并提示“标识、KGC 区域与私钥用途以文件内容为准”。
+
+**协议配置的三段式分组（PKI 配置 / IBC 配置 / 协议配置）：**
+
+TLCP 配置涉及“证书身份、IBC 身份、协议参数”三类互相独立的内容，创建实例页、编辑实例页与实例详情页统一按三块依次排列，块内字段归属固定如下：
+
+| 分组 | 归属字段 | 出现范围 |
+|------|----------|----------|
+| PKI 配置 | 证书 keystore（`named` 引用名称；`file` 的签名证书/密钥、加密证书/密钥路径） | TLCP 与 TLS |
+| IBC 配置 | IBC 身份 keystore 类型、引用名称或各材料文件路径、IBC 身份只读元信息（标识、KGC 区域/序号、公共参数状态与有效期、三把用户私钥状态） | 仅 TLCP |
+| TLCP 协议配置 | 客户端认证类型、最低/最高版本、密码套件（含 IBC/IBSDH 套件）、握手重用、跳过证书验证 | TLCP（TLS 侧对应「TLS 协议配置」，另含会话票据） |
+
+- 创建实例页（`src/views/CreateInstance.vue`）与编辑实例页（`src/views/EditInstance.vue`）在 TLCP 配置卡片内用 `el-divider`（`content-position="left"`）分隔三块，`IBC 配置` 块保留“证书身份与 IBC 身份相互独立”的说明提示。
+- 实例详情页（`src/components/ProtocolConfigDetail.vue`）用三个带左侧色条标题的区块承载同一分组，每块一个 `el-descriptions`；证书 keystore 或 IBC 身份未配置时该块展示“未配置”，避免出现空白表格。
+- **IBC/IBSDH 套件归于协议配置块**（它是 `cipherSuites` 的取值，属于协议参数），不放在 IBC 配置块。
+- 实例列表页不展示这三类配置，只保留进入管理入口。
+
+**IBC 信任池页面（`src/views/IBCParams.vue`）：**
+- 表格列：文件名、KGC 区域、序号、生效时间、失效时间、颁发者标识、签名主公钥指纹、加密主公钥指纹
+- 操作：上传 KGC 公共参数、下载、删除、重载信任池、生成测试 KGC（主密钥保存在 `keystores/`，不提供下载）
+- 页面提示：信任池修改后需重载相关实例才会生效；信任池中不存在对端 KGC 时 IBC 握手一定失败
+
+### 5.3 实例表单的认证与 keystore 联动规则
+
+实例创建/编辑表单需要根据实例角色与客户端认证类型决定 keystore 是否必填，并限制依赖证书身份的密码套件，避免用户提交出无法正常握手的组合。
+
+**角色划分：**
+
+| 实例类型 | 角色 | 证书身份用途 |
+|----------|------|--------------|
+| server / http-server | 服务端 | 向客户端证明自身身份 |
+| client / http-client | 客户端 | 双向认证时向服务端证明自身身份 |
+
+**keystore 必填规则：**
+
+| 场景 | 证书 keystore | 说明 |
+|------|---------------|------|
+| 服务端代理，协议为 tlcp / tls | 必填 | 服务端必须提供自身证书 |
+| 服务端代理，协议为 auto | 必填（tlcp 与 tls 至少其一） | 允许混合协商 |
+| 客户端代理，认证类型为 no-client-cert / request-client-cert | 可选 | 单向认证，本端无需向服务端出示证书 |
+| 客户端代理，认证类型为 require-any-client-cert / verify-client-cert-if-given / require-and-verify-client-cert | 必填 | 双向认证，本端需要出示客户端证书 |
+| 已配置 IBC(SM9) 身份 keystore | 可选 | IBC 与证书身份相互独立，可只配其一 |
+
+**密码套件与身份的依赖：**
+
+| 套件前缀 | 依赖 | 未满足时的交互 |
+|----------|------|----------------|
+| ECC_SM4_* | 无（客户端侧仅验证服务端身份） | — |
+| ECDHE_SM4_* | ① TLCP 证书 keystore；② 服务端角色的客户端认证类型必须是 require-any-client-cert 或 require-and-verify-client-cert | 置灰不可选：缺 keystore 时提示“需先配置 TLCP 证书 keystore”，服务端认证类型不合格时提示“ECDHE 套件要求认证客户端身份，请将客户端认证类型设为「要求证书」或「要求并验证」”，并在条件不再满足时自动取消已勾选项 |
+| IBC_SM4_* / IBSDH_SM4_* | IBC 身份 keystore | 置灰不可选，提示“需先配置 IBC 身份 keystore”，并在 IBC 身份被清空时自动取消已勾选项 |
+
+**ECDHE 套件的客户端认证类型约束：**
+
+ECDHE 套件要求对客户端做身份认证，因此服务端必须“要求”客户端出示证书：`require-any-client-cert`（要求证书）与 `require-and-verify-client-cert`（要求并验证）满足要求；`no-client-cert`、`request-client-cert`（仅请求）、`verify-client-cert-if-given`（提供才验证，不强制出示）均不满足。
+
+- 该约束**只作用于服务端角色**（`server` / `http-server`）：客户端代理的 `client-auth-type` 描述的是本端是否向服务端出示证书，对端是否要求本端证书不由本端配置决定，因此客户端角色下 ECDHE 只受证书 keystore 约束。
+- 客户端角色（`client` / `http-client`）的 ECDHE 可选条件即“已配置完整的 TLCP 证书 keystore”（客户端密钥），与证书 keystore 的必填规则衔接：单向认证下 keystore 可不配，此时 ECDHE 置灰。
+- 判定函数 `isClientAuthAllowedForECDHE` 位于 `tlcpchan-ui/src/constants/cipherSuite.ts`，由创建与编辑表单共用；两个表单都以 `watch` 监听“证书 keystore 与认证类型”两个条件，条件不再满足时过滤掉已勾选的 ECDHE 套件（置灰中的复选框无法被点击取消，必须主动清理）。
+- 编辑表单在配置加载完成后额外执行一次兜底清理：历史配置可能残留“已勾选 ECDHE 但条件不满足”的组合，该组合在界面上会呈现为置灰且勾选，用户无法主动取消。
+
+**客户端认证类型的展示文案：**
+
+前端统一以“中文（英文）”呈现，取值与后端 `ValidClientAuthValues` 一致：
+
+| 取值 | 显示文案 |
+|------|----------|
+| no-client-cert | 不要求证书（no-client-cert） |
+| request-client-cert | 请求证书（request-client-cert） |
+| require-any-client-cert | 要求证书（require-any-client-cert） |
+| verify-client-cert-if-given | 提供则验证（verify-client-cert-if-given） |
+| require-and-verify-client-cert | 要求并验证（require-and-verify-client-cert） |
+
+实现位置：文案映射与单向认证判定集中在 `tlcpchan-ui/src/constants/clientAuth.ts`，由实例列表、实例详情与创建/编辑表单共用。
+
+### 5.4 UI服务架构
 
 ```
 tlcpchan-ui/

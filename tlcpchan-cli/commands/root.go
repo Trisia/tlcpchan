@@ -100,9 +100,9 @@ func getCommands() map[string]Command {
 				"show":       {Name: "show", Description: "显示 keystore 信息", Usage: "show <name>", Run: keyStoreShow},
 				"detail":     {Name: "detail", Description: "显示 keystore 详情（含关联实例）", Usage: "detail <name>", Run: keyStoreShowDetail},
 				"update":     {Name: "update", Description: "更新 keystore 参数", Usage: "update <name> [选项]", Run: keyStoreUpdateParams},
-				"upload":     {Name: "upload", Description: "上传更新 keystore 证书和密钥", Usage: "upload <name> [选项]", Run: keyStoreUploadCertificates},
+				"upload":     {Name: "upload", Description: "上传更新 keystore 材料（证书/密钥或 IBC 材料）", Usage: "upload <name> [选项]", Run: keyStoreUploadCertificates},
 				"create":     {Name: "create", Description: "创建 keystore", Usage: "create [选项]", Run: keyStoreCreate},
-				"generate":   {Name: "generate", Description: "生成 keystore（含证书）", Usage: "generate [选项]", Run: keyStoreGenerate},
+				"generate":   {Name: "generate", Description: "生成 keystore（证书或 IBC 身份）", Usage: "generate [选项]", Run: keyStoreGenerate},
 				"export-csr": {Name: "export-csr", Description: "导出证书请求(CSR)", Usage: "export-csr <name> [选项]", Run: keyStoreExportCSR},
 				"delete":     {Name: "delete", Description: "删除 keystore", Usage: "delete <name>", Run: keyStoreDelete},
 			},
@@ -118,6 +118,19 @@ func getCommands() map[string]Command {
 				"generate": {Name: "generate", Description: "生成根 CA 证书", Usage: "generate [选项]", Run: rootCertGenerate},
 				"delete":   {Name: "delete", Description: "删除根证书", Usage: "delete <filename>", Run: rootCertDelete},
 				"reload":   {Name: "reload", Description: "重载所有根证书", Usage: "reload", Run: rootCertReload},
+			},
+		},
+		"ibcparams": {
+			Name:        "ibcparams",
+			Description: "IBC 信任池管理（KGC 公共参数）",
+			Usage:       "ibcparams <子命令>",
+			SubCommands: map[string]Command{
+				"list":     {Name: "list", Description: "列出所有 KGC 公共参数", Usage: "list", Run: ibcParamsList},
+				"download": {Name: "download", Description: "下载 KGC 公共参数文件", Usage: "download <filename> [-o output]", Run: ibcParamsDownload},
+				"add":      {Name: "add", Description: "添加 KGC 公共参数", Usage: "add [选项]", Run: ibcParamsAdd},
+				"generate": {Name: "generate", Description: "生成测试 KGC 公共参数", Usage: "generate [选项]", Run: ibcParamsGenerate},
+				"delete":   {Name: "delete", Description: "删除 KGC 公共参数", Usage: "delete <filename>", Run: ibcParamsDelete},
+				"reload":   {Name: "reload", Description: "重载 IBC 信任池", Usage: "reload", Run: ibcParamsReload},
 			},
 		},
 		"system": {
@@ -213,4 +226,51 @@ func flagSet(name string) *flag.FlagSet {
 		fs.PrintDefaults()
 	}
 	return fs
+}
+
+// reorderFlagsFirst 把选项及其取值移动到位置参数之前
+// 参数：
+//   - fs: 已注册全部选项的 FlagSet（用于判断选项是否接收取值）
+//   - args: 原始命令行参数（不含命令本身）
+//
+// 返回：
+//   - []string: 重排后的参数，可直接传给 fs.Parse
+//
+// 说明：标准库 flag 在遇到第一个位置参数后即停止解析，会导致
+// "tlcpchan-cli keystore upload <name> --sign-cert <path>" 这类
+// 文档中推荐的写法被静默忽略；本函数使选项写在名称前后均可生效。
+func reorderFlagsFirst(fs *flag.FlagSet, args []string) []string {
+	var flags []string
+	var positional []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			positional = append(positional, args[i+1:]...)
+			break
+		}
+		if len(arg) > 1 && arg[0] == '-' {
+			flags = append(flags, arg)
+			name := strings.TrimLeft(arg, "-")
+			if strings.Contains(name, "=") {
+				continue
+			}
+			f := fs.Lookup(name)
+			if f == nil {
+				// 未知选项留给 fs.Parse 报错
+				continue
+			}
+			if bf, ok := f.Value.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
+				continue
+			}
+			if i+1 < len(args) {
+				i++
+				flags = append(flags, args[i])
+			}
+			continue
+		}
+		positional = append(positional, arg)
+	}
+
+	return append(flags, positional...)
 }

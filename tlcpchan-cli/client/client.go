@@ -133,6 +133,9 @@ type TLCPConfig struct {
 	SessionCache       bool            `json:"sessionCache,omitempty"`
 	InsecureSkipVerify bool            `json:"insecureSkipVerify,omitempty"`
 	Keystore           *KeyStoreConfig `json:"keystore,omitempty"`
+	// IBCKeystore IBC（SM9）身份 keystore，供 IBC/IBSDH 密码套件使用
+	// 与 Keystore 相互独立，可只配其一也可同时配置以实现同端口混合协商
+	IBCKeystore *KeyStoreConfig `json:"ibcKeystore,omitempty"`
 }
 
 type TLSConfig struct {
@@ -248,14 +251,49 @@ type KeyStoreInfo struct {
 	Protected  bool              `json:"protected"`
 	CreatedAt  string            `json:"createdAt"`
 	UpdatedAt  string            `json:"updatedAt"`
+	// IBC IBC（SM9）身份元信息，仅 type=ibc 时非空
+	IBC *IBCInfo `json:"ibc,omitempty"`
 }
 
+// IBCInfo IBC（SM9）keystore 的只读元信息
+// 由服务端从材料中解析得出，不包含任何私钥内容；仅当 keystore 的 type 为 ibc 时存在
+type IBCInfo struct {
+	// Identity 本端标识的可读形式，如 server@tlcpchan.local
+	Identity string `json:"identity"`
+	// HasParams 是否提供本端 KGC 公共参数
+	HasParams bool `json:"hasParams"`
+	// DistrictName KGC 属地区域名
+	DistrictName string `json:"districtName"`
+	// DistrictSerial 同一属地区域下的 KGC 序号，与 DistrictName 共同唯一标识 KGC
+	DistrictSerial int `json:"districtSerial"`
+	// NotBefore 公共参数生效时间（RFC3339 文本，空串或零值时间表示未提供/不限）
+	NotBefore string `json:"notBefore"`
+	// NotAfter 公共参数失效时间（RFC3339 文本，空串或零值时间表示未提供/不限）
+	NotAfter string `json:"notAfter"`
+	// HasSignKey 是否提供签名私钥（hid=0x01）
+	HasSignKey bool `json:"hasSignKey"`
+	// HasEncryptKey 是否提供加密私钥（hid=0x03）
+	HasEncryptKey bool `json:"hasEncryptKey"`
+	// HasKeyExchangeKey 是否提供密钥交换私钥（hid=0x02）
+	HasKeyExchangeKey bool `json:"hasKeyExchangeKey"`
+}
+
+// GenerateKeyStoreRequest 生成 keystore 请求
+// 证书类（tlcp/tls）使用 CertConfig；IBC 类（ibc）使用 Identity / DistrictName / DistrictSerial
 type GenerateKeyStoreRequest struct {
-	Name           string                     `json:"name"`
-	Type           string                     `json:"type"`
-	Protected      bool                       `json:"protected"`
-	CertConfig     GenerateKeyStoreCertConfig `json:"certConfig"`
-	SignerKeyStore string                     `json:"signerKeyStore,omitempty"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Protected bool   `json:"protected"`
+	// CertConfig 证书生成配置，仅 type=tlcp/tls 时提供（nil 时不参与序列化）
+	CertConfig *GenerateKeyStoreCertConfig `json:"certConfig,omitempty"`
+	// SignerKeyStore 签发者 keystore 名称，留空表示使用默认签发者
+	SignerKeyStore string `json:"signerKeyStore,omitempty"`
+	// Identity IBC 本端标识，如 server@tlcpchan.local，仅 type=ibc 时使用
+	Identity string `json:"identity,omitempty"`
+	// DistrictName IBC 目标 KGC 属地区域名，留空表示由服务端从信任池选择
+	DistrictName string `json:"districtName,omitempty"`
+	// DistrictSerial IBC 目标 KGC 序号，nil 表示由服务端从信任池选择
+	DistrictSerial *int `json:"districtSerial,omitempty"`
 }
 
 type GenerateKeyStoreCertConfig struct {
@@ -665,6 +703,161 @@ func (c *Client) DeleteRootCert(filename string) error {
 
 func (c *Client) ReloadRootCerts() error {
 	_, err := c.Post("/api/security/rootcerts/reload", nil)
+	return err
+}
+
+// IBCParamInfo IBC 信任池（KGC 公共参数）条目元信息
+// 由服务端从公共参数中解析得出，不包含主密钥等敏感内容
+type IBCParamInfo struct {
+	// Filename 信任池中的文件名
+	Filename string `json:"filename"`
+	// DistrictName KGC 属地区域名
+	DistrictName string `json:"districtName"`
+	// DistrictSerial 同一属地区域下的 KGC 序号，与 DistrictName 共同唯一标识 KGC
+	DistrictSerial int `json:"districtSerial"`
+	// NotBefore 公共参数生效时间（RFC3339 文本，空串或零值时间表示不限）
+	NotBefore string `json:"notBefore"`
+	// NotAfter 公共参数失效时间（RFC3339 文本，空串或零值时间表示不限）
+	NotAfter string `json:"notAfter"`
+	// IssuerIdentity 公共参数颁发者标识
+	IssuerIdentity string `json:"issuerIdentity"`
+	// SignKeyFingerprint 签名主公钥的 SM3 指纹（HEX）
+	SignKeyFingerprint string `json:"signKeyFingerprint"`
+	// EncKeyFingerprint 加密主公钥的 SM3 指纹（HEX）
+	EncKeyFingerprint string `json:"encKeyFingerprint"`
+}
+
+// GenerateIBCParamRequest 生成测试 KGC 公共参数请求
+type GenerateIBCParamRequest struct {
+	// DistrictName KGC 属地区域名
+	DistrictName string `json:"districtName"`
+	// DistrictSerial 同一属地区域下的 KGC 序号
+	DistrictSerial int `json:"districtSerial"`
+	// Years 公共参数有效期，单位：年
+	Years int `json:"years"`
+}
+
+// ListIBCParams 获取 IBC 信任池（KGC 公共参数）列表
+// 返回：
+//   - []IBCParamInfo: 信任池条目列表，信任池为空时返回空切片
+//   - error: 错误信息
+func (c *Client) ListIBCParams() ([]IBCParamInfo, error) {
+	data, err := c.Get("/api/security/ibcparams")
+	if err != nil {
+		return nil, err
+	}
+	var params []IBCParamInfo
+	if err := json.Unmarshal(data, &params); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return params, nil
+}
+
+// AddIBCParam 添加 KGC 公共参数到 IBC 信任池
+// 参数：
+//   - filename: 信任池中保存的文件名
+//   - paramsData: 公共参数文件内容（PEM/DER/HEX/Base64 均可，由服务端宽松解析）
+//
+// 返回：
+//   - *IBCParamInfo: 添加后的条目元信息
+//   - error: 错误信息
+func (c *Client) AddIBCParam(filename string, paramsData []byte) (*IBCParamInfo, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	_ = writer.WriteField("filename", filename)
+
+	part, err := writer.CreateFormFile("params", filename)
+	if err != nil {
+		return nil, fmt.Errorf("创建表单字段失败: %w", err)
+	}
+	_, _ = part.Write(paramsData)
+
+	_ = writer.Close()
+
+	fullURL, err := url.JoinPath(c.baseURL, "/api/security/ibcparams")
+	if err != nil {
+		return nil, fmt.Errorf("拼接URL失败: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, fullURL, &body)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("请求失败: %s - %s", resp.Status, string(respBody))
+	}
+
+	var param IBCParamInfo
+	if err := json.Unmarshal(respBody, &param); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &param, nil
+}
+
+// DownloadIBCParam 下载 IBC 信任池中的 KGC 公共参数文件
+// 参数：
+//   - filename: 信任池中的文件名
+//
+// 返回：
+//   - []byte: 公共参数文件内容
+//   - error: 错误信息
+func (c *Client) DownloadIBCParam(filename string) ([]byte, error) {
+	data, err := c.Get("/api/security/ibcparams/" + url.PathEscape(filename))
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// DeleteIBCParam 删除 IBC 信任池中的 KGC 公共参数
+// 参数：
+//   - filename: 信任池中的文件名
+//
+// 返回：
+//   - error: 错误信息
+func (c *Client) DeleteIBCParam(filename string) error {
+	return c.Delete("/api/security/ibcparams/" + url.PathEscape(filename))
+}
+
+// GenerateIBCParam 生成测试 KGC 公共参数并加入信任池（仅使用内置测试主密钥）
+// 参数：
+//   - req: 生成请求，包含属地区域名、序号与有效期（年）
+//
+// 返回：
+//   - *IBCParamInfo: 生成后的条目元信息
+//   - error: 错误信息
+func (c *Client) GenerateIBCParam(req GenerateIBCParamRequest) (*IBCParamInfo, error) {
+	data, err := c.Post("/api/security/ibcparams/generate", req)
+	if err != nil {
+		return nil, err
+	}
+	var param IBCParamInfo
+	if err := json.Unmarshal(data, &param); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	return &param, nil
+}
+
+// ReloadIBCParams 重新扫描目录并重建 IBC 信任池
+// 注意：修改信任池后需要重载引用了 IBC 身份的实例才会生效
+// 返回：
+//   - error: 错误信息
+func (c *Client) ReloadIBCParams() error {
+	_, err := c.Post("/api/security/ibcparams/reload", nil)
 	return err
 }
 

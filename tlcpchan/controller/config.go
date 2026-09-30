@@ -24,7 +24,7 @@ func NewConfigController(configPath string) *ConfigController {
  * @api {get} /api/config 获取当前配置
  * @apiName GetConfig
  * @apiGroup Config
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取系统当前的完整配置
  *
@@ -134,7 +134,7 @@ func (c *ConfigController) Get(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/config 更新配置
  * @apiName UpdateConfig
  * @apiGroup Config
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 更新系统配置并保存到文件
  *
@@ -307,7 +307,7 @@ func (c *ConfigController) Update(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/config/reload 重载配置
  * @apiName ReloadConfig
  * @apiGroup Config
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 从配置文件重新加载系统配置
  *
@@ -375,7 +375,7 @@ func (c *ConfigController) Reload(w http.ResponseWriter, r *http.Request) {
  * @api {post} /api/config/validate 验证配置
  * @apiName ValidateConfig
  * @apiGroup Config
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 验证配置文件的有效性，由服务端加载文件并检测
  *

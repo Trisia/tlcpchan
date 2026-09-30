@@ -55,8 +55,19 @@ func instanceShow(args []string) error {
 	fmt.Printf("监听: %s\n", inst.Config.Listen)
 	fmt.Printf("目标: %s\n", inst.Config.Target)
 	fmt.Printf("协议: %s\n", inst.Config.Protocol)
-	fmt.Printf("TLCP认证: %s\n", inst.Config.TLCP.ClientAuthType)
-	fmt.Printf("TLS认证: %s\n", inst.Config.TLS.ClientAuthType)
+	if inst.Config.TLCP != nil {
+		fmt.Printf("TLCP认证: %s\n", inst.Config.TLCP.ClientAuthType)
+		if inst.Config.TLCP.IBCKeystore != nil {
+			ibcName := inst.Config.TLCP.IBCKeystore.Name
+			if ibcName == "" {
+				ibcName = inst.Config.TLCP.IBCKeystore.Type
+			}
+			fmt.Printf("TLCP IBC身份: %s\n", ibcName)
+		}
+	}
+	if inst.Config.TLS != nil {
+		fmt.Printf("TLS认证: %s\n", inst.Config.TLS.ClientAuthType)
+	}
 	fmt.Printf("启用: %v\n", inst.Enabled)
 	return nil
 }

@@ -22,7 +22,7 @@ func TestMCPSystemTools(t *testing.T) {
 	// 创建必要的依赖
 	keyStoreMgr := security.NewKeyStoreManager()
 	rootCertMgr := security.NewRootCertManager("")
-	instMgr := instance.NewManager(nil, keyStoreMgr, rootCertMgr)
+	instMgr := instance.NewManager(nil, keyStoreMgr, rootCertMgr, security.NewIBCParamManager(""))
 
 	// 创建 MCP 控制器
 	opts := &ServerOptions{
@@ -110,7 +110,7 @@ func TestHandleGetSystemInfo_VersionOverride(t *testing.T) {
 	// 创建必要的依赖
 	keyStoreMgr := security.NewKeyStoreManager()
 	rootCertMgr := security.NewRootCertManager("")
-	instMgr := instance.NewManager(nil, keyStoreMgr, rootCertMgr)
+	instMgr := instance.NewManager(nil, keyStoreMgr, rootCertMgr, security.NewIBCParamManager(""))
 
 	// 创建 MCP 控制器
 	opts := &ServerOptions{
@@ -132,8 +132,8 @@ func TestHandleGetSystemInfo_VersionOverride(t *testing.T) {
 		t.Fatalf("调用 get_system_info 失败: %v", err)
 	}
 
-	// 版本号应该是 "1.0.0"（从 version.Version 获取）
-	expectedVersion := "1.0.1"
+	// 版本号应与 version.Version 保持一致
+	expectedVersion := "1.1.0"
 	if output.Version != expectedVersion {
 		t.Errorf("版本号应为 %s，实际得到: %s", expectedVersion, output.Version)
 	}
@@ -160,7 +160,7 @@ func TestHandleGetSystemStats_NoInstances(t *testing.T) {
 	keyStoreMgr := security.NewKeyStoreManager()
 	rootCertMgr := security.NewRootCertManager("")
 	// 创建空的实例管理器（无实例）
-	instMgr := instance.NewManager(nil, keyStoreMgr, rootCertMgr)
+	instMgr := instance.NewManager(nil, keyStoreMgr, rootCertMgr, security.NewIBCParamManager(""))
 
 	// 创建 MCP 控制器
 	opts := &ServerOptions{
@@ -225,7 +225,7 @@ func TestHandleGetSystemStats_WithInstances(t *testing.T) {
 	// 创建必要的依赖
 	keyStoreMgr := security.NewKeyStoreManager()
 	rootCertMgr := security.NewRootCertManager("")
-	instMgr := instance.NewManager(log, keyStoreMgr, rootCertMgr)
+	instMgr := instance.NewManager(log, keyStoreMgr, rootCertMgr, security.NewIBCParamManager(""))
 
 	// 创建多个实例配置（使用 client + auto 协议，不需要 keystore）
 	instanceConfigs := []*config.InstanceConfig{

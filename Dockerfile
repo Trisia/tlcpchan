@@ -41,7 +41,7 @@ ENV TZ=Asia/Shanghai
 
 # 创建工作目录和必要的目录结构（使用 /etc/tlcpchan）
 WORKDIR /etc/tlcpchan
-RUN mkdir -p keystores rootcerts logs ui
+RUN mkdir -p keystores rootcerts logs ui ibcparams
 
 # 复制编译好的二进制文件到 /etc/tlcpchan/
 COPY --from=builder-go /tlcpchan/tlcpchan ./
@@ -65,8 +65,10 @@ RUN ln -sf /etc/tlcpchan/tlcpchan /usr/bin/tlcpchan && \
 EXPOSE 20080 20443
 
 # 数据卷挂载点（持久化数据）
-# 注意：rootcerts 不使用 volume，因为我们预置了证书
-VOLUME ["/etc/tlcpchan/keystores", "/etc/tlcpchan/logs"]
+# keystores: 密钥与证书；ibcparams: 信任的 KGC 公共参数；rootcerts: 信任根证书；logs: 日志
+# 注意：rootcerts 在镜像中预置了 CA 证书，请使用命名卷挂载（新卷会由镜像内容初始化），
+# 不要用宿主机空目录 bind mount，否则会遮蔽镜像预置的信任证书
+VOLUME ["/etc/tlcpchan/keystores", "/etc/tlcpchan/logs", "/etc/tlcpchan/ibcparams", "/etc/tlcpchan/rootcerts"]
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

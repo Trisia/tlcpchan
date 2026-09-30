@@ -31,7 +31,7 @@ tlcpchan-cli system health
 **响应示例：**
 ```
 状态: ok
-版本: 1.0.1
+版本: 1.1.0
 ```
 
 ---
@@ -874,6 +874,59 @@ CSR已导出到: tlcp-keystore-enc-20240101120000.csr
 - 对于 TLS keystore，只能使用 `--key-type sign`
 - 对于 TLCP keystore，支持 `sign`（签名密钥）和 `enc`（加密密钥）两种类型
 
+### 5.7 IBC（SM9）身份 keystore
+
+IBC（SM9）身份以 `ibc` 类型 + `ibc-file` 加载器管理，不使用 X.509 证书。材料包含本端标识、KGC 公共参数与三把用户私钥（签名 hid=0x01、加密 hid=0x03、密钥交换 hid=0x02）。
+
+**参数说明（create / upload）：**
+
+| 参数 | 说明 | multipart 字段名 |
+|------|------|------------------|
+| `--identity` | 本端标识文件路径（如 server@tlcpchan.local），create 时必需 | `identity` |
+| `--params` | 本端 KGC 公共参数文件路径 | `params` |
+| `--sign-key` | 签名私钥文件路径（hid=0x01） | `signKey` |
+| `--enc-key` | 加密私钥文件路径（hid=0x03） | `encKey` |
+| `--kex-key` | 密钥交换私钥文件路径（hid=0x02） | `kexKey` |
+
+**示例 1：导入 IBC 身份（ibc-file）**
+
+```bash
+tlcpchan-cli keystore create \
+  --name default-ibc-server \
+  --loader-type ibc-file \
+  --identity ./keystores/default-ibc-server-identity.txt \
+  --params ./keystores/default-ibc-server-params.pem \
+  --sign-key ./keystores/default-ibc-server-sign.key \
+  --enc-key ./keystores/default-ibc-server-enc.key \
+  --kex-key ./keystores/default-ibc-server-kex.key
+```
+
+**示例 2：替换 IBC 材料**
+
+```bash
+tlcpchan-cli keystore upload default-ibc-server \
+  --loader-type ibc-file \
+  --identity ./new-identity.txt \
+  --kex-key ./new-kex.key
+```
+
+**示例 3：由信任池中的 KGC 派生 IBC 身份**
+
+```bash
+tlcpchan-cli keystore generate \
+  --name default-ibc-client \
+  --type ibc \
+  --identity client@tlcpchan.local \
+  --district-name tlcpchan.local \
+  --district-serial 1
+```
+
+**说明：**
+- 未指定 `--loader-type` 时，`keystore upload`/`update` 会根据是否出现 `--identity` / `--params` / `--kex-key` 自动判定为 ibc-file
+- `keystore list` 会附加「IBC标识」列；`keystore show`/`detail` 会展示 `ibc` 元信息（标识、是否含公共参数、KGC 区域、有效期、三把私钥齐备性）
+- `keystore export-csr` 对 ibc 类型返回 400（SM9 无 CSR 概念）
+- IBC 身份生效前需在 IBC 信任池中预置对端 KGC 公共参数
+
 ---
 
 ## 6. 根证书管理
@@ -1000,6 +1053,32 @@ tlcpchan-cli rootcert reload
 根证书已重新加载
 ```
 
+### 6.7 IBC 信任池（KGC 公共参数）
+
+IBC 信任池与根证书库对等：只有池中存在的 KGC 才能通过 IBC/IBSDH 握手校验（默认拒绝）。必须通过可信渠道获取公共参数后再入库，切勿直接信任对端下发的参数。
+
+| 子命令 | 说明 | 用法 |
+|--------|------|------|
+| `list` | 列出所有 KGC 公共参数 | `ibcparams list` |
+| `add` | 添加 KGC 公共参数 | `ibcparams add --params <文件> [--filename <名称>]` |
+| `download` | 下载 KGC 公共参数 | `ibcparams download <filename> [-o <路径>]` |
+| `generate` | 生成测试 KGC 公共参数（仅联调） | `ibcparams generate [选项]` |
+| `delete` | 删除 KGC 公共参数 | `ibcparams delete <filename>` |
+| `reload` | 重载 IBC 信任池 | `ibcparams reload` |
+
+**示例：**
+
+```bash
+tlcpchan-cli ibcparams add --params ./tlcpchan-ibc-kgc.pem
+tlcpchan-cli ibcparams list
+tlcpchan-cli ibcparams download tlcpchan-ibc-kgc.pem -o ./kgc.pem
+tlcpchan-cli ibcparams reload
+```
+
+**说明：**
+- 修改信任池后需对引用 IBC 身份的实例执行 `instance reload` 才会生效
+- `generate` 仅使用初始化内置的测试 KGC 主密钥，生产环境应由外部 KGC 派生后导入
+
 ---
 
 ## 7. 系统信息
@@ -1034,7 +1113,7 @@ tlcpchan-cli system health
 **响应示例：**
 ```
 状态: ok
-版本: 1.0.1
+版本: 1.1.0
 ```
 
 ---
@@ -1048,8 +1127,8 @@ tlcpchan-cli version
 
 **响应示例：**
 ```
-CLI版本:    1.0.1
-服务端版本:  1.0.1
+CLI版本:    1.1.0
+服务端版本:  1.1.0
 ```
 
 ---
@@ -1087,12 +1166,12 @@ CLI版本:    1.0.1
 |--------|------|------|
 | `list` | 列出所有 keystore | `keystore list` |
 | `show` | 显示 keystore 详情 | `keystore show <name>` |
-| `create` | 创建 keystore | `keystore create [选项]` |
+| `create` | 创建 keystore（证书或 IBC 身份） | `keystore create [选项]` |
 | `update` | 更新 keystore 参数 | `keystore update <name> [选项]` |
-| `upload` | 上传更新 keystore 证书和密钥 | `keystore upload <name> [选项]` |
-| `generate` | 生成 keystore（含证书） | `keystore generate [选项]` |
+| `upload` | 上传更新 keystore 材料（证书/密钥或 IBC 材料） | `keystore upload <name> [选项]` |
+| `generate` | 生成 keystore（证书或 IBC 身份） | `keystore generate [选项]` |
 | `delete` | 删除 keystore | `keystore delete <name>` |
-| `export-csr` | 导出证书请求(CSR) | `keystore export-csr <name> [选项]` |
+| `export-csr` | 导出证书请求(CSR)，ibc 类型不支持 | `keystore export-csr <name> [选项]` |
 
 ### 9.4 rootcert 命令组
 
@@ -1105,14 +1184,25 @@ CLI版本:    1.0.1
 | `delete` | 删除根证书 | `rootcert delete <filename>` |
 | `reload` | 重载所有根证书 | `rootcert reload` |
 
-### 9.5 system 命令组
+### 9.5 ibcparams 命令组
+
+| 子命令 | 说明 | 用法 |
+|--------|------|------|
+| `list` | 列出所有 KGC 公共参数 | `ibcparams list` |
+| `add` | 添加 KGC 公共参数 | `ibcparams add [选项]` |
+| `download` | 下载 KGC 公共参数 | `ibcparams download <filename> [-o output]` |
+| `generate` | 生成测试 KGC 公共参数 | `ibcparams generate [选项]` |
+| `delete` | 删除 KGC 公共参数 | `ibcparams delete <filename>` |
+| `reload` | 重载 IBC 信任池 | `ibcparams reload` |
+
+### 9.6 system 命令组
 
 | 子命令 | 说明 | 用法 |
 |--------|------|------|
 | `info` | 显示系统信息 | `system info` |
 | `health` | 健康检查 | `system health` |
 
-### 9.6 version 命令
+### 9.7 version 命令
 
 | 命令 | 说明 | 用法 |
 |------|------|------|

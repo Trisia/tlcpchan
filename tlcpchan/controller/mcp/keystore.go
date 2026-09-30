@@ -179,6 +179,13 @@ func (c *MCPController) handleCreateKeystore(_ context.Context, _ *mcpsdk.CallTo
 		}
 	}
 
+	// 如果是 ibc-file 类型，验证 IBC 材料可装载（含签名私钥自检）
+	if input.LoaderType == keystore.LoaderTypeIBCFile {
+		if err := validateMCPIBCFileParams(c.config.WorkDir, input.Params); err != nil {
+			return nil, CreateKeystoreOutput{}, fmt.Errorf("IBC 材料验证失败: %w", err)
+		}
+	}
+
 	// 创建 keystore
 	info, err := c.keyStoreMgr.Create(input.Name, input.LoaderType, input.Params, input.Protected)
 	if err != nil {
@@ -249,8 +256,23 @@ func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcpsdk.CallTo
 		}
 	}
 
+	// 如果是 ibc-file 类型，按合并后的参数验证 IBC 材料可装载
+	if info.LoaderType == keystore.LoaderTypeIBCFile {
+		merged := make(map[string]string, len(info.Params)+len(input.Params))
+		for key, value := range info.Params {
+			merged[key] = value
+		}
+		for key, value := range input.Params {
+			merged[key] = value
+		}
+		if err := validateMCPIBCFileParams(c.config.WorkDir, merged); err != nil {
+			return nil, UpdateKeystoreOutput{}, fmt.Errorf("IBC 材料验证失败: %w", err)
+		}
+	}
+
 	// 更新 keystore 配置
 	found := false
+	var mergedParams map[string]string
 	for i := range c.config.KeyStores {
 		if c.config.KeyStores[i].Name == input.Name {
 			if c.config.KeyStores[i].Params == nil {
@@ -260,6 +282,7 @@ func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcpsdk.CallTo
 			for key, value := range input.Params {
 				c.config.KeyStores[i].Params[key] = value
 			}
+			mergedParams = c.config.KeyStores[i].Params
 			found = true
 			break
 		}
@@ -275,7 +298,16 @@ func (c *MCPController) handleUpdateKeystore(_ context.Context, _ *mcpsdk.CallTo
 	}
 
 	// 重新加载 keystore
-	updatedInfo, err := c.keyStoreMgr.Get(input.Name)
+	var updatedInfo *keystore.KeyStoreInfo
+	if info.Type == keystore.KeyStoreTypeIBC {
+		// IBC 身份在装载时即完成校验与缓存，必须重建实例以刷新身份与元信息
+		if err := c.keyStoreMgr.Delete(input.Name); err != nil {
+			return nil, UpdateKeystoreOutput{}, fmt.Errorf("重新加载 keystore 失败: %w", err)
+		}
+		updatedInfo, err = c.keyStoreMgr.Create(input.Name, info.LoaderType, mergedParams, info.Protected)
+	} else {
+		updatedInfo, err = c.keyStoreMgr.Get(input.Name)
+	}
 	if err != nil {
 		return nil, UpdateKeystoreOutput{}, fmt.Errorf("重新加载 keystore 失败: %w", err)
 	}
@@ -369,15 +401,15 @@ func (c *MCPController) registerKeystoreTools() {
 								"type":        "string",
 							},
 							"type": map[string]any{
-								"description": "密钥存储类型（tlcp/tls）",
+								"description": "密钥存储类型（tlcp/tls/ibc）",
 								"type":        "string",
 							},
 							"loaderType": map[string]any{
-								"description": "加载器类型（file/named/skf/sdf）",
+								"description": "加载器类型（file/named/skf/sdf/ibc-file）",
 								"type":        "string",
 							},
 							"params": map[string]any{
-								"description": "加载器参数",
+								"description": "加载器参数；loaderType=ibc-file 时键为 identity/params/sign-key/enc-key/kex-key",
 								"type":        "object",
 							},
 							"protected": map[string]any{
@@ -436,11 +468,11 @@ func (c *MCPController) registerKeystoreTools() {
 					"type":        "string",
 				},
 				"loaderType": map[string]any{
-					"description": "加载器类型（file/named/skf/sdf）",
+					"description": "加载器类型（file/named/skf/sdf/ibc-file）",
 					"type":        "string",
 				},
 				"params": map[string]any{
-					"description": "加载器参数",
+					"description": "加载器参数；loaderType=ibc-file 时键为 identity/params/sign-key/enc-key/kex-key",
 					"type":        "object",
 				},
 				"protected": map[string]any{
@@ -550,4 +582,40 @@ func validateMCPFileParams(workDir string, params map[string]string) error {
 		}
 	}
 	return nil
+}
+
+/**
+ * validateMCPIBCFileParams 验证 ibc-file 类型 keystore 的材料是否可装载
+ *
+ * 参数：
+ *   - workDir: 工作目录，用于解析相对路径
+ *   - params: keystore 参数，键为 identity / params / sign-key / enc-key / kex-key
+ *
+ * 返回：
+ *   - error: 材料全部为空、文件读取失败、解析失败或签名私钥自检失败时返回错误
+ */
+func validateMCPIBCFileParams(workDir string, params map[string]string) error {
+	if len(params) == 0 {
+		return fmt.Errorf("IBC 身份材料不能全部为空")
+	}
+
+	materials := make(map[string][]byte, len(params))
+	for key, filePath := range params {
+		if filePath == "" {
+			continue
+		}
+
+		fullPath := filePath
+		if !filepath.IsAbs(fullPath) {
+			fullPath = filepath.Join(workDir, fullPath)
+		}
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			return fmt.Errorf("读取 %s 文件失败: %w", key, err)
+		}
+		materials[key] = data
+	}
+
+	return keystore.VerifyIBCMaterials(materials["identity"], materials["params"],
+		materials["sign-key"], materials["enc-key"], materials["kex-key"])
 }

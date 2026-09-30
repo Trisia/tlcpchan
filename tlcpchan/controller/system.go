@@ -46,7 +46,7 @@ func NewSystemController() *SystemController {
  * @api {get} /api/system/info 获取系统信息
  * @apiName GetSystemInfo
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取系统运行时信息
  *
@@ -97,7 +97,7 @@ func (c *SystemController) Info(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/system/health 系统健康检查
  * @apiName GetSystemHealth
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 检查系统健康状态
  *
@@ -122,7 +122,7 @@ func (c *SystemController) Health(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/system/version 获取版本信息
  * @apiName GetVersion
  * @apiGroup System
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取系统版本信息
  *

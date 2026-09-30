@@ -3,7 +3,9 @@ package initialization
 import (
 	"os"
 	"path/filepath"
+	"time"
 
+	"gitee.com/Trisia/gotlcp/tlcp"
 	"github.com/Trisia/tlcpchan/config"
 	"github.com/Trisia/tlcpchan/logger"
 	"github.com/Trisia/tlcpchan/security/certgen"
@@ -233,7 +235,78 @@ func (m *Manager) Initialize() error {
 	}
 	logger.Info("TLS 证书生成完成")
 
-	// 7. 配置 keystores
+	// 7. 生成内置测试 KGC（SM9）并预置 IBC 身份
+	logger.Info("生成 IBC（SM9）测试 KGC 与预置身份...")
+	ibcKGC, err := certgen.GenerateIBCParams("tlcpchan.local", 1, tlcp.ValidityPeriod{
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().AddDate(10, 0, 0),
+	})
+	if err != nil {
+		return err
+	}
+
+	// 公共参数入信任池；主密钥与其它密钥材料一并存放于 keystores/ 且不提供下载
+	if err := certgen.SaveIBCParamsToFile(ibcKGC.ParamsPEM,
+		filepath.Join(m.workDir, "ibcparams", "tlcpchan-ibc-kgc.pem")); err != nil {
+		return err
+	}
+	if err := certgen.SaveIBCMasterToFile(ibcKGC.MasterPEM,
+		filepath.Join(m.workDir, "keystores", "tlcpchan-ibc-kgc-master.key")); err != nil {
+		return err
+	}
+
+	// 由测试 KGC 一次派生服务端与客户端两组 IBC 身份（各含三把用户私钥）
+	ibcIdentities := []struct {
+		name     string // keystore 名称
+		identity string // 本端标识
+	}{
+		{"default-ibc-server", "server@tlcpchan.local"},
+		{"default-ibc-client", "client@tlcpchan.local"},
+	}
+	ibcKeyStores := make([]config.KeyStoreConfig, 0, len(ibcIdentities))
+	for _, item := range ibcIdentities {
+		generated, err := certgen.GenerateIBCIdentity(ibcKGC.Master, []byte(item.identity))
+		if err != nil {
+			return err
+		}
+
+		identityPath := filepath.Join(m.workDir, "keystores", item.name+"-identity.txt")
+		paramsPath := filepath.Join(m.workDir, "keystores", item.name+"-params.pem")
+		signKeyPath := filepath.Join(m.workDir, "keystores", item.name+"-sign.key")
+		encKeyPath := filepath.Join(m.workDir, "keystores", item.name+"-enc.key")
+		kexKeyPath := filepath.Join(m.workDir, "keystores", item.name+"-kex.key")
+
+		if err := os.WriteFile(identityPath, generated.Identity, 0644); err != nil {
+			return err
+		}
+		if err := os.WriteFile(paramsPath, ibcKGC.ParamsPEM, 0644); err != nil {
+			return err
+		}
+		if err := os.WriteFile(signKeyPath, generated.SignKeyPEM, 0600); err != nil {
+			return err
+		}
+		if err := os.WriteFile(encKeyPath, generated.EncKeyPEM, 0600); err != nil {
+			return err
+		}
+		if err := os.WriteFile(kexKeyPath, generated.KexKeyPEM, 0600); err != nil {
+			return err
+		}
+
+		ibcKeyStores = append(ibcKeyStores, config.KeyStoreConfig{
+			Name: item.name,
+			Type: keystore.LoaderTypeIBCFile,
+			Params: map[string]string{
+				"identity": "./keystores/" + item.name + "-identity.txt",
+				"params":   "./keystores/" + item.name + "-params.pem",
+				"sign-key": "./keystores/" + item.name + "-sign.key",
+				"enc-key":  "./keystores/" + item.name + "-enc.key",
+				"kex-key":  "./keystores/" + item.name + "-kex.key",
+			},
+		})
+	}
+	logger.Info("IBC（SM9）测试 KGC 与预置身份生成完成")
+
+	// 8. 配置 keystores
 	m.cfg.KeyStores = []config.KeyStoreConfig{
 		{
 			Name: "tlcpchan-tlcp-root-ca",
@@ -270,8 +343,9 @@ func (m *Manager) Initialize() error {
 			},
 		},
 	}
+	m.cfg.KeyStores = append(m.cfg.KeyStores, ibcKeyStores...)
 
-	// 6. 配置 auto-proxy 实例
+	// 9. 配置 auto-proxy 实例
 	m.cfg.Instances = []config.InstanceConfig{
 		{
 			Name:     "auto-proxy",

@@ -23,6 +23,7 @@ type Server struct {
 	log         *logger.Logger
 	keyStoreMgr *security.KeyStoreManager
 	rootCertMgr *security.RootCertManager
+	ibcParamMgr *security.IBCParamManager
 	staticDir   string
 	fileServer  http.Handler
 	mcpCtrl     *mcp.MCPController
@@ -34,6 +35,7 @@ type ServerOptions struct {
 	ConfigPath      string
 	KeyStoreManager *security.KeyStoreManager
 	RootCertManager *security.RootCertManager
+	IBCParamManager *security.IBCParamManager
 	InstanceManager *instance.Manager
 	StaticDir       string
 }
@@ -48,6 +50,7 @@ func NewServer(opts ServerOptions) *Server {
 
 	var keyStoreMgr *security.KeyStoreManager
 	var rootCertMgr *security.RootCertManager
+	var ibcParamMgr *security.IBCParamManager
 	var instMgr *instance.Manager
 
 	if opts.KeyStoreManager != nil {
@@ -62,10 +65,16 @@ func NewServer(opts ServerOptions) *Server {
 		rootCertMgr = security.NewRootCertManager("")
 	}
 
+	if opts.IBCParamManager != nil {
+		ibcParamMgr = opts.IBCParamManager
+	} else {
+		ibcParamMgr = security.NewIBCParamManager("")
+	}
+
 	if opts.InstanceManager != nil {
 		instMgr = opts.InstanceManager
 	} else {
-		instMgr = instance.NewManager(log, keyStoreMgr, rootCertMgr)
+		instMgr = instance.NewManager(log, keyStoreMgr, rootCertMgr, ibcParamMgr)
 		for i := range opts.Config.Instances {
 			instMgr.Create(&opts.Config.Instances[i])
 		}
@@ -73,7 +82,7 @@ func NewServer(opts ServerOptions) *Server {
 
 	instanceCtrl := NewInstanceController(instMgr, opts.ConfigPath)
 	configCtrl := NewConfigController(opts.ConfigPath)
-	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, opts.Config, opts.ConfigPath)
+	securityCtrl := NewSecurityController(keyStoreMgr, rootCertMgr, ibcParamMgr, opts.Config, opts.ConfigPath)
 	systemCtrl := NewSystemController()
 	logsCtrl := NewLogsController(opts.Config)
 
@@ -92,6 +101,7 @@ func NewServer(opts ServerOptions) *Server {
 			ConfigPath:      opts.ConfigPath,
 			KeyStoreManager: opts.KeyStoreManager,
 			RootCertManager: opts.RootCertManager,
+			IBCParamManager: ibcParamMgr,
 			InstanceManager: instMgr,
 			StaticDir:       opts.StaticDir,
 		}
@@ -120,6 +130,7 @@ func NewServer(opts ServerOptions) *Server {
 		log:         log,
 		keyStoreMgr: keyStoreMgr,
 		rootCertMgr: rootCertMgr,
+		ibcParamMgr: ibcParamMgr,
 		staticDir:   absStaticDir,
 		fileServer:  http.FileServer(http.Dir(absStaticDir)),
 		mcpCtrl:     mcpCtrl,

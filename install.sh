@@ -285,10 +285,8 @@ install_via_binary() {
     echo -e "📦 正在安装到 $install_dir..."
     echo ""
 
-    # 创建安装目录
+    # 创建安装目录（logs/、keystores/、rootcerts/、ibcparams/ 由程序首次启动时自动创建）
     mkdir -p "$install_dir"
-    mkdir -p "${install_dir}/keystores"
-    mkdir -p "${install_dir}/logs"
 
     # 解压到临时目录
     local tmp_extract_dir="${install_dir}_extract"

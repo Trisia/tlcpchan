@@ -3,7 +3,7 @@
     <el-page-header @back="router.back()">
       <template #content>
         <span class="text-large font-600 mr-3">{{ keystore?.name }}</span>
-        <el-tag :type="keystore?.type === 'tlcp' ? 'primary' : 'success'">
+        <el-tag :type="typeTagType(keystore?.type)">
           {{ keystore?.type?.toUpperCase() }}
         </el-tag>
       </template>
@@ -18,7 +18,7 @@
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="名称">{{ keystore?.name }}</el-descriptions-item>
           <el-descriptions-item label="类型">
-            <el-tag :type="keystore?.type === 'tlcp' ? 'primary' : 'success'" size="small">
+            <el-tag :type="typeTagType(keystore?.type)" size="small">
               {{ keystore?.type?.toUpperCase() }}
             </el-tag>
           </el-descriptions-item>
@@ -30,13 +30,115 @@
               {{ keystore?.protected ? '受保护' : '不受保护' }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatDate(keystore?.createdAt) }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ formatDate(keystore?.updatedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ formatDateTime(keystore?.createdAt, '') }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ formatDateTime(keystore?.updatedAt, '') }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 
-      <!-- 证书密钥参数卡片 -->
-      <el-card style="margin-top: 20px">
+      <!-- IBC 身份元信息卡片（仅 type=ibc） -->
+      <el-card v-if="keystore?.type === 'ibc'" style="margin-top: 20px">
+        <template #header>
+          <span>IBC 身份信息</span>
+        </template>
+
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="标识">{{ keystore?.ibc?.identity || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="KGC 区域">{{ keystore?.ibc?.districtName || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="KGC 序号">{{ keystore?.ibc?.districtName ? keystore?.ibc?.districtSerial : '-' }}</el-descriptions-item>
+          <el-descriptions-item label="KGC 公共参数">
+            <el-tag :type="keystore?.ibc?.hasParams ? 'success' : 'info'" size="small">
+              {{ keystore?.ibc?.hasParams ? '已提供' : '未提供' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="生效时间">
+            {{ formatDateTime(keystore?.ibc?.notBefore, '不限') }}
+          </el-descriptions-item>
+          <el-descriptions-item label="失效时间">
+            {{ formatDateTime(keystore?.ibc?.notAfter, '不限') }}
+          </el-descriptions-item>
+          <el-descriptions-item label="签名私钥 (hid=0x01)">
+            <el-tag :type="keystore?.ibc?.hasSignKey ? 'success' : 'info'" size="small">
+              {{ keystore?.ibc?.hasSignKey ? '已提供' : '未提供' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="加密私钥 (hid=0x03)">
+            <el-tag :type="keystore?.ibc?.hasEncryptKey ? 'success' : 'info'" size="small">
+              {{ keystore?.ibc?.hasEncryptKey ? '已提供' : '未提供' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="密钥交换私钥 (hid=0x02)">
+            <el-tag :type="keystore?.ibc?.hasKeyExchangeKey ? 'success' : 'info'" size="small">
+              {{ keystore?.ibc?.hasKeyExchangeKey ? '已提供' : '未提供' }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-alert
+          title="签名私钥用于签名/验签（hid=0x01），加密私钥用于解密预主密钥（hid=0x03），密钥交换私钥用于 SM9 密钥交换（hid=0x02），三者不可混用。"
+          type="info"
+          :closable="false"
+          style="margin-top: 16px"
+        />
+
+        <el-descriptions :column="1" border size="small" style="margin-top: 16px">
+          <el-descriptions-item label="标识文件">{{ keystore?.params?.['identity'] || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="公共参数文件">{{ keystore?.params?.['params'] || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="签名私钥文件">{{ keystore?.params?.['sign-key'] || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="加密私钥文件">{{ keystore?.params?.['enc-key'] || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="密钥交换私钥文件">{{ keystore?.params?.['kex-key'] || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <!-- IBC 材料替换卡片（仅 type=ibc 且未受保护） -->
+      <el-card v-if="keystore?.type === 'ibc' && !keystore?.protected" style="margin-top: 20px">
+        <template #header>
+          <span>替换 IBC 材料</span>
+        </template>
+
+        <el-alert
+          title="所有文件均为可选，仅上传需要替换的材料；替换后需重新加载关联实例才能生效。"
+          type="info"
+          :closable="false"
+          style="margin-bottom: 16px"
+        />
+
+        <el-form label-width="160px">
+          <el-form-item label="标识文件">
+            <el-upload v-model:file-list="ibcIdentityFiles" :limit="1" :auto-upload="false" accept=".txt,.der,.pem">
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="KGC 公共参数">
+            <el-upload v-model:file-list="ibcParamsFiles" :limit="1" :auto-upload="false" accept=".pem,.der,.ibcparams">
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="签名私钥 (hid=0x01)">
+            <el-upload v-model:file-list="ibcSignKeyFiles" :limit="1" :auto-upload="false" accept=".key,.pem">
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="加密私钥 (hid=0x03)">
+            <el-upload v-model:file-list="ibcEncKeyFiles" :limit="1" :auto-upload="false" accept=".key,.pem">
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="密钥交换私钥 (hid=0x02)">
+            <el-upload v-model:file-list="ibcKexKeyFiles" :limit="1" :auto-upload="false" accept=".key,.pem">
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+          </el-form-item>
+        </el-form>
+
+        <div style="margin-top: 16px">
+          <el-button type="primary" @click="handleReplaceIBC" :loading="replacing">
+            替换材料
+          </el-button>
+        </div>
+      </el-card>
+
+      <!-- 证书密钥参数卡片（IBC 类型不适用） -->
+      <el-card v-if="keystore?.type !== 'ibc'" style="margin-top: 20px">
         <template #header>
           <span>证书密钥参数</span>
         </template>
@@ -147,8 +249,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type UploadUserFile } from 'element-plus'
 import { keyStoreApi, instanceApi } from '@/api'
+import { formatDateTime } from '@/constants/datetime'
 import type { KeyStoreInfo, KeystoreInstance } from '@/types'
 
 const route = useRoute()
@@ -161,6 +264,14 @@ const saving = ref(false)
 const reloading = ref(false)
 const instancesLoading = ref(false)
 const showReloadWarning = ref(false)
+const replacing = ref(false)
+
+// IBC 材料替换文件
+const ibcIdentityFiles = ref<UploadUserFile[]>([])
+const ibcParamsFiles = ref<UploadUserFile[]>([])
+const ibcSignKeyFiles = ref<UploadUserFile[]>([])
+const ibcEncKeyFiles = ref<UploadUserFile[]>([])
+const ibcKexKeyFiles = ref<UploadUserFile[]>([])
 
 const name = computed(() => route.params.name as string)
 
@@ -198,9 +309,14 @@ async function fetchRelatedInstances() {
   }
 }
 
-function formatDate(dateStr: string | undefined): string {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN')
+/**
+ * keystore 类型对应的标签颜色
+ * @param type keystore 类型（tlcp / tls / ibc）
+ */
+function typeTagType(type: string | undefined): 'primary' | 'success' | 'warning' {
+  if (type === 'tlcp') return 'primary'
+  if (type === 'ibc') return 'warning'
+  return 'success'
 }
 
 function statusType(status: string): '' | 'success' | 'warning' | 'danger' | 'info' {
@@ -255,6 +371,46 @@ async function handleSave() {
     ElMessage.error(`保存失败: ${err.response?.data || err.message || '未知错误'}`)
   } finally {
     saving.value = false
+  }
+}
+
+/**
+ * 替换 IBC 身份材料（仅上传选中的文件）
+ */
+async function handleReplaceIBC() {
+  const data: any = {}
+  if (ibcIdentityFiles.value.length > 0) data.identity = ibcIdentityFiles.value[0]?.raw as File
+  if (ibcParamsFiles.value.length > 0) data.params = ibcParamsFiles.value[0]?.raw as File
+  if (ibcSignKeyFiles.value.length > 0) data.signKey = ibcSignKeyFiles.value[0]?.raw as File
+  if (ibcEncKeyFiles.value.length > 0) data.encKey = ibcEncKeyFiles.value[0]?.raw as File
+  if (ibcKexKeyFiles.value.length > 0) data.kexKey = ibcKexKeyFiles.value[0]?.raw as File
+
+  if (Object.keys(data).length === 0) {
+    ElMessage.info('请至少选择一个要替换的材料文件')
+    return
+  }
+
+  replacing.value = true
+  try {
+    await keyStoreApi.updateCertificates(name.value, data)
+    ElMessage.success('IBC 材料替换成功')
+
+    ibcIdentityFiles.value = []
+    ibcParamsFiles.value = []
+    ibcSignKeyFiles.value = []
+    ibcEncKeyFiles.value = []
+    ibcKexKeyFiles.value = []
+
+    await fetchKeystore()
+    await fetchRelatedInstances()
+
+    if (runningInstances.value.length > 0) {
+      showReloadWarning.value = true
+    }
+  } catch (err: any) {
+    ElMessage.error(`替换失败: ${err.response?.data || err.message || '未知错误'}`)
+  } finally {
+    replacing.value = false
   }
 }
 

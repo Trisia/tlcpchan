@@ -27,7 +27,7 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "协议类型为TLCP，但未提供有效的TLCP配置（需要keystore配置）",
+			errMsg:  "协议类型为TLCP，但未提供有效的TLCP配置（需要 tlcp.keystore 或 tlcp.ibc-keystore）",
 		},
 		{
 			name: "TLS协议但未配置keystore",
@@ -56,7 +56,7 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "协议类型为 auto，但未配置任何 keystore（至少需要配置 tlcp.keystore 或 tls.keystore）",
+			errMsg:  "协议类型为 auto，但未配置任何 keystore（至少需要配置 tlcp.keystore、tlcp.ibc-keystore 或 tls.keystore）",
 		},
 		{
 			name: "Auto协议配置了TLCP keystore",
@@ -105,7 +105,7 @@ func TestReloadServerConfigWithMissingKeystore(t *testing.T) {
 			keyStoreMgr := security.NewKeyStoreManager()
 			rootCertMgr := security.NewRootCertManager(".")
 
-			adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr)
+			adapter, err := NewTLCPAdapter(keyStoreMgr, rootCertMgr, security.NewIBCParamManager(""))
 			if err != nil {
 				t.Fatalf("NewTLCPAdapter() error = %v", err)
 			}

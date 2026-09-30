@@ -35,6 +35,7 @@ type baseInstance struct {
 	stats           *stats.Stats
 	keyStoreManager *security.KeyStoreManager
 	rootCertManager *security.RootCertManager
+	ibcParamManager *security.IBCParamManager
 	logger          *logger.Logger
 	startTime       time.Time
 	mu              sync.RWMutex
@@ -65,9 +66,21 @@ type httpClientInstance struct {
 }
 
 // NewInstance 创建新的代理实例
+//
+// 参数：
+//   - cfg: 实例配置
+//   - keyStoreMgr: keystore 管理器
+//   - rootCertMgr: 根证书管理器
+//   - ibcParamMgr: IBC 信任池管理器，可为 nil（按空信任池处理）
+//   - log: 日志记录器
+//
+// 返回值：
+//   - Instance: 创建完成的实例
+//   - error: 配置校验失败或代理创建失败时返回错误
 func NewInstance(cfg *config.InstanceConfig,
 	keyStoreMgr *security.KeyStoreManager,
 	rootCertMgr *security.RootCertManager,
+	ibcParamMgr *security.IBCParamManager,
 	log *logger.Logger) (Instance, error) {
 	tempCfg := &config.Config{Instances: []config.InstanceConfig{*cfg}}
 	if err := config.Validate(tempCfg); err != nil {
@@ -82,30 +95,31 @@ func NewInstance(cfg *config.InstanceConfig,
 		stats:           &stats.Stats{},
 		keyStoreManager: keyStoreMgr,
 		rootCertManager: rootCertMgr,
+		ibcParamManager: ibcParamMgr,
 		logger:          log,
 	}
 
 	switch base.instanceType {
 	case TypeServer:
-		p, err := proxy.NewServerProxy(cfg, keyStoreMgr, rootCertMgr)
+		p, err := proxy.NewServerProxy(cfg, keyStoreMgr, rootCertMgr, ibcParamMgr)
 		if err != nil {
 			return nil, err
 		}
 		return &serverInstance{baseInstance: base, proxy: p}, nil
 	case TypeClient:
-		p, err := proxy.NewClientProxy(cfg, keyStoreMgr, rootCertMgr)
+		p, err := proxy.NewClientProxy(cfg, keyStoreMgr, rootCertMgr, ibcParamMgr)
 		if err != nil {
 			return nil, err
 		}
 		return &clientInstance{baseInstance: base, proxy: p}, nil
 	case TypeHTTPServer:
-		p, err := proxy.NewHTTPServerProxy(cfg, keyStoreMgr, rootCertMgr)
+		p, err := proxy.NewHTTPServerProxy(cfg, keyStoreMgr, rootCertMgr, ibcParamMgr)
 		if err != nil {
 			return nil, err
 		}
 		return &httpServerInstance{baseInstance: base, proxy: p}, nil
 	case TypeHTTPClient:
-		p, err := proxy.NewHTTPClientProxy(cfg, keyStoreMgr, rootCertMgr)
+		p, err := proxy.NewHTTPClientProxy(cfg, keyStoreMgr, rootCertMgr, ibcParamMgr)
 		if err != nil {
 			return nil, err
 		}
@@ -198,7 +212,7 @@ func (i *serverInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewServerProxy(cfg, i.keyStoreManager, i.rootCertManager)
+	newProxy, err := proxy.NewServerProxy(cfg, i.keyStoreManager, i.rootCertManager, i.ibcParamManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -252,7 +266,7 @@ func (i *clientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewClientProxy(cfg, i.keyStoreManager, i.rootCertManager)
+	newProxy, err := proxy.NewClientProxy(cfg, i.keyStoreManager, i.rootCertManager, i.ibcParamManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -306,7 +320,7 @@ func (i *httpServerInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewHTTPServerProxy(cfg, i.keyStoreManager, i.rootCertManager)
+	newProxy, err := proxy.NewHTTPServerProxy(cfg, i.keyStoreManager, i.rootCertManager, i.ibcParamManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err
@@ -360,7 +374,7 @@ func (i *httpClientInstance) Restart(cfg *config.InstanceConfig) error {
 	if err := i.proxy.Stop(); err != nil {
 		return err
 	}
-	newProxy, err := proxy.NewHTTPClientProxy(cfg, i.keyStoreManager, i.rootCertManager)
+	newProxy, err := proxy.NewHTTPClientProxy(cfg, i.keyStoreManager, i.rootCertManager, i.ibcParamManager)
 	if err != nil {
 		i.setStatus(StatusError)
 		return err

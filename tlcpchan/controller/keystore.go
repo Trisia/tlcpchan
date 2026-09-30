@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Trisia/tlcpchan/config"
+	"github.com/Trisia/tlcpchan/security"
 	"github.com/Trisia/tlcpchan/security/certgen"
 	"github.com/Trisia/tlcpchan/security/keystore"
 	"github.com/emmansun/gmsm/smx509"
@@ -28,6 +29,12 @@ type GenerateKeyStoreRequest struct {
 	Protected      bool                       `json:"protected"`
 	CertConfig     GenerateKeyStoreCertConfig `json:"certConfig"`
 	SignerKeyStore string                     `json:"signerKeyStore,omitempty"`
+	// IBCIdentity 生成 IBC 身份时使用的本端标识，如 "server@tlcpchan.local"；type=ibc 时必需
+	IBCIdentity string `json:"identity,omitempty"`
+	// DistrictName 目标 KGC 属地区域名，用于从信任池中选定 KGC；留空时要求信任池中仅有一个条目
+	DistrictName string `json:"districtName,omitempty"`
+	// DistrictSerial 目标 KGC 序号，与 DistrictName 配合使用
+	DistrictSerial int `json:"districtSerial,omitempty"`
 }
 
 // GenerateKeyStoreCertConfig 证书生成配置
@@ -70,15 +77,25 @@ type ExportCSRRequest struct {
  * @api {get} /api/security/keystores 列出所有 keystore
  * @apiName ListKeyStores
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取系统中所有配置的密钥库（keystore）列表
  *
  * @apiSuccess {Object[]} - keystore 列表数组
  * @apiSuccess {String} -.name keystore 名称，唯一标识符
- * @apiSuccess {String} -.type keystore 类型，可选值："tlcp"（国密）、"tls"（标准）
- * @apiSuccess {String} -.loaderType 加载器类型，可选值："file"（文件）、"named"（命名）、"skf"（SKF设备）、"sdf"（SDF设备）
+ * @apiSuccess {String} -.type keystore 类型，可选值："tlcp"（国密）、"tls"（标准）、"ibc"（标识密码）
+ * @apiSuccess {String} -.loaderType 加载器类型，可选值："file"（文件）、"ibc-file"（IBC 身份文件）、"named"（命名）、"skf"（SKF设备）、"sdf"（SDF设备）
  * @apiSuccess {Object} -.params 加载器参数，键值对形式，具体内容取决于加载器类型
+ * @apiSuccess {Object} [-.ibc] IBC 身份元信息，仅 type=ibc 时返回
+ * @apiSuccess {String} -.ibc.identity IBC 本端标识
+ * @apiSuccess {Boolean} -.ibc.hasParams 是否包含 KGC 公共参数
+ * @apiSuccess {String} -.ibc.districtName KGC 属地区域名
+ * @apiSuccess {Number} -.ibc.districtSerial KGC 序号
+ * @apiSuccess {String} -.ibc.notBefore 公共参数生效时间，零值表示不限
+ * @apiSuccess {String} -.ibc.notAfter 公共参数失效时间，零值表示不限
+ * @apiSuccess {Boolean} -.ibc.hasSignKey 是否包含签名用户私钥（hid=0x01）
+ * @apiSuccess {Boolean} -.ibc.hasEncryptKey 是否包含加密用户私钥（hid=0x03）
+ * @apiSuccess {Boolean} -.ibc.hasKeyExchangeKey 是否包含密钥交换用户私钥（hid=0x02）
  * @apiSuccess {Boolean} -.protected 是否受保护，true 表示需要密码访问
  * @apiSuccess {String} -.createdAt 创建时间，ISO 8601 格式
  * @apiSuccess {String} -.updatedAt 更新时间，ISO 8601 格式
@@ -123,22 +140,32 @@ func (c *SecurityController) ListKeyStores(w http.ResponseWriter, r *http.Reques
  * @api {post} /api/security/keystores 创建 keystore
  * @apiName CreateKeyStore
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 创建新的密钥库（keystore），创建成功后会自动更新配置文件
  *
  * @apiBody {String} name keystore 名称，唯一标识符，只能包含字母、数字、下划线和连字符
- * @apiBody {String} loaderType 加载器类型，可选值："file"（文件加载器）、"named"（命名加载器）、"skf"（SKF设备）、"sdf"（SDF设备）
+ * @apiBody {String} loaderType 加载器类型，可选值："file"（文件加载器）、"ibc-file"（IBC 身份文件）、"named"（命名加载器）、"skf"（SKF设备）、"sdf"（SDF设备）
  * @apiBody {Object} params 加载器参数，键值对形式，具体内容取决于加载器类型：
  *   - file 加载器：
  *     - TLCP: {"sign-cert": "...", "sign-key": "...", "enc-cert": "...", "enc-key": "..."}
  *     - TLS: {"cert": "...", "key": "..."}
+ *   - ibc-file 加载器（multipart 表单另见下方 IBC 示例）：
+ *     - {"identity": "...", "params": "...", "sign-key": "...", "enc-key": "...", "kex-key": "..."}
+ *     - identity 为本端标识文件（裸标识字节，非证书）；params 为 KGC 公共参数；sign-key/enc-key/kex-key
+ *       分别为 hid=0x01 签名、hid=0x03 加密、hid=0x02 密钥交换的 PKCS#8 用户私钥，五项均可选但不可全空
+ * @apiBody {File} [identity] IBC 本端标识文件（multipart，仅 loaderType=ibc-file）
+ * @apiBody {File} [params] IBC KGC 公共参数文件（multipart，仅 loaderType=ibc-file）
+ * @apiBody {File} [signKey] IBC 签名用户私钥文件 hid=0x01（multipart，仅 loaderType=ibc-file）
+ * @apiBody {File} [encKey] IBC 加密用户私钥文件 hid=0x03（multipart，仅 loaderType=ibc-file）
+ * @apiBody {File} [kexKey] IBC 密钥交换用户私钥文件 hid=0x02（multipart，仅 loaderType=ibc-file）
  * @apiBody {Boolean} [protected=false] 是否受保护，true 表示需要密码访问
  *
  * @apiSuccess {String} name keystore 名称
- * @apiSuccess {String} type keystore 类型，可选值："tlcp"、"tls"
+ * @apiSuccess {String} type keystore 类型，可选值："tlcp"、"tls"、"ibc"
  * @apiSuccess {String} loaderType 加载器类型
  * @apiSuccess {Object} params 加载器参数
+ * @apiSuccess {Object} [ibc] IBC 身份元信息，仅 type=ibc 时返回
  * @apiSuccess {Boolean} protected 是否受保护
  * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
  * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
@@ -184,9 +211,51 @@ func (c *SecurityController) ListKeyStores(w http.ResponseWriter, r *http.Reques
  *       "protected": false
  *     }
  *
+ * @apiParamExample {multipart} Request-Example (IBC):
+ *     name=default-ibc-server
+ *     loaderType=ibc-file
+ *     protected=false
+ *     identity=<标识文件内容>
+ *     params=<KGC 公共参数文件内容>
+ *     signKey=<hid=0x01 用户私钥文件内容>
+ *     encKey=<hid=0x03 用户私钥文件内容>
+ *     kexKey=<hid=0x02 用户私钥文件内容>
+ *
+ * @apiSuccessExample {json} Success-Response (IBC):
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "default-ibc-server",
+ *       "type": "ibc",
+ *       "loaderType": "ibc-file",
+ *       "params": {
+ *         "identity": "./keystores/default-ibc-server-identity.txt",
+ *         "params": "./keystores/default-ibc-server-params.pem",
+ *         "sign-key": "./keystores/default-ibc-server-sign.key",
+ *         "enc-key": "./keystores/default-ibc-server-enc.key",
+ *         "kex-key": "./keystores/default-ibc-server-kex.key"
+ *       },
+ *       "ibc": {
+ *         "identity": "server@tlcpchan.local",
+ *         "hasParams": true,
+ *         "districtName": "tlcpchan.local",
+ *         "districtSerial": 1,
+ *         "notBefore": "2024-01-01T00:00:00Z",
+ *         "notAfter": "2034-01-01T00:00:00Z",
+ *         "hasSignKey": true,
+ *         "hasEncryptKey": true,
+ *         "hasKeyExchangeKey": true
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-01-01T00:00:00Z"
+ *     }
+ *
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 400 Bad Request
  *     无效的请求: json: cannot unmarshal string into Go value
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     IBC 身份材料不能全部为空
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 400 Bad Request
  *     名称不能为空
@@ -319,6 +388,41 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 				}
 				params["enc-key"] = "./keystores/" + name + "-enc.key"
 			}
+		} else if loaderType == keystore.LoaderTypeIBCFile {
+			// IBC 身份：标识、公共参数与三把用户私钥，均可选，但至少提供一项
+			keystoreDir := filepath.Join(c.cfg.WorkDir, "keystores")
+			params = make(map[string]string)
+
+			ibcFields := []struct {
+				field      string      // 表单字段名
+				param      string      // params 键名
+				suffix     string      // 文件名后缀
+				permission os.FileMode // 文件权限：私钥 0600，其余 0644
+			}{
+				{"identity", "identity", "identity.txt", 0644},
+				{"params", "params", "params.pem", 0644},
+				{"signKey", "sign-key", "sign.key", 0600},
+				{"encKey", "enc-key", "enc.key", 0600},
+				{"kexKey", "kex-key", "kex.key", 0600},
+			}
+			for _, item := range ibcFields {
+				file, _, err := r.FormFile(item.field)
+				if err != nil {
+					continue
+				}
+				data, err := io.ReadAll(file)
+				file.Close()
+				if err != nil {
+					BadRequest(w, "读取 "+item.field+" 文件失败: "+err.Error())
+					return
+				}
+				path := filepath.Join(keystoreDir, name+"-"+item.suffix)
+				if err := os.WriteFile(path, data, item.permission); err != nil {
+					InternalError(w, "保存 IBC "+item.field+" 失败: "+err.Error())
+					return
+				}
+				params[item.param] = "./keystores/" + name + "-" + item.suffix
+			}
 		} else {
 			paramsStr := r.FormValue("params")
 			if paramsStr != "" {
@@ -338,6 +442,14 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
 	// 如果是 file 类型，验证文件是否存在
 	if loaderType == keystore.LoaderTypeFile {
 		if err := validateFileParams(c.cfg.WorkDir, params); err != nil {
+			BadRequest(w, err.Error())
+			return
+		}
+	}
+
+	// 如果是 ibc-file 类型，验证材料可装载（含签名私钥自检）
+	if loaderType == keystore.LoaderTypeIBCFile {
+		if err := validateIBCFileParams(c.cfg.WorkDir, params); err != nil {
 			BadRequest(w, err.Error())
 			return
 		}
@@ -368,16 +480,17 @@ func (c *SecurityController) CreateKeyStore(w http.ResponseWriter, r *http.Reque
  * @api {get} /api/security/keystores/:name 获取 keystore 详情
  * @apiName GetKeyStore
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取指定密钥库（keystore）的详细信息
  *
  * @apiParam {String} name keystore 名称（路径参数），唯一标识符
  *
  * @apiSuccess {String} name keystore 名称
- * @apiSuccess {String} type keystore 类型，可选值："tlcp"、"tls"
- * @apiSuccess {String} loaderType 加载器类型，可选值："file"、"named"、"skf"、"sdf"
+ * @apiSuccess {String} type keystore 类型，可选值："tlcp"、"tls"、"ibc"
+ * @apiSuccess {String} loaderType 加载器类型，可选值："file"、"ibc-file"、"named"、"skf"、"sdf"
  * @apiSuccess {Object} params 加载器参数
+ * @apiSuccess {Object} [ibc] IBC 身份元信息，仅 type=ibc 时返回
  * @apiSuccess {Boolean} protected 是否受保护
  * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
  * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
@@ -417,7 +530,7 @@ func (c *SecurityController) GetKeyStore(w http.ResponseWriter, r *http.Request)
  * @api {delete} /api/security/keystores/:name 删除 keystore
  * @apiName DeleteKeyStore
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 删除指定的密钥库（keystore），删除后会自动更新配置文件
  *
@@ -462,24 +575,29 @@ func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Reque
  * @api {post} /api/security/keystores/generate 生成 keystore（含证书）
  * @apiName GenerateKeyStore
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
- * @apiDescription 生成新的密钥库（keystore），包含自动生成的证书和密钥，支持 TLCP 和 TLS 两种类型
+ * @apiDescription 生成新的密钥库（keystore），包含自动生成的证书和密钥，支持 TLCP、TLS 与 IBC 三种类型。
+ * type=ibc 时由初始化内置的测试 KGC 按标识派生签名、加密、密钥交换三把 SM9 用户私钥，不需要证书配置。
  *
  * @apiBody {String} name keystore 名称，唯一标识符
- * @apiBody {String} type keystore 类型，可选值："tlcp"（国密）、"tls"（标准）
+ * @apiBody {String} type keystore 类型，可选值："tlcp"（国密）、"tls"（标准）、"ibc"（标识密码）
  * @apiBody {Boolean} [protected=false] 是否受保护，true 表示需要密码访问
- * @apiBody {Object} certConfig 证书生成配置
+ * @apiBody {Object} [certConfig] 证书生成配置，type=ibc 时忽略
  * @apiBody {String} certConfig.commonName 证书通用名称（CN）
  * @apiBody {String} certConfig.org 组织名称（O）
  * @apiBody {String} certConfig.orgUnit 组织单位（OU）
  * @apiBody {Number} certConfig.years 证书有效期（年）
  * @apiBody {String} [signerKeyStore] 用于签发的 keystore 名称（暂未实现）
+ * @apiBody {String} [identity] IBC 本端标识，type=ibc 时必需，例如 "server@tlcpchan.local"
+ * @apiBody {String} [districtName] 目标 KGC 属地区域名，type=ibc 时用于从信任池选定 KGC；留空要求信任池仅有一个条目
+ * @apiBody {Number} [districtSerial] 目标 KGC 序号，type=ibc 时与 districtName 配合使用
  *
  * @apiSuccess {String} name keystore 名称
  * @apiSuccess {String} type keystore 类型
- * @apiSuccess {String} loaderType 加载器类型，固定为 "file"
+ * @apiSuccess {String} loaderType 加载器类型，证书类型为 "file"，IBC 类型为 "ibc-file"
  * @apiSuccess {Object} params 加载器参数
+ * @apiSuccess {Object} [ibc] IBC 身份元信息，仅 type=ibc 时返回
  * @apiSuccess {Boolean} protected 是否受保护
  * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
  * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
@@ -542,9 +660,54 @@ func (c *SecurityController) DeleteKeyStore(w http.ResponseWriter, r *http.Reque
  *       }
  *     }
  *
+ * @apiParamExample {json} Request-Example (IBC):
+ *     {
+ *       "name": "default-ibc-client",
+ *       "type": "ibc",
+ *       "protected": false,
+ *       "identity": "client@tlcpchan.local",
+ *       "districtName": "tlcpchan.local",
+ *       "districtSerial": 1
+ *     }
+ *
+ * @apiSuccessExample {json} Success-Response (IBC):
+ *     HTTP/1.1 200 OK
+ *     {
+ *       "name": "default-ibc-client",
+ *       "type": "ibc",
+ *       "loaderType": "ibc-file",
+ *       "params": {
+ *         "identity": "./keystores/default-ibc-client-identity.txt",
+ *         "params": "./keystores/default-ibc-client-params.pem",
+ *         "sign-key": "./keystores/default-ibc-client-sign.key",
+ *         "enc-key": "./keystores/default-ibc-client-enc.key",
+ *         "kex-key": "./keystores/default-ibc-client-kex.key"
+ *       },
+ *       "ibc": {
+ *         "identity": "client@tlcpchan.local",
+ *         "hasParams": true,
+ *         "districtName": "tlcpchan.local",
+ *         "districtSerial": 1,
+ *         "notBefore": "2024-01-01T00:00:00Z",
+ *         "notAfter": "2034-01-01T00:00:00Z",
+ *         "hasSignKey": true,
+ *         "hasEncryptKey": true,
+ *         "hasKeyExchangeKey": true
+ *       },
+ *       "protected": false,
+ *       "createdAt": "2024-01-01T00:00:00Z",
+ *       "updatedAt": "2024-01-01T00:00:00Z"
+ *     }
+ *
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 400 Bad Request
  *     无效的请求: json: cannot unmarshal string into Go value
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     IBC 标识不能为空
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     IBC 信任池中不存在唯一的 KGC 公共参数，请指定 districtName 与 districtSerial
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 400 Bad Request
  *     名称不能为空
@@ -574,6 +737,12 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 	}
 	if req.Type == "" {
 		BadRequest(w, "类型不能为空")
+		return
+	}
+
+	// IBC 身份与证书身份走完全不同的生成流程
+	if req.Type == keystore.KeyStoreTypeIBC {
+		c.generateIBCKeyStore(w, req)
 		return
 	}
 
@@ -782,11 +951,127 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
 	Success(w, info)
 }
 
+// generateIBCKeyStore 由内置测试 KGC 派生 IBC 身份并创建 ibc-file keystore。
+//
+// 参数：
+//   - w: HTTP 响应写入器
+//   - req: 生成请求，需提供 Name 与 IBCIdentity；DistrictName/DistrictSerial 用于选定 KGC
+//
+// 注意事项：
+//   - 生成仅使用初始化内置的测试 KGC（keystores/tlcpchan-ibc-kgc-master.key），
+//     生产环境应由外部 KGC 派生用户私钥后通过上传接口导入
+//   - 一并派生签名（hid=0x01）、加密（hid=0x03）、密钥交换（hid=0x02）三把用户私钥
+func (c *SecurityController) generateIBCKeyStore(w http.ResponseWriter, req GenerateKeyStoreRequest) {
+	if req.IBCIdentity == "" {
+		BadRequest(w, "IBC 标识不能为空")
+		return
+	}
+
+	param, err := c.selectIBCParam(req.DistrictName, req.DistrictSerial)
+	if err != nil {
+		BadRequest(w, err.Error())
+		return
+	}
+
+	master, err := c.loadBuiltinIBCMaster()
+	if err != nil {
+		InternalError(w, err.Error())
+		return
+	}
+
+	generated, err := certgen.GenerateIBCIdentity(master, []byte(req.IBCIdentity))
+	if err != nil {
+		InternalError(w, "派生 IBC 用户私钥失败: "+err.Error())
+		return
+	}
+
+	paramsPEM, err := c.ibcParamMgr.ReadFile(param.Filename)
+	if err != nil {
+		InternalError(w, "读取 KGC 公共参数失败: "+err.Error())
+		return
+	}
+
+	keystoreDir := filepath.Join(c.cfg.WorkDir, "keystores")
+	files := []struct {
+		suffix     string      // 文件名后缀
+		data       []byte      // 文件内容
+		permission os.FileMode // 文件权限：私钥 0600，其余 0644
+	}{
+		{"identity.txt", generated.Identity, 0644},
+		{"params.pem", paramsPEM, 0644},
+		{"sign.key", generated.SignKeyPEM, 0600},
+		{"enc.key", generated.EncKeyPEM, 0600},
+		{"kex.key", generated.KexKeyPEM, 0600},
+	}
+	for _, file := range files {
+		path := filepath.Join(keystoreDir, req.Name+"-"+file.suffix)
+		if err := os.WriteFile(path, file.data, file.permission); err != nil {
+			InternalError(w, "保存 IBC 材料失败: "+err.Error())
+			return
+		}
+	}
+
+	params := map[string]string{
+		"identity": "./keystores/" + req.Name + "-identity.txt",
+		"params":   "./keystores/" + req.Name + "-params.pem",
+		"sign-key": "./keystores/" + req.Name + "-sign.key",
+		"enc-key":  "./keystores/" + req.Name + "-enc.key",
+		"kex-key":  "./keystores/" + req.Name + "-kex.key",
+	}
+
+	info, err := c.keyStoreMgr.Create(req.Name, keystore.LoaderTypeIBCFile, params, req.Protected)
+	if err != nil {
+		InternalError(w, "创建 keystore 失败: "+err.Error())
+		return
+	}
+
+	c.cfg.KeyStores = append(c.cfg.KeyStores, config.KeyStoreConfig{
+		Name:   req.Name,
+		Type:   keystore.LoaderTypeIBCFile,
+		Params: params,
+	})
+
+	if err := config.Save(c.cfg); err != nil {
+		InternalError(w, "保存配置失败: "+err.Error())
+		return
+	}
+
+	c.log.Info("生成 IBC keystore: %s (KGC %s#%d)", req.Name, param.DistrictName, param.DistrictSerial)
+	Success(w, info)
+}
+
+// selectIBCParam 从信任池中选定目标 KGC 公共参数。
+//
+// 参数：
+//   - districtName: 指定的 KGC 区域名，空表示未指定
+//   - districtSerial: 指定的 KGC 序号，小于等于 0 表示未指定
+//
+// 返回值：
+//   - *security.IBCParam: 命中的条目
+//   - error: 未指定且信任池条目数不为 1，或指定条目不存在时返回错误
+func (c *SecurityController) selectIBCParam(districtName string, districtSerial int) (*security.IBCParam, error) {
+	params := c.ibcParamMgr.List()
+
+	if districtName == "" && districtSerial <= 0 {
+		if len(params) != 1 {
+			return nil, fmt.Errorf("IBC 信任池中不存在唯一的 KGC 公共参数，请指定 districtName 与 districtSerial")
+		}
+		return params[0], nil
+	}
+
+	for _, param := range params {
+		if param.DistrictName == districtName && param.DistrictSerial == districtSerial {
+			return param, nil
+		}
+	}
+	return nil, fmt.Errorf("IBC 信任池中不存在 KGC %s#%d", districtName, districtSerial)
+}
+
 /**
  * @api {post} /api/security/keystores/:name/export-csr 导出证书请求(CSR)
  * @apiName ExportCSR
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 使用现有密钥生成并导出证书请求文件(CSR)
  *
@@ -829,6 +1114,9 @@ func (c *SecurityController) GenerateKeyStore(w http.ResponseWriter, r *http.Req
  *     HTTP/1.1 400 Bad Request
  *     commonName不能为空
  * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     IBC 身份不支持导出 CSR
+ * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 500 Internal Server Error
  *     生成CSR失败: 具体错误信息
  */
@@ -854,6 +1142,12 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
 	// 根据 KeyStore 类型选择获取私钥的方式
 	var privateKey interface{}
 	keyStoreType := ks.Type()
+
+	// IBC 身份不使用 X.509 证书，没有 CSR 概念
+	if keyStoreType == keystore.KeyStoreTypeIBC {
+		BadRequest(w, "IBC 身份不支持导出 CSR")
+		return
+	}
 
 	if keyStoreType == keystore.KeyStoreTypeTLCP {
 		certs, err := ks.TLCPCertificate()
@@ -954,7 +1248,7 @@ func (c *SecurityController) ExportCSR(w http.ResponseWriter, r *http.Request) {
  * @api {get} /api/security/keystores/:name/instances 查询引用指定 keystore 的实例列表
  * @apiName GetKeyStoreInstances
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 查询引用指定 keystore 的所有实例列表，包括实例名称、状态和协议信息
  *
@@ -1103,6 +1397,54 @@ func validateFileParams(workDir string, params map[string]string) error {
 }
 
 /**
+ * resolveKeystorePath 将 keystore 参数中的路径解析为绝对路径
+ *
+ * 参数:
+ *   - workDir: 工作目录，用于解析相对路径
+ *   - filePath: 参数中的路径，形如 "./keystores/x.key" 或绝对路径
+ *
+ * 返回:
+ *   - string: 解析后的路径
+ */
+func resolveKeystorePath(workDir, filePath string) string {
+	if filepath.IsAbs(filePath) {
+		return filePath
+	}
+	return filepath.Join(workDir, filePath)
+}
+
+/**
+ * validateIBCFileParams 校验 ibc-file 类型 keystore 的材料是否可装载
+ *
+ * 参数:
+ *   - workDir: 工作目录，用于解析相对路径
+ *   - params: keystore 参数，键为 identity / params / sign-key / enc-key / kex-key
+ *
+ * 返回:
+ *   - error: 材料全部为空、文件读取失败、解析失败或签名私钥自检失败时返回错误
+ */
+func validateIBCFileParams(workDir string, params map[string]string) error {
+	if len(params) == 0 {
+		return fmt.Errorf("IBC 身份材料不能全部为空")
+	}
+
+	materials := make(map[string][]byte, len(params))
+	for key, filePath := range params {
+		if filePath == "" {
+			continue
+		}
+		data, err := os.ReadFile(resolveKeystorePath(workDir, filePath))
+		if err != nil {
+			return fmt.Errorf("读取 %s 文件失败: %w", key, err)
+		}
+		materials[key] = data
+	}
+
+	return keystore.VerifyIBCMaterials(materials["identity"], materials["params"],
+		materials["sign-key"], materials["enc-key"], materials["kex-key"])
+}
+
+/**
  * getInstanceStateStatus 获取实例状态
  * 注意：这是一个简化实现，实际状态应该从实例管理器获取
  *
@@ -1123,7 +1465,7 @@ func getInstanceStateStatus(instanceName string, instances []config.InstanceConf
  * @api {put} /api/security/keystores/:name 更新 keystore 参数
  * @apiName UpdateKeystoreParams
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 更新指定 keystore 的参数（如证书和密钥路径的文件路径）
  *
@@ -1135,6 +1477,11 @@ func getInstanceStateStatus(instanceName string, instances []config.InstanceConf
  * @apiBody {String} params.enc-key 加密密钥路径（可选，仅TLCP）
  * @apiBody {String} params.cert 证书路径（可选，仅TLS）
  * @apiBody {String} params.key 密钥路径（可选，仅TLS）
+ * @apiBody {String} params.identity IBC 本端标识文件路径（可选，仅IBC）
+ * @apiBody {String} params.params IBC KGC 公共参数路径（可选，仅IBC）
+ * @apiBody {String} params.sign-key IBC 签名用户私钥路径 hid=0x01（可选，仅IBC）
+ * @apiBody {String} params.enc-key IBC 加密用户私钥路径 hid=0x03（可选，仅IBC）
+ * @apiBody {String} params.kex-key IBC 密钥交换用户私钥路径 hid=0x02（可选，仅IBC）
  *
  * @apiSuccess {String} name keystore 名称
  * @apiSuccess {String} type keystore 类型
@@ -1217,9 +1564,25 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
 		}
 	}
 
+	// 如果是 ibc-file 类型，按合并后的参数验证材料可装载
+	if info.LoaderType == keystore.LoaderTypeIBCFile {
+		merged := make(map[string]string, len(info.Params)+len(reqBody.Params))
+		for key, value := range info.Params {
+			merged[key] = value
+		}
+		for key, value := range reqBody.Params {
+			merged[key] = value
+		}
+		if err := validateIBCFileParams(c.cfg.WorkDir, merged); err != nil {
+			BadRequest(w, err.Error())
+			return
+		}
+	}
+
 	// 更新 keystore 配置
 	// 需要在配置文件中找到对应的 keystore 并更新其参数
 	found := false
+	var mergedParams map[string]string
 	for i := range c.cfg.KeyStores {
 		if c.cfg.KeyStores[i].Name == name {
 			if c.cfg.KeyStores[i].Params == nil {
@@ -1229,6 +1592,7 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
 			for key, value := range reqBody.Params {
 				c.cfg.KeyStores[i].Params[key] = value
 			}
+			mergedParams = c.cfg.KeyStores[i].Params
 			found = true
 			break
 		}
@@ -1246,7 +1610,17 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
 	}
 
 	// 重新加载 keystore
-	updatedInfo, err := c.keyStoreMgr.Get(name)
+	var updatedInfo *security.KeyStoreInfo
+	if info.Type == keystore.KeyStoreTypeIBC {
+		// IBC 身份在装载时即完成校验与缓存，必须重建实例以刷新身份与元信息
+		if err := c.keyStoreMgr.Delete(name); err != nil {
+			InternalError(w, "重新加载 keystore 失败: "+err.Error())
+			return
+		}
+		updatedInfo, err = c.keyStoreMgr.Create(name, info.LoaderType, mergedParams, info.Protected)
+	} else {
+		updatedInfo, err = c.keyStoreMgr.Get(name)
+	}
 	if err != nil {
 		InternalError(w, "重新加载 keystore 失败: "+err.Error())
 		return
@@ -1260,15 +1634,22 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
  * @api {post} /api/security/keystores/:name/upload 上传更新证书和密钥
  * @apiName UpdateCertificates
  * @apiGroup Security-KeyStore
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
- * @apiDescription 上传文件以更新指定 keystore 的证书和密钥。对于 TLS 类型，使用 signCert 和 signKey；对于 TLCP 类型，使用 signCert、signKey、encCert 和 encKey
+ * @apiDescription 上传文件以更新指定 keystore 的证书和密钥。对于 TLS 类型，使用 signCert 和 signKey；
+ * 对于 TLCP 类型，使用 signCert、signKey、encCert 和 encKey；
+ * 对于 IBC 类型（loaderType=ibc-file），使用 identity、params、signKey、encKey、kexKey 五项材料，均为可选
  *
  * @apiParam {String} name keystore 名称（路径参数），唯一标识符
  * @apiBody {File} signCert 签名证书文件（TLS类型时为证书，TLCP类型时为签名证书）
  * @apiBody {File} signKey 签名密钥文件（TLS类型时为密钥，TLCP类型时为签名密钥）
  * @apiBody {File} encCert 加密证书文件（仅TLCP类型有效）
  * @apiBody {File} encKey 加密密钥文件（仅TLCP类型有效）
+ * @apiBody {File} [identity] IBC 本端标识文件（仅IBC类型有效）
+ * @apiBody {File} [params] IBC KGC 公共参数文件（仅IBC类型有效）
+ *   - encKey 在 IBC 类型下表示 hid=0x03 加密用户私钥，与 TLCP 的加密密钥同名但类型不同
+ * @apiBody {File} [kexKey] IBC 密钥交换用户私钥文件 hid=0x02（仅IBC类型有效）
+ * @apiBody {File} [signKey] 同名 signKey 在 IBC 类型下表示 hid=0x01 签名用户私钥
  *
  * @apiSuccess {String} name keystore 名称
  * @apiSuccess {String} type keystore 类型
@@ -1277,6 +1658,7 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
  * @apiSuccess {Boolean} protected 是否受保护
  * @apiSuccess {String} createdAt 创建时间，ISO 8601 格式
  * @apiSuccess {String} updatedAt 更新时间，ISO 8601 格式
+ * @apiSuccess {Object} [ibc] IBC 身份元信息，仅 type=ibc 时返回
  *
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 404 Not Found
@@ -1284,6 +1666,9 @@ func (c *SecurityController) UpdateKeystoreParams(w http.ResponseWriter, r *http
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 400 Bad Request
  *     证书与密钥不匹配
+ * @apiErrorExample {text} Error-Response:
+ *     HTTP/1.1 400 Bad Request
+ *     IBC 身份材料不能全部为空
  * @apiErrorExample {text} Error-Response:
  *     HTTP/1.1 403 Forbidden
  *     keystore 受保护，不允许修改
@@ -1304,8 +1689,8 @@ func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// 仅支持 file 类型的 keystore
-	if info.LoaderType != keystore.LoaderTypeFile {
+	// 仅支持 file 与 ibc-file 类型的 keystore
+	if info.LoaderType != keystore.LoaderTypeFile && info.LoaderType != keystore.LoaderTypeIBCFile {
 		BadRequest(w, "只有文件类型的 keystore 支持更新证书和密钥")
 		return
 	}
@@ -1332,8 +1717,42 @@ func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.R
 
 	// 处理文件上传
 	isTLCP := info.Type == keystore.KeyStoreTypeTLCP
+	isIBC := info.Type == keystore.KeyStoreTypeIBC
 
-	if isTLCP {
+	if isIBC {
+		// IBC 身份：标识、公共参数与三把用户私钥，均允许单独替换
+		ibcFields := []struct {
+			field  string // 表单字段名
+			param  string // params 键名
+			suffix string // 文件名后缀
+		}{
+			{"identity", "identity", "identity.txt"},
+			{"params", "params", "params.pem"},
+			{"signKey", "sign-key", "sign.key"},
+			{"encKey", "enc-key", "enc.key"},
+			{"kexKey", "kex-key", "kex.key"},
+		}
+		for _, item := range ibcFields {
+			file, _, err := r.FormFile(item.field)
+			if err != nil {
+				continue
+			}
+			data, err := io.ReadAll(file)
+			file.Close()
+			if err != nil {
+				BadRequest(w, "读取 "+item.field+" 文件失败: "+err.Error())
+				return
+			}
+
+			tempPath := filepath.Join(tempDir, name+"-"+item.suffix)
+			if err := os.WriteFile(tempPath, data, 0644); err != nil {
+				InternalError(w, "写入临时文件失败: "+err.Error())
+				return
+			}
+			tempFiles[item.param] = tempPath
+			finalFiles[item.param] = filepath.Join(keystoreDir, name+"-"+item.suffix)
+		}
+	} else if isTLCP {
 		// 处理签名证书和密钥
 		if signCertFile, signCertData, err := handleFormFile(r, "signCert", tempDir, name, "sign", "crt"); err != nil {
 			BadRequest(w, err.Error())
@@ -1444,6 +1863,7 @@ func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.R
 	}
 
 	// 更新配置文件中的参数
+	var mergedParams map[string]string
 	for i := range c.cfg.KeyStores {
 		if c.cfg.KeyStores[i].Name == name {
 			if c.cfg.KeyStores[i].Params == nil {
@@ -1456,6 +1876,7 @@ func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.R
 					c.cfg.KeyStores[i].Params[key] = relPath
 				}
 			}
+			mergedParams = c.cfg.KeyStores[i].Params
 			break
 		}
 	}
@@ -1467,7 +1888,17 @@ func (c *SecurityController) UpdateCertificates(w http.ResponseWriter, r *http.R
 	}
 
 	// 重新加载 keystore
-	updatedInfo, err := c.keyStoreMgr.Get(name)
+	var updatedInfo *security.KeyStoreInfo
+	if isIBC {
+		// IBC 身份在装载时即完成校验与缓存，必须重建实例以刷新身份与元信息
+		if err := c.keyStoreMgr.Delete(name); err != nil {
+			InternalError(w, "重新加载 keystore 失败: "+err.Error())
+			return
+		}
+		updatedInfo, err = c.keyStoreMgr.Create(name, info.LoaderType, mergedParams, info.Protected)
+	} else {
+		updatedInfo, err = c.keyStoreMgr.Get(name)
+	}
 	if err != nil {
 		InternalError(w, "重新加载 keystore 失败: "+err.Error())
 		return

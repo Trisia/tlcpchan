@@ -96,3 +96,4 @@ openspec
 test_certs
 
 .gocache
+.playwright-cli

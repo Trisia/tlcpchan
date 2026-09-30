@@ -51,6 +51,7 @@ func ensureWorkDir(dir string) string {
 		filepath.Join(dir, "logs"),
 		filepath.Join(dir, "keystores"),
 		filepath.Join(dir, "rootcerts"),
+		filepath.Join(dir, "ibcparams"),
 	}
 	for _, d := range dirs {
 		os.MkdirAll(d, 0755)
@@ -137,7 +138,15 @@ func main() {
 		logger.Warn("初始化根证书管理器失败: %v", err)
 	}
 
-	instMgr := instance.NewManager(logger.Default(), keyStoreMgr, rootCertMgr)
+	// 初始化 IBC 信任池（KGC 公共参数）
+	ibcParamMgr := security.NewIBCParamManager(cfg.GetIBCParamDir())
+	if err := ibcParamMgr.Initialize(); err != nil {
+		logger.Warn("初始化 IBC 信任池失败: %v", err)
+	} else {
+		logger.Info("已加载 %d 个 IBC 信任池参数", len(ibcParamMgr.List()))
+	}
+
+	instMgr := instance.NewManager(logger.Default(), keyStoreMgr, rootCertMgr, ibcParamMgr)
 
 	for i := range cfg.Instances {
 		inst := &cfg.Instances[i]
@@ -156,6 +165,7 @@ func main() {
 		ConfigPath:      configPath,
 		KeyStoreManager: keyStoreMgr,
 		RootCertManager: rootCertMgr,
+		IBCParamManager: ibcParamMgr,
 		InstanceManager: instMgr,
 		StaticDir:       filepath.Join(wd, "ui"),
 	}

@@ -28,7 +28,7 @@ type GenerateRootCARequest struct {
  * @api {get} /api/security/rootcerts 列出所有根证书
  * @apiName ListRootCerts
  * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 获取系统中所有已加载的根证书列表
  *
@@ -70,7 +70,7 @@ func (c *SecurityController) ListRootCerts(w http.ResponseWriter, r *http.Reques
  * @api {get} /api/security/rootcerts/:filename 下载根证书
  * @apiName GetRootCert
  * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 下载指定根证书文件
  *
@@ -99,7 +99,7 @@ func (c *SecurityController) GetRootCert(w http.ResponseWriter, r *http.Request)
  * @api {delete} /api/security/rootcerts/:filename 删除根证书
  * @apiName DeleteRootCert
  * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 删除指定的根证书
  *
@@ -127,7 +127,7 @@ func (c *SecurityController) DeleteRootCert(w http.ResponseWriter, r *http.Reque
  * @api {post} /api/security/rootcerts 添加根证书
  * @apiName AddRootCert
  * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 上传并添加新的根证书到系统中
  *
@@ -218,7 +218,7 @@ func (c *SecurityController) AddRootCert(w http.ResponseWriter, r *http.Request)
  * @api {post} /api/security/rootcerts/reload 重载根证书
  * @apiName ReloadRootCerts
  * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 重新加载所有根证书
  *
@@ -243,7 +243,7 @@ func (c *SecurityController) ReloadRootCerts(w http.ResponseWriter, r *http.Requ
  * @api {post} /api/security/rootcerts/generate 生成根 CA 证书
  * @apiName GenerateRootCA
  * @apiGroup Security-RootCert
- * @apiVersion 1.0.0
+ * @apiVersion 1.1.0
  *
  * @apiDescription 生成新的自签名根 CA 证书，并添加到信任证书列表中，同时创建对应的 keystore
  *

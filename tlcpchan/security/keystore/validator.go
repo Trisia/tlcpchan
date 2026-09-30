@@ -95,3 +95,22 @@ func VerifyCertificateKeyPair(certData, keyData []byte, isTLCP bool) error {
 		return fmt.Errorf("不支持的公钥类型")
 	}
 }
+
+// VerifyIBCMaterials 校验一组 IBC（SM9）身份材料能否成功装载。
+//
+// 参数：
+//   - identityData: 本端标识，支持裸字节串文本、PEM 或 Identifier DER，可为空
+//   - paramsData: 本端 KGC 公共参数，支持 PEM / DER / HEX / Base64，可为空
+//   - signKeyData: 签名用户私钥（hid=0x01）PKCS#8，编码支持同上，可为空
+//   - encKeyData: 加密用户私钥（hid=0x03）PKCS#8，编码支持同上，可为空
+//   - kexKeyData: 密钥交换用户私钥（hid=0x02）PKCS#8，编码支持同上，可为空
+//
+// 返回值：
+//   - error: 格式解析失败、私钥类型不符或签名私钥自检失败时返回错误，校验通过返回 nil
+//
+// 注意事项：
+//   - 仅做结构与用途校验，不要求三把私钥齐备（缺失意味着本端不具备对应套件能力）
+func VerifyIBCMaterials(identityData, paramsData, signKeyData, encKeyData, kexKeyData []byte) error {
+	_, err := LoadIBCIdentityFromData(identityData, paramsData, signKeyData, encKeyData, kexKeyData)
+	return err
+}

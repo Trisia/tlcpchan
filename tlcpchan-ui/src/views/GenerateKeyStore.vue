@@ -24,11 +24,67 @@
               <el-radio-group v-model="generateForm.type">
                 <el-radio :value="CertType.TLCP">国密 (TLCP)</el-radio>
                 <el-radio :value="CertType.TLS">国际 (TLS)</el-radio>
+                <el-radio :value="CertType.IBC">标识密码 (IBC)</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
         </el-row>
 
+        <!-- IBC(SM9) 身份：选择信任池中的 KGC 区域 + 本端标识，一次性派生三把用户私钥 -->
+        <template v-if="generateForm.type === CertType.IBC">
+          <el-divider content-position="left">IBC 身份 (SM9)</el-divider>
+          <el-alert
+            title="将使用服务端内置的测试 KGC 主密钥，一次性派生三把用户私钥：签名私钥 (hid=0x01)、加密私钥 (hid=0x03)、密钥交换私钥 (hid=0x02)。生产环境应由外部 KGC 派生后导入。"
+            type="warning"
+            :closable="false"
+            style="margin-bottom: 20px;"
+          />
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="KGC 区域" required>
+                <el-select
+                  v-model="selectedKGC"
+                  placeholder="请选择信任池中的 KGC 公共参数"
+                  style="width: 100%;"
+                  @change="onKGCChange"
+                >
+                  <el-option
+                    v-for="p in ibcParams"
+                    :key="p.filename"
+                    :label="`${p.districtName}#${p.districtSerial} (${p.filename})`"
+                    :value="p.filename"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="标识" required>
+                <el-input v-model="generateForm.identity" placeholder="server@tlcpchan.local" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="区域名称">
+                <el-input v-model="generateForm.districtName" placeholder="选择 KGC 后自动填充" disabled />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="KGC 序号">
+                <el-input-number v-model="generateForm.districtSerial" :min="0" :max="65535" style="width: 100%;" disabled />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-alert
+            v-if="ibcParams.length === 0"
+            title="IBC 信任池为空，请先在「IBC 信任池」页面添加或生成 KGC 公共参数"
+            type="error"
+            :closable="false"
+            style="margin-bottom: 20px;"
+          />
+        </template>
+
+        <template v-if="generateForm.type !== CertType.IBC">
         <el-divider content-position="left">证书主体 (DN)</el-divider>
         <el-row :gutter="20">
           <el-col :span="8">
@@ -129,6 +185,7 @@
             style="width: 100%;" 
           />
         </el-form-item>
+        </template>
       </el-form>
       
       <template #footer>
@@ -140,19 +197,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { keyStoreApi } from '@/api'
+import { keyStoreApi, ibcParamApi } from '@/api'
 import { CertType } from '@/types'
+import type { IBCParamInfo } from '@/types'
+import { keystoreListLocation } from '@/constants/keystoreTab'
 
+const route = useRoute()
 const router = useRouter()
 const generateLoading = ref(false)
 
+// IBC 信任池列表，供选择 KGC 公共参数所属区域
+const ibcParams = ref<IBCParamInfo[]>([])
+// 选中的信任池条目文件名
+const selectedKGC = ref('')
+
 const generateForm = ref({
   name: '',
-  type: CertType.TLCP as 'tlcp' | 'tls',
+  type: CertType.TLCP as 'tlcp' | 'tls' | 'ibc',
   protected: false as boolean,
+  // 仅 IBC 类型使用
+  identity: '',
+  districtName: '',
+  districtSerial: 0,
   certConfig: {
     commonName: '',
     country: '',
@@ -170,21 +239,86 @@ const generateForm = ref({
   },
 })
 
+onMounted(() => {
+  // 由密钥管理页面跳转而来时通过 query.type 预设密钥类型（白名单校验，非法或缺失时保持默认 TLCP）
+  const presetType = route.query.type
+  if (presetType === CertType.TLCP || presetType === CertType.TLS || presetType === CertType.IBC) {
+    generateForm.value.type = presetType
+  }
+  loadIBCParams()
+})
+
 /**
- * 返回密钥列表页
+ * 加载 IBC 信任池列表（生成 IBC 身份时选择 KGC 区域）
+ */
+async function loadIBCParams() {
+  try {
+    ibcParams.value = await ibcParamApi.list()
+  } catch (err) {
+    console.error('获取 IBC 信任池列表失败:', err)
+  }
+}
+
+/**
+ * 选择信任池条目后回填 KGC 区域名与序号
+ * @param filename 信任池条目文件名
+ */
+function onKGCChange(filename: string) {
+  const param = ibcParams.value.find((p) => p.filename === filename)
+  if (param) {
+    generateForm.value.districtName = param.districtName
+    generateForm.value.districtSerial = param.districtSerial
+  }
+}
+
+/**
+ * 返回密钥列表页，并停留在当前密钥类型所属的分类 Tab
  */
 function goBack() {
-  router.push('/keystores')
+  router.push(keystoreListLocation(generateForm.value.type))
 }
 
 /**
  * 生成密钥存储
+ * IBC 类型提交 {name, type, protected, identity, districtName, districtSerial}；
+ * 其余类型沿用证书生成流程。
  */
 async function generateKeyStore() {
   if (!generateForm.value.name) {
     ElMessage.error('请填写密钥名称')
     return
   }
+
+  if (generateForm.value.type === CertType.IBC) {
+    if (!generateForm.value.districtName) {
+      ElMessage.error('请选择 KGC 公共参数所属区域')
+      return
+    }
+    if (!generateForm.value.identity) {
+      ElMessage.error('请填写 IBC 标识')
+      return
+    }
+
+    generateLoading.value = true
+    try {
+      await keyStoreApi.generate({
+        name: generateForm.value.name,
+        type: CertType.IBC,
+        protected: generateForm.value.protected,
+        identity: generateForm.value.identity,
+        districtName: generateForm.value.districtName,
+        districtSerial: generateForm.value.districtSerial,
+      })
+      ElMessage.success('IBC 身份密钥生成成功')
+      goBack()
+    } catch (err: any) {
+      ElMessage.error(err.message || '生成失败')
+    } finally {
+      generateLoading.value = false
+    }
+    return
+  }
+
   if (!generateForm.value.certConfig.commonName) {
     ElMessage.error('请填写通用名称 (CN)')
     return

@@ -49,7 +49,7 @@ func truncateTime(timeStr string) string {
 func rootCertDownload(args []string) error {
 	fs := flagSet("download")
 	output := fs.String("output", "", "输出文件路径")
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(reorderFlagsFirst(fs, args)); err != nil {
 		return err
 	}
 

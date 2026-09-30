@@ -181,13 +181,21 @@ type TLCPConfig struct {
 	// - "ECC_SM4_GCM_SM3": ECC签名 + SM4 GCM模式 + SM3哈希
 	// - "ECDHE_SM4_CBC_SM3": ECDHE密钥交换 + SM4 CBC + SM3
 	// - "ECDHE_SM4_GCM_SM3": ECDHE密钥交换 + SM4 GCM + SM3
+	// - "IBC_SM4_CBC_SM3": IBC(SM9标识密码) + SM4 CBC + SM3
+	// - "IBC_SM4_GCM_SM3": IBC(SM9标识密码) + SM4 GCM + SM3
+	// - "IBSDH_SM4_CBC_SM3": IBSDH(SM9密钥交换) + SM4 CBC + SM3
+	// - "IBSDH_SM4_GCM_SM3": IBSDH(SM9密钥交换) + SM4 GCM + SM3
+	// 说明: 4 个 IBC/IBSDH 套件默认关闭，需显式列入且本端配置了 ibc-keystore 才会参与协商
 	CipherSuites []string `yaml:"cipher-suites,omitempty" json:"cipherSuites,omitempty"`
 	// SessionCache 是否启用会话缓存
 	SessionCache bool `yaml:"session-cache,omitempty" json:"sessionCache,omitempty"`
 	// InsecureSkipVerify 是否跳过证书验证（不安全，仅用于测试）
 	InsecureSkipVerify bool `yaml:"insecure-skip-verify,omitempty" json:"insecureSkipVerify,omitempty"`
-	// Keystore 密钥存储配置
+	// Keystore 证书身份密钥存储配置（X.509/SM2 证书），供 ECC/ECDHE 套件使用
 	Keystore *KeyStoreConfig `yaml:"keystore,omitempty" json:"keystore,omitempty"`
+	// IBCKeystore IBC(SM9) 身份密钥存储配置（标识 + KGC 公共参数 + 三把用户私钥），供 IBC/IBSDH 套件使用
+	// 与 Keystore 相互独立、可只配其一，也可同时配置以实现同端口混合协商
+	IBCKeystore *KeyStoreConfig `yaml:"ibc-keystore,omitempty" json:"ibcKeystore,omitempty"`
 }
 
 // TLSConfig TLS协议配置
@@ -476,6 +484,18 @@ func Validate(cfg *Config) error {
 		if inst.BufferSize <= 0 {
 			cfg.Instances[i].BufferSize = 4096
 		}
+
+		// 校验密码套件名称合法性（不校验套件与本端 IBC 能力的匹配，由实例启动诊断处理）
+		for _, suite := range inst.TLCP.CipherSuites {
+			if _, err := ParseCipherSuite(suite, true); err != nil {
+				return fmt.Errorf("实例 %s: 无效的 TLCP 密码套件 %s", inst.Name, suite)
+			}
+		}
+		for _, suite := range inst.TLS.CipherSuites {
+			if _, err := ParseCipherSuite(suite, false); err != nil {
+				return fmt.Errorf("实例 %s: 无效的 TLS 密码套件 %s", inst.Name, suite)
+			}
+		}
 	}
 
 	return nil
@@ -486,6 +506,46 @@ var TLCPCipherSuiteNames = map[string]uint16{
 	"ECC_SM4_GCM_SM3":   tlcp.ECC_SM4_GCM_SM3,
 	"ECDHE_SM4_CBC_SM3": tlcp.ECDHE_SM4_CBC_SM3,
 	"ECDHE_SM4_GCM_SM3": tlcp.ECDHE_SM4_GCM_SM3,
+	"IBC_SM4_CBC_SM3":   tlcp.IBC_SM4_CBC_SM3,
+	"IBC_SM4_GCM_SM3":   tlcp.IBC_SM4_GCM_SM3,
+	"IBSDH_SM4_CBC_SM3": tlcp.IBSDH_SM4_CBC_SM3,
+	"IBSDH_SM4_GCM_SM3": tlcp.IBSDH_SM4_GCM_SM3,
+}
+
+// IsTLCPIBCSuite 判断 TLCP 密码套件是否为 IBC（SM9 标识密码）套件。
+//
+// 参数：
+//   - suite: TLCP 密码套件数值
+//
+// 返回值：
+//   - bool: IBC 或 IBSDH 套件返回 true，其余返回 false
+func IsTLCPIBCSuite(suite uint16) bool {
+	switch suite {
+	case tlcp.IBC_SM4_CBC_SM3, tlcp.IBC_SM4_GCM_SM3,
+		tlcp.IBSDH_SM4_CBC_SM3, tlcp.IBSDH_SM4_GCM_SM3:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTLCPIBSDHSuite 判断 TLCP 密码套件是否为 IBSDH（SM9 密钥交换）套件。
+//
+// 参数：
+//   - suite: TLCP 密码套件数值
+//
+// 返回值：
+//   - bool: IBSDH 套件返回 true，其余返回 false
+//
+// 注意事项：
+//   - IBSDH 套件除 IBC 身份外还要求密钥交换私钥（hid=0x02），并强制客户端认证
+func IsTLCPIBSDHSuite(suite uint16) bool {
+	switch suite {
+	case tlcp.IBSDH_SM4_CBC_SM3, tlcp.IBSDH_SM4_GCM_SM3:
+		return true
+	default:
+		return false
+	}
 }
 
 var TLSCipherSuiteNames = map[string]uint16{
@@ -711,6 +771,16 @@ func (c *Config) GetRootCertDir() string {
 		return filepath.Join(c.WorkDir, "rootcerts")
 	}
 	return "./rootcerts"
+}
+
+// GetIBCParamDir 获取 IBC 信任池（KGC 公共参数）存储目录路径
+// 返回:
+//   - string: 信任池目录路径，仅存放信任的 KGC 公共参数（KGC 主密钥存放在 keystores/）
+func (c *Config) GetIBCParamDir() string {
+	if c.WorkDir != "" {
+		return filepath.Join(c.WorkDir, "ibcparams")
+	}
+	return "./ibcparams"
 }
 
 var (

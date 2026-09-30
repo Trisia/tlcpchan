@@ -36,6 +36,7 @@ rootcerts/             # 预置国密CA信任证书
 ├── 上海市数字证书认证中心有限公司_CN=SHECA SM2,O=UniTrust,C=CN.pem
 └── ... 其他50+个证书
 keystores/             # 用户证书存储目录（初始为空）
+ibcparams/             # IBC 信任池目录（只存放信任的 KGC 公共参数，初始为空）
 logs/                  # 日志目录（初始为空）
 config.yaml            # 配置文件（首次启动时生成）
 ```
@@ -52,6 +53,7 @@ config.yaml            # 配置文件（首次启动时生成）
 ├── tlcpchan-cli               # CLI工具
 ├── config.yaml                # 配置文件
 ├── keystores/                 # 证书存储
+├── ibcparams/                 # IBC 信任池（KGC 公共参数）
 ├── rootcerts/                 # 信任证书
 ├── logs/                      # 日志文件
 ├── ui/                        # 前端文件
@@ -96,7 +98,7 @@ TLCP Channel 设计为轻量级代理服务，对系统资源要求较低。实�
 下载对应平台的 deb 包后，执行以下安装命令：
 
 ```bash
-sudo dpkg -i tlcpchan_1.0.1_linux_amd64.deb
+sudo dpkg -i tlcpchan_1.1.0_linux_amd64.deb
 ```
 
 如果安装过程中出现依赖缺失问题，执行以下命令解决：
@@ -109,9 +111,9 @@ sudo apt-get install -f
 ```
 正在选中未选择的软件包 tlcpchan。
 (正在读取数据库 ... 系统当前共安装有 123456 个文件和目录。)
-准备解压 tlcpchan_1.0.1_linux_amd64.deb  ...
-正在解压 tlcpchan (1.0.1) ...
-正在设置 tlcpchan (1.0.1) ...
+准备解压 tlcpchan_1.1.0_linux_amd64.deb  ...
+正在解压 tlcpchan (1.1.0) ...
+正在设置 tlcpchan (1.1.0) ...
 正在创建系统用户 tlcpchan...
 正在创建目录结构...
 正在复制文件...
@@ -126,7 +128,7 @@ sudo apt-get install -f
 下载对应平台的 rpm 包后，执行以下安装命令：
 
 ```bash
-sudo rpm -i tlcpchan_1.0.1_linux_amd64.rpm
+sudo rpm -i tlcpchan_1.1.0_linux_amd64.rpm
 ```
 
 ### 5.2 二进制压缩包安装（通用方法）
@@ -138,8 +140,8 @@ sudo rpm -i tlcpchan_1.0.1_linux_amd64.rpm
 下载对应平台的压缩包后，首先解压：
 
 ```bash
-tar -xzf tlcpchan_1.0.1_linux_amd64.tar.gz
-cd tlcpchan_1.0.1_linux_amd64
+tar -xzf tlcpchan_1.1.0_linux_amd64.tar.gz
+cd tlcpchan_1.1.0_linux_amd64
 ```
 
 查看解压后的文件内容：
@@ -155,6 +157,7 @@ ls -la
 drwxr-xr-x 4 user group 4096 Jan  1 12:00 ui
 drwxr-xr-x 2 user group 4096 Jan  1 12:00 rootcerts
 drwxr-xr-x 2 user group 4096 Jan  1 12:00 keystores
+drwxr-xr-x 3 user group 4096 Jan  1 12:00 ibcparams
 drwxr-xr-x 2 user group 4096 Jan  1 12:00 logs
 -rw-r--r-- 1 user group  100 Jan  1 12:00 config.yaml
 ```
@@ -211,10 +214,13 @@ services:
       - "20443:20443"
     volumes:
       - tlcpchan-keystores:/etc/tlcpchan/keystores
+      - tlcpchan-ibcparams:/etc/tlcpchan/ibcparams
       - tlcpchan-logs:/etc/tlcpchan/logs
 
 volumes:
   tlcpchan-keystores:
+    driver: local
+  tlcpchan-ibcparams:
     driver: local
   tlcpchan-logs:
     driver: local
@@ -249,6 +255,8 @@ docker run -d \
   -p 20080:20080 \
   -p 20443:20443 \
   -v tlcpchan-keystores:/etc/tlcpchan/keystores \
+  -v tlcpchan-ibcparams:/etc/tlcpchan/ibcparams \
+  -v tlcpchan-rootcerts:/etc/tlcpchan/rootcerts \
   -v tlcpchan-logs:/etc/tlcpchan/logs \
   tlcpchan:latest
 ```
@@ -263,7 +271,7 @@ Windows 版本支持可执行文件运行，不支持安装为 Windows 服务。
 
 ```batch
 mkdir "C:\Program Files\TLCP Channel"
-tar -xzf tlcpchan_1.0.1_windows_amd64.zip -C "C:\Program Files\TLCP Channel"
+tar -xzf tlcpchan_1.1.0_windows_amd64.zip -C "C:\Program Files\TLCP Channel"
 ```
 
 运行程序：
@@ -450,7 +458,7 @@ tlcpchan -version
 
 **预期输出**：
 ```
-TLCP Channel version 1.0.1
+TLCP Channel version 1.1.0
 ```
 
 #### 配置检查
@@ -546,7 +554,7 @@ sudo dpkg -r tlcpchan
 
 **预期输出**：
 ```
-正在删除 tlcpchan (1.0.1) ...
+正在删除 tlcpchan (1.1.0) ...
 正在停止 tlcpchan 服务...
 正在删除文件...
 正在删除符号链接...
@@ -617,7 +625,7 @@ docker rmi tlcpchan:latest
 删除数据卷（会删除所有数据，谨慎操作）：
 
 ```bash
-docker volume rm tlcpchan-keystores tlcpchan-logs
+docker volume rm tlcpchan-keystores tlcpchan-ibcparams tlcpchan-rootcerts tlcpchan-logs
 ```
 
 #### 数据备份

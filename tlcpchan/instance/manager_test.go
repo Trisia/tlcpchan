@@ -13,7 +13,7 @@ func TestInstanceManagerCreateAuthDefaults(t *testing.T) {
 	log, _ := logger.New(logger.LogConfig{Level: "info", Enabled: false})
 	ksMgr := security.NewKeyStoreManager()
 	rcMgr := rootcert.NewManager("")
-	mgr := NewManager(log, ksMgr, rcMgr)
+	mgr := NewManager(log, ksMgr, rcMgr, security.NewIBCParamManager(""))
 
 	tests := []struct {
 		name         string
@@ -98,7 +98,7 @@ func TestInstanceManagerCreateDuplicate(t *testing.T) {
 	log, _ := logger.New(logger.LogConfig{Level: "info", Enabled: false})
 	ksMgr := security.NewKeyStoreManager()
 	rcMgr := rootcert.NewManager("")
-	mgr := NewManager(log, ksMgr, rcMgr)
+	mgr := NewManager(log, ksMgr, rcMgr, security.NewIBCParamManager(""))
 
 	cfg := &config.InstanceConfig{
 		Name:     "duplicate-test",

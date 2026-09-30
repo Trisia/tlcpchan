@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  GenerateIBCParamRequest,
   GenerateKeyStoreRequest,
   GenerateRootCARequest,
 } from '@/types'
@@ -33,11 +34,17 @@ export const keyStoreApi = {
     const formData = new FormData()
     formData.append('name', data.name)
     if (data.type) formData.append('type', data.type)
+    if (data.loaderType) formData.append('loaderType', data.loaderType)
+    if (data.protected !== undefined) formData.append('protected', String(data.protected))
     if (data.signCert) formData.append('signCert', data.signCert)
     if (data.signKey) formData.append('signKey', data.signKey)
     if (data.encCert) formData.append('encCert', data.encCert)
     if (data.encKey) formData.append('encKey', data.encKey)
-    
+    // IBC 材料（loaderType=ibc-file）：标识、KGC 公共参数、签名/加密/密钥交换私钥
+    if (data.identity) formData.append('identity', data.identity)
+    if (data.params) formData.append('params', data.params)
+    if (data.kexKey) formData.append('kexKey', data.kexKey)
+
     const res = await http.post('/security/keystores', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -89,12 +96,17 @@ export const keyStoreApi = {
     window.URL.revokeObjectURL(url)
   },
 
+  // 替换 keystore 材料（证书类型替换证书/密钥，IBC 类型替换标识/参数/三把私钥）
   updateCertificates: async (name: string, data: any) => {
     const formData = new FormData()
     if (data.signCert) formData.append('signCert', data.signCert)
     if (data.signKey) formData.append('signKey', data.signKey)
     if (data.encCert) formData.append('encCert', data.encCert)
     if (data.encKey) formData.append('encKey', data.encKey)
+    // IBC 材料字段
+    if (data.identity) formData.append('identity', data.identity)
+    if (data.params) formData.append('params', data.params)
+    if (data.kexKey) formData.append('kexKey', data.kexKey)
 
     const res = await http.post(`/security/keystores/${name}/upload`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -163,6 +175,76 @@ export const trustedApi = {
   download: rootCertApi.download,
   upload: rootCertApi.add,
   delete: rootCertApi.delete,
+}
+
+// IBC 信任池（KGC 公共参数）接口，与 rootCertApi 一一对应
+export const ibcParamApi = {
+  /**
+   * 获取信任池列表
+   * @returns KGC 公共参数元信息数组
+   */
+  list: async () => {
+    const res = await http.get('/security/ibcparams')
+    return res.data || []
+  },
+
+  /**
+   * 添加 KGC 公共参数
+   * @param filename 目标文件名
+   * @param file 公共参数文件（PEM/DER/HEX/Base64）
+   */
+  add: async (filename: string, file: File) => {
+    const formData = new FormData()
+    formData.append('filename', filename)
+    formData.append('params', file)
+    const res = await http.post('/security/ibcparams', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data
+  },
+
+  /**
+   * 下载 KGC 公共参数
+   * @param filename 信任池中的文件名
+   */
+  download: async (filename: string) => {
+    const res = await http.get(`/security/ibcparams/${encodeURIComponent(filename)}`, {
+      responseType: 'blob'
+    })
+
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
+  /**
+   * 删除 KGC 公共参数
+   * @param filename 信任池中的文件名
+   */
+  delete: async (filename: string) => {
+    await http.delete(`/security/ibcparams/${encodeURIComponent(filename)}`)
+  },
+
+  /**
+   * 重新扫描目录并重建信任池
+   */
+  reload: async () => {
+    await http.post('/security/ibcparams/reload')
+  },
+
+  /**
+   * 生成测试 KGC 公共参数（仅测试用途）
+   * @param data KGC 区域、序号与有效期
+   */
+  generate: async (data: GenerateIBCParamRequest) => {
+    const res = await http.post('/security/ibcparams/generate', data)
+    return res.data
+  },
 }
 
 export const instanceApi = {
@@ -321,6 +403,7 @@ export default {
   keyStoreApi,
   rootCertApi,
   trustedApi,
+  ibcParamApi,
   instanceApi,
   systemApi,
   logsApi,

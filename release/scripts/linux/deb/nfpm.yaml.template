@@ -37,6 +37,10 @@ contents:
     type: dir
     file_info:
       mode: 0755
+  - dst: "/etc/tlcpchan/ibcparams"
+    type: dir
+    file_info:
+      mode: 0755
   - dst: "/etc/tlcpchan/logs"
     type: dir
     file_info:
