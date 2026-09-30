@@ -167,35 +167,6 @@ docker run -d \
 | http-client | HTTP → HTTPS | 客户端国密适配，让 HTTP 客户端访问国密 HTTPS 服务 |
 
 
-## IBC（SM9）标识密码
-
-除证书身份外，本项目还支持 IBC（Identity-Based Cryptograph）与 IBSDH 套件：用户标识（如 `user@example.com`）即公钥，由 KGC（密钥生成中心）的公共参数派生出签名、加密与密钥交换私钥，无需证书即可完成身份认证。
-
-| 套件名 | 编号 | 密钥交换方式 |
-|---|---|---|
-| `IBC_SM4_GCM_SM3` | 0xE057 | IBC 加密传输预主密钥 |
-| `IBC_SM4_CBC_SM3` | 0xE017 | IBC 加密传输预主密钥 |
-| `IBSDH_SM4_GCM_SM3` | 0xE055 | SM9 密钥交换 |
-| `IBSDH_SM4_CBC_SM3` | 0xE015 | SM9 密钥交换 |
-
-4 个套件默认全部关闭，需要显式加入实例的 `tlcp.cipher-suites`，且该实例配置了 IBC 身份（`tlcp.ibc-keystore`）后才会参与协商。证书身份与 IBC 身份相互独立、可只配其一，也可同时配置以实现同一端口的混合协商。
-
-首次初始化会生成一套内置测试 KGC（`tlcpchan.local#1`），并预置 `default-ibc-server`、`default-ibc-client` 两个示例身份，可直接联调。KGC 公共参数统一放在工作目录的 `ibcparams/` 中作为全局信任池（Web 界面「IBC 信任池」页面管理），校验语义与"根证书"一致：**信任池中不存在对端 KGC 时 IBC 握手直接失败**。
-
-```bash
-# 查看 IBC 信任池
-tlcpchan-cli ibcparams list
-
-# 生成一套测试 KGC 并写入信任池（主密钥保存在 keystores/，权限 0600）
-tlcpchan-cli ibcparams generate --district-name example.local --district-serial 1 --years 10
-
-# 生成一个 IBC 身份（由信任池中的 KGC 派生三把用户私钥）
-tlcpchan-cli keystore generate --name my-ibc --type ibc --identity user@example.com
-```
-
-> ⚠️ 安全提示：生产环境请使用自建 KGC 的公共参数与用户私钥；客户端 `insecure-skip-verify: true` 会同时跳过证书校验与 IBC 公共参数校验，仅限测试使用。详细说明见[安装指南](docs/guide/installation.md)与[设计文档](docs/design.md)。
-
-
 ## 系统适配
 
 | 操作系统 | 支持的架构（CPU厂家） | 支持说明 |
